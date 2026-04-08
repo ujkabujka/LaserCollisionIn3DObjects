@@ -1,5 +1,5 @@
-using System.Numerics;
-using LaserCollisionIn3DObjects.Domain.Geometry;
+using RectangularPrism = LaserCollisionIn3DObjects.Domain.Geometry.RectangularPrism;
+using Vector3 = System.Numerics.Vector3;
 
 namespace LaserCollisionIn3DObjects.Domain.Collision;
 

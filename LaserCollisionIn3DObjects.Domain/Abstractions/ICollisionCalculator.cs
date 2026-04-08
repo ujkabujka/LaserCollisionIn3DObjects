@@ -1,5 +1,4 @@
 using LaserCollisionIn3DObjects.Domain.Geometry;
-using LaserCollisionIn3DObjects.Domain.Prisms;
 using LaserCollisionIn3DObjects.Domain.Rays;
 
 namespace LaserCollisionIn3DObjects.Domain.Abstractions;
