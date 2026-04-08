@@ -1,0 +1,53 @@
+<UserControl x:Class="BaseFramework.WpfHost.Views.RoleAwarePage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="clr-namespace:BaseFramework.Wpf.Controls;assembly=BaseFramework.Wpf">
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <StackPanel>
+            <TextBlock Text="9. Role-Based Visibility And Editability"
+                       FontSize="24"
+                       FontWeight="Bold" />
+            <TextBlock Margin="0,8,0,0"
+                       TextWrapping="Wrap"
+                       Opacity="0.82"
+                       Text="Switch the simulated user context below. The same metadata drives field visibility, editability, and command availability without rewriting the screen." />
+        </StackPanel>
+
+        <Border Grid.Row="1"
+                Margin="0,16,0,16"
+                Padding="12"
+                CornerRadius="8"
+                Background="{StaticResource SurfaceBrush}">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="220" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <ComboBox x:Name="SessionSelector"
+                          DisplayMemberPath="Label"
+                          SelectionChanged="OnSessionChanged" />
+
+                <TextBlock x:Name="SessionDescriptionText"
+                           Grid.Column="1"
+                           Margin="16,0,0,0"
+                           TextWrapping="Wrap"
+                           VerticalAlignment="Center"
+                           Opacity="0.82" />
+            </Grid>
+        </Border>
+
+        <Border Grid.Row="2"
+                Background="{StaticResource SurfaceBrush}"
+                CornerRadius="8"
+                Padding="8">
+            <controls:ObjectInspectorControl x:Name="Inspector" />
+        </Border>
+    </Grid>
+</UserControl>

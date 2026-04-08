@@ -1,0 +1,17 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    
+    {
+      "name": "Debug WPF Host",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build WPF host",
+      "program": "${workspaceFolder}/BaseFramework.WpfHost/bin/Debug/net8.0-windows/BaseFramework.WpfHost.exe",
+      "args": [],
+      "cwd": "${workspaceFolder}/BaseFramework.WpfHost",
+      "stopAtEntry": false,
+      "console": "internalConsole"
+    }
+  ]
+}

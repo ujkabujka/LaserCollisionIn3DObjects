@@ -1,0 +1,6 @@
+{
+  "codex.runCommands.prompt": "never",
+  "codex.runCommands.autoApprove": true,
+  "chat.tools.global.autoApprove": true
+
+}

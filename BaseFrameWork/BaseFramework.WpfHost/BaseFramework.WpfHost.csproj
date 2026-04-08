@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Remove="Controls\**\*.cs" />
+    <Page Remove="Controls\**\*.xaml" />
+    <EmbeddedResource Remove="Controls\**\*" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\BaseFramework.Core\BaseFramework.Core.csproj" />
+    <ProjectReference Include="..\BaseFramework.Wpf\BaseFramework.Wpf.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\BaseFramework.Generators\BaseFramework.Generators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+  </ItemGroup>
+</Project>
