@@ -21,7 +21,6 @@ public sealed class MainWindowViewModel : ObservableObject
     private float _newLightSourceRadius = 5f;
     private float _newLightSourceHeight = 10f;
     private int _newLightSourceRayCount = 200;
-    private float _newLightDirectionX = 1f;
     private string _statusMessage = "Add objects, then click Run Collision.";
 
     public MainWindowViewModel(SceneRenderSyncService renderSyncService)
@@ -90,9 +89,6 @@ public sealed class MainWindowViewModel : ObservableObject
     public float NewLightSourceRadius { get => _newLightSourceRadius; set => SetProperty(ref _newLightSourceRadius, value); }
     public float NewLightSourceHeight { get => _newLightSourceHeight; set => SetProperty(ref _newLightSourceHeight, value); }
     public int NewLightSourceRayCount { get => _newLightSourceRayCount; set => SetProperty(ref _newLightSourceRayCount, value); }
-    public float NewLightDirectionX { get => _newLightDirectionX; set => SetProperty(ref _newLightDirectionX, value); }
-    public float NewLightDirectionY { get; set; }
-    public float NewLightDirectionZ { get; set; }
 
     public string StatusMessage { get => _statusMessage; private set => SetProperty(ref _statusMessage, value); }
 
@@ -125,7 +121,7 @@ public sealed class MainWindowViewModel : ObservableObject
 
     private void AddLightSource()
     {
-        if (!ValidateLightSourceInputs(NewLightSourceRadius, NewLightSourceHeight, NewLightSourceRayCount, NewLightDirectionX, NewLightDirectionY, NewLightDirectionZ, out var error))
+        if (!ValidateLightSourceInputs(NewLightSourceRadius, NewLightSourceHeight, NewLightSourceRayCount, out var error))
         {
             StatusMessage = error;
             return;
@@ -143,9 +139,6 @@ public sealed class MainWindowViewModel : ObservableObject
             Radius = NewLightSourceRadius,
             Height = NewLightSourceHeight,
             RayCount = NewLightSourceRayCount,
-            EmissionDirectionX = NewLightDirectionX,
-            EmissionDirectionY = NewLightDirectionY,
-            EmissionDirectionZ = NewLightDirectionZ,
         });
 
         SelectedLightSource = LightSources.Last();
@@ -190,9 +183,6 @@ public sealed class MainWindowViewModel : ObservableObject
             Radius = 4,
             Height = 10,
             RayCount = 120,
-            EmissionDirectionX = 1,
-            EmissionDirectionY = 0,
-            EmissionDirectionZ = 0,
         });
 
         RefreshViewport(true);
@@ -231,7 +221,7 @@ public sealed class MainWindowViewModel : ObservableObject
         for (var i = 0; i < LightSources.Count; i++)
         {
             var s = LightSources[i];
-            if (!ValidateLightSourceInputs(s.Radius, s.Height, s.RayCount, s.EmissionDirectionX, s.EmissionDirectionY, s.EmissionDirectionZ, out error))
+            if (!ValidateLightSourceInputs(s.Radius, s.Height, s.RayCount, out error))
             {
                 error = $"Light source {i + 1} invalid. {error}";
                 return false;
@@ -249,11 +239,11 @@ public sealed class MainWindowViewModel : ObservableObject
         return true;
     }
 
-    private static bool ValidateLightSourceInputs(float radius, float height, int rayCount, float dx, float dy, float dz, out string error)
+    private static bool ValidateLightSourceInputs(float radius, float height, int rayCount, out string error)
     {
         if (radius <= 0 || height <= 0) { error = "Light source radius and height must be positive."; return false; }
         if (rayCount <= 0) { error = "Light source RayCount must be greater than zero."; return false; }
-        if (!ValidateDirection(dx, dy, dz, out error)) return false;
+        error = string.Empty;
         return true;
     }
 

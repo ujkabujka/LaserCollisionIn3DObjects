@@ -84,8 +84,7 @@ public sealed class SceneRenderSyncService
                 new Frame3D(new Vector3(lightSource.PositionX, lightSource.PositionY, lightSource.PositionZ), orientation),
                 lightSource.Radius,
                 lightSource.Height,
-                lightSource.RayCount,
-                new Vector3(lightSource.EmissionDirectionX, lightSource.EmissionDirectionY, lightSource.EmissionDirectionZ));
+                lightSource.RayCount);
 
             scene.CylindricalLightSources.Add(domainSource);
             scene.Rays.AddRange(_rayGenerator.Generate(domainSource));

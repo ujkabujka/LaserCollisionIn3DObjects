@@ -19,7 +19,6 @@ public sealed class CylindricalRayGenerator
 
         var rows = Math.Max(1, (int)MathF.Ceiling(MathF.Sqrt(source.RayCount)));
         var columns = Math.Max(1, (int)MathF.Ceiling(source.RayCount / (float)rows));
-        var localDirection = source.LocalEmissionDirection;
 
         for (var i = 0; i < source.RayCount; i++)
         {
@@ -34,6 +33,7 @@ public sealed class CylindricalRayGenerator
                 y,
                 source.Radius * MathF.Sin(theta));
 
+            var localDirection = GetRadialDirection(localOrigin);
             var worldOrigin = source.Frame.TransformPointToWorld(localOrigin);
             var worldDirection = Vector3.Normalize(source.Frame.TransformDirectionToWorld(localDirection));
 
@@ -41,5 +41,10 @@ public sealed class CylindricalRayGenerator
         }
 
         return rays;
+    }
+
+    private static Vector3 GetRadialDirection(Vector3 localOrigin)
+    {
+        return Vector3.Normalize(new Vector3(localOrigin.X, 0f, localOrigin.Z));
     }
 }

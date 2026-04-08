@@ -3,29 +3,26 @@ using System.Numerics;
 namespace LaserCollisionIn3DObjects.Domain.Geometry;
 
 /// <summary>
-/// Represents a cylindrical light source that emits multiple rays.
+/// Represents a cylindrical light source that emits rays radially outward from its curved surface.
 /// </summary>
 public sealed class CylindricalLightSource
 {
     private float _radius;
     private float _height;
     private int _rayCount;
-    private Vector3 _localEmissionDirection;
 
     public CylindricalLightSource(
         string name,
         Frame3D frame,
         float radius,
         float height,
-        int rayCount,
-        Vector3 localEmissionDirection)
+        int rayCount)
     {
         Name = string.IsNullOrWhiteSpace(name) ? throw new ArgumentException("Name is required.", nameof(name)) : name;
         Frame = frame ?? throw new ArgumentNullException(nameof(frame));
         Radius = radius;
         Height = height;
         RayCount = rayCount;
-        LocalEmissionDirection = localEmissionDirection;
     }
 
     public string Name { get; }
@@ -48,20 +45,6 @@ public sealed class CylindricalLightSource
     {
         get => _rayCount;
         set => _rayCount = value <= 0 ? throw new ArgumentException("RayCount must be greater than zero.", nameof(RayCount)) : value;
-    }
-
-    public Vector3 LocalEmissionDirection
-    {
-        get => _localEmissionDirection;
-        set
-        {
-            if (value.LengthSquared() <= 0f)
-            {
-                throw new ArgumentException("Local emission direction must be non-zero.", nameof(LocalEmissionDirection));
-            }
-
-            _localEmissionDirection = Vector3.Normalize(value);
-        }
     }
 
     private static float EnsurePositive(float value, string paramName)
