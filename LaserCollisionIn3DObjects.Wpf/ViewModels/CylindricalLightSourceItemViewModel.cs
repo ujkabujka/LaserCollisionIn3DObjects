@@ -1,3 +1,4 @@
+using System.Numerics;
 using LaserCollisionIn3DObjects.Wpf.Infrastructure;
 
 namespace LaserCollisionIn3DObjects.Wpf.ViewModels;
@@ -25,6 +26,8 @@ public sealed class CylindricalLightSourceItemViewModel : ObservableObject
     public float Radius { get => _radius; set => SetProperty(ref _radius, value); }
     public float Height { get => _height; set => SetProperty(ref _height, value); }
     public int RayCount { get => _rayCount; set => SetProperty(ref _rayCount, value); }
+
+    public Quaternion BaseOrientation { get; set; } = Quaternion.Identity;
 
     public override string ToString() => Name;
 }

@@ -1,3 +1,4 @@
+using System.Numerics;
 using LaserCollisionIn3DObjects.Wpf.Infrastructure;
 
 namespace LaserCollisionIn3DObjects.Wpf.ViewModels;
@@ -74,6 +75,8 @@ public sealed class PrismItemViewModel : ObservableObject
         get => _sizeZ;
         set => SetProperty(ref _sizeZ, value);
     }
+
+    public Quaternion BaseOrientation { get; set; } = Quaternion.Identity;
 
     public override string ToString() => Name;
 }

@@ -11,6 +11,7 @@ namespace LaserCollisionIn3DObjects.Rendering.Helix;
 /// </summary>
 public sealed class HelixSceneBuilder
 {
+    private readonly HelixFrameVisualizer _frameVisualizer = new();
     private readonly HelixMeshFactory _meshFactory = new();
     private readonly HelixRayVisualizer _rayVisualizer = new();
 
@@ -29,22 +30,33 @@ public sealed class HelixSceneBuilder
         ArgumentNullException.ThrowIfNull(scene);
 
         var visuals = new List<Visual3D>();
+        var generatedRayLookup = scene.GeneratedRays.Count > 0 ? new HashSet<Ray3D>(scene.GeneratedRays) : null;
 
         foreach (var prism in scene.RectangularPrisms)
         {
             visuals.Add(_meshFactory.CreateRectangularPrism(prism, Colors.SteelBlue));
+            visuals.AddRange(_frameVisualizer.CreateFrameVisuals(prism.Frame, GetPrismFrameAxisLength(prism)));
         }
 
         foreach (var lightSource in scene.CylindricalLightSources)
         {
             visuals.Add(_meshFactory.CreateCylindricalLightSource(lightSource, Colors.Gold));
+            visuals.AddRange(_frameVisualizer.CreateFrameVisuals(lightSource.Frame, GetLightSourceFrameAxisLength(lightSource)));
         }
 
         foreach (var ray in scene.Rays)
         {
             RayHitResult? hit = null;
-            var hasHit = hitResults is not null && hitResults.TryGetValue(ray, out hit);
-            var rayLength = hasHit && hit is not null && hit.HasHit ? hit.Distance : defaultRayLength;
+            var isGeneratedRay = generatedRayLookup?.Contains(ray) == true;
+            var hasHit = hitResults is not null && hitResults.TryGetValue(ray, out hit) && hit is not null && hit.HasHit;
+
+            if (isGeneratedRay && !hasHit)
+            {
+                visuals.Add(_rayVisualizer.CreateRayOriginPoint(ray, color: Colors.OrangeRed));
+                continue;
+            }
+
+            var rayLength = hasHit && hit is not null ? hit.Distance : defaultRayLength;
 
             visuals.Add(_rayVisualizer.CreateRayLine(ray, rayLength, Colors.OrangeRed));
 
@@ -59,5 +71,15 @@ public sealed class HelixSceneBuilder
         }
 
         return visuals;
+    }
+
+    private static float GetPrismFrameAxisLength(RectangularPrism prism)
+    {
+        return Math.Max(Math.Max(prism.SizeX, prism.SizeY), prism.SizeZ) * 0.65f;
+    }
+
+    private static float GetLightSourceFrameAxisLength(CylindricalLightSource source)
+    {
+        return Math.Max(source.Height, source.Radius * 2f) * 0.65f;
     }
 }

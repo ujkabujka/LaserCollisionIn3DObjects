@@ -36,6 +36,23 @@ public sealed class HelixRayVisualizer
     }
 
     /// <summary>
+    /// Creates a small sphere for a ray origin.
+    /// </summary>
+    public Visual3D CreateRayOriginPoint(DomainRay3D ray, double radius = 0.06d, Color? color = null)
+    {
+        ArgumentNullException.ThrowIfNull(ray);
+
+        return new SphereVisual3D
+        {
+            Center = ToPoint3D(ray.Origin),
+            Radius = radius,
+            Fill = new SolidColorBrush(color ?? Colors.OrangeRed),
+            ThetaDiv = 12,
+            PhiDiv = 12,
+        };
+    }
+
+    /// <summary>
     /// Creates a small sphere for a ray hit point.
     /// </summary>
     /// <param name="hitResult">Domain hit result.</param>

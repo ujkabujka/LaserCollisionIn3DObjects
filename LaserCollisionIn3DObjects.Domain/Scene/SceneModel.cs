@@ -21,4 +21,9 @@ public sealed class SceneModel
     /// Gets the rays in the scene.
     /// </summary>
     public List<Ray3D> Rays { get; } = new();
+
+    /// <summary>
+    /// Gets the rays generated from cylindrical light sources.
+    /// </summary>
+    public List<Ray3D> GeneratedRays { get; } = new();
 }

@@ -58,10 +58,11 @@ public sealed class SceneRenderSyncService
 
         foreach (var prism in prisms)
         {
-            var orientation = System.Numerics.Quaternion.CreateFromYawPitchRoll(
-                DegreesToRadians(prism.RotationY),
-                DegreesToRadians(prism.RotationX),
-                DegreesToRadians(prism.RotationZ));
+            var orientation = FrameOrientationBuilder.ApplyLocalEulerDegrees(
+                prism.BaseOrientation,
+                prism.RotationX,
+                prism.RotationY,
+                prism.RotationZ);
 
             scene.RectangularPrisms.Add(
                 new RectangularPrism(
@@ -74,10 +75,11 @@ public sealed class SceneRenderSyncService
 
         foreach (var lightSource in lightSources)
         {
-            var orientation = System.Numerics.Quaternion.CreateFromYawPitchRoll(
-                DegreesToRadians(lightSource.RotationY),
-                DegreesToRadians(lightSource.RotationX),
-                DegreesToRadians(lightSource.RotationZ));
+            var orientation = FrameOrientationBuilder.ApplyLocalEulerDegrees(
+                lightSource.BaseOrientation,
+                lightSource.RotationX,
+                lightSource.RotationY,
+                lightSource.RotationZ);
 
             var domainSource = new CylindricalLightSource(
                 string.IsNullOrWhiteSpace(lightSource.Name) ? "Light Source" : lightSource.Name,
@@ -87,7 +89,9 @@ public sealed class SceneRenderSyncService
                 lightSource.RayCount);
 
             scene.CylindricalLightSources.Add(domainSource);
-            scene.Rays.AddRange(_rayGenerator.Generate(domainSource));
+            var generatedRays = _rayGenerator.Generate(domainSource);
+            scene.GeneratedRays.AddRange(generatedRays);
+            scene.Rays.AddRange(generatedRays);
         }
 
         foreach (var ray in rays)
@@ -161,10 +165,5 @@ public sealed class SceneRenderSyncService
         {
             _dynamicVisualRoot.Children.Add(visual);
         }
-    }
-
-    private static float DegreesToRadians(float degrees)
-    {
-        return degrees * (MathF.PI / 180f);
     }
 }

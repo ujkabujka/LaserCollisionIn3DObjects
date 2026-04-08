@@ -1,5 +1,7 @@
 using System.Collections.ObjectModel;
+using System.Numerics;
 using System.Windows.Input;
+using LaserCollisionIn3DObjects.Domain.Generation;
 using LaserCollisionIn3DObjects.Wpf.Commands;
 using LaserCollisionIn3DObjects.Wpf.Infrastructure;
 using LaserCollisionIn3DObjects.Wpf.Services;
@@ -16,6 +18,10 @@ public sealed class MainWindowViewModel : ObservableObject
     private float _newPrismSizeX = 10f;
     private float _newPrismSizeY = 10f;
     private float _newPrismSizeZ = 10f;
+    private int _newPrismArrayCount = 8;
+    private float _newPrismArrayRadius = 20f;
+    private float _newPrismArrayLength = 20f;
+    private PrismArrayPlacementMode _selectedPrismArrayPlacementMode = PrismArrayPlacementMode.Cylindrical;
     private float _newRayDirectionX = 1f;
     private string _newLightSourceName = "Light Source 1";
     private float _newLightSourceRadius = 5f;
@@ -28,6 +34,7 @@ public sealed class MainWindowViewModel : ObservableObject
         _renderSyncService = renderSyncService ?? throw new ArgumentNullException(nameof(renderSyncService));
 
         AddPrismCommand = new RelayCommand(AddPrism);
+        AddPrismArrayCommand = new RelayCommand(AddPrismArray);
         AddRayCommand = new RelayCommand(AddRay);
         AddLightSourceCommand = new RelayCommand(AddLightSource);
         RemoveSelectedPrismCommand = new RelayCommand(RemoveSelectedPrism, () => SelectedPrism is not null);
@@ -47,7 +54,10 @@ public sealed class MainWindowViewModel : ObservableObject
     public ObservableCollection<CylindricalLightSourceItemViewModel> LightSources { get; } = new();
     public ObservableCollection<HitResultItemViewModel> HitResults { get; } = new();
 
+    public PrismArrayPlacementMode[] PrismArrayPlacementModes { get; } = Enum.GetValues<PrismArrayPlacementMode>();
+
     public ICommand AddPrismCommand { get; }
+    public ICommand AddPrismArrayCommand { get; }
     public ICommand AddRayCommand { get; }
     public ICommand AddLightSourceCommand { get; }
     public ICommand RemoveSelectedPrismCommand { get; }
@@ -71,6 +81,14 @@ public sealed class MainWindowViewModel : ObservableObject
     public float NewPrismSizeX { get => _newPrismSizeX; set => SetProperty(ref _newPrismSizeX, value); }
     public float NewPrismSizeY { get => _newPrismSizeY; set => SetProperty(ref _newPrismSizeY, value); }
     public float NewPrismSizeZ { get => _newPrismSizeZ; set => SetProperty(ref _newPrismSizeZ, value); }
+    public int NewPrismArrayCount { get => _newPrismArrayCount; set => SetProperty(ref _newPrismArrayCount, value); }
+    public float NewPrismArrayRadius { get => _newPrismArrayRadius; set => SetProperty(ref _newPrismArrayRadius, value); }
+    public float NewPrismArrayLength { get => _newPrismArrayLength; set => SetProperty(ref _newPrismArrayLength, value); }
+    public PrismArrayPlacementMode SelectedPrismArrayPlacementMode
+    {
+        get => _selectedPrismArrayPlacementMode;
+        set => SetProperty(ref _selectedPrismArrayPlacementMode, value);
+    }
 
     public float NewRayOriginX { get; set; }
     public float NewRayOriginY { get; set; }
@@ -94,27 +112,81 @@ public sealed class MainWindowViewModel : ObservableObject
 
     private void AddPrism()
     {
-        if (!ValidatePrismInputs(NewPrismSizeX, NewPrismSizeY, NewPrismSizeZ, out var error)) { StatusMessage = error; return; }
-        Prisms.Add(new PrismItemViewModel
+        if (!ValidatePrismInputs(NewPrismSizeX, NewPrismSizeY, NewPrismSizeZ, out var error))
         {
-            Name = string.IsNullOrWhiteSpace(NewPrismName) ? $"Prism {Prisms.Count + 1}" : NewPrismName,
-            PositionX = NewPrismPosX, PositionY = NewPrismPosY, PositionZ = NewPrismPosZ,
-            RotationX = NewPrismRotX, RotationY = NewPrismRotY, RotationZ = NewPrismRotZ,
-            SizeX = NewPrismSizeX, SizeY = NewPrismSizeY, SizeZ = NewPrismSizeZ,
-        });
+            StatusMessage = error;
+            return;
+        }
+
+        Prisms.Add(CreatePrismViewModel(
+            string.IsNullOrWhiteSpace(NewPrismName) ? $"Prism {Prisms.Count + 1}" : NewPrismName,
+            new Vector3(NewPrismPosX, NewPrismPosY, NewPrismPosZ),
+            Quaternion.Identity));
+
         SelectedPrism = Prisms.Last();
         NewPrismName = $"Prism {Prisms.Count + 1}";
         RefreshViewport(false);
     }
 
+    private void AddPrismArray()
+    {
+        if (!ValidatePrismInputs(NewPrismSizeX, NewPrismSizeY, NewPrismSizeZ, out var error))
+        {
+            StatusMessage = error;
+            return;
+        }
+
+        if (!ValidatePrismArrayInputs(SelectedPrismArrayPlacementMode, NewPrismArrayCount, NewPrismArrayRadius, NewPrismArrayLength, out error))
+        {
+            StatusMessage = error;
+            return;
+        }
+
+        var placements = SelectedPrismArrayPlacementMode switch
+        {
+            PrismArrayPlacementMode.Cylindrical => PrismPlacementGenerator.CreateCylindricalPlacements(NewPrismArrayRadius, NewPrismArrayCount, NewPrismPosY),
+            PrismArrayPlacementMode.Cartesian => PrismPlacementGenerator.CreateCartesianPlacements(NewPrismArrayLength, NewPrismArrayCount, NewPrismPosY),
+            _ => throw new InvalidOperationException("Unsupported prism array placement mode."),
+        };
+
+        var baseName = string.IsNullOrWhiteSpace(NewPrismName) ? "Prism" : NewPrismName;
+        var created = new List<PrismItemViewModel>(placements.Count);
+
+        for (var i = 0; i < placements.Count; i++)
+        {
+            var placement = placements[i];
+            created.Add(CreatePrismViewModel($"{baseName} {i + 1}", placement.Position, placement.Orientation));
+        }
+
+        foreach (var prism in created)
+        {
+            Prisms.Add(prism);
+        }
+
+        SelectedPrism = created.LastOrDefault();
+        NewPrismName = $"Prism {Prisms.Count + 1}";
+        RefreshViewport(false);
+        StatusMessage = $"Added {created.Count} prisms in a {SelectedPrismArrayPlacementMode} array around the world origin.";
+    }
+
     private void AddRay()
     {
-        if (!ValidateDirection(NewRayDirectionX, NewRayDirectionY, NewRayDirectionZ, out var error)) { StatusMessage = error; return; }
+        if (!ValidateDirection(NewRayDirectionX, NewRayDirectionY, NewRayDirectionZ, out var error))
+        {
+            StatusMessage = error;
+            return;
+        }
+
         Rays.Add(new RayItemViewModel
         {
-            OriginX = NewRayOriginX, OriginY = NewRayOriginY, OriginZ = NewRayOriginZ,
-            DirectionX = NewRayDirectionX, DirectionY = NewRayDirectionY, DirectionZ = NewRayDirectionZ,
+            OriginX = NewRayOriginX,
+            OriginY = NewRayOriginY,
+            OriginZ = NewRayOriginZ,
+            DirectionX = NewRayDirectionX,
+            DirectionY = NewRayDirectionY,
+            DirectionZ = NewRayDirectionZ,
         });
+
         SelectedRay = Rays.Last();
         RefreshViewport(false);
     }
@@ -139,6 +211,7 @@ public sealed class MainWindowViewModel : ObservableObject
             Radius = NewLightSourceRadius,
             Height = NewLightSourceHeight,
             RayCount = NewLightSourceRayCount,
+            BaseOrientation = Quaternion.Identity,
         });
 
         SelectedLightSource = LightSources.Last();
@@ -146,19 +219,64 @@ public sealed class MainWindowViewModel : ObservableObject
         RefreshViewport(false);
     }
 
-    private void RemoveSelectedPrism() { if (SelectedPrism is null) { StatusMessage = "Select a prism to remove."; return; } Prisms.Remove(SelectedPrism); SelectedPrism = null; RefreshViewport(false); }
-    private void RemoveSelectedRay() { if (SelectedRay is null) { StatusMessage = "Select a ray to remove."; return; } Rays.Remove(SelectedRay); SelectedRay = null; RefreshViewport(false); }
-    private void RemoveSelectedLightSource() { if (SelectedLightSource is null) { StatusMessage = "Select a light source to remove."; return; } LightSources.Remove(SelectedLightSource); SelectedLightSource = null; RefreshViewport(false); }
+    private void RemoveSelectedPrism()
+    {
+        if (SelectedPrism is null)
+        {
+            StatusMessage = "Select a prism to remove.";
+            return;
+        }
+
+        Prisms.Remove(SelectedPrism);
+        SelectedPrism = null;
+        RefreshViewport(false);
+    }
+
+    private void RemoveSelectedRay()
+    {
+        if (SelectedRay is null)
+        {
+            StatusMessage = "Select a ray to remove.";
+            return;
+        }
+
+        Rays.Remove(SelectedRay);
+        SelectedRay = null;
+        RefreshViewport(false);
+    }
+
+    private void RemoveSelectedLightSource()
+    {
+        if (SelectedLightSource is null)
+        {
+            StatusMessage = "Select a light source to remove.";
+            return;
+        }
+
+        LightSources.Remove(SelectedLightSource);
+        SelectedLightSource = null;
+        RefreshViewport(false);
+    }
 
     private void RunCollision()
     {
-        if (!ValidateAllSceneItems(out var error)) { StatusMessage = error; return; }
+        if (!ValidateAllSceneItems(out var error))
+        {
+            StatusMessage = error;
+            return;
+        }
+
         RefreshViewport(true);
     }
 
     private void RegenerateLightSourceRays()
     {
-        if (!ValidateAllSceneItems(out var error)) { StatusMessage = error; return; }
+        if (!ValidateAllSceneItems(out var error))
+        {
+            StatusMessage = error;
+            return;
+        }
+
         RefreshViewport(false);
         StatusMessage = "Generated rays refreshed from cylindrical light sources.";
     }
@@ -169,8 +287,8 @@ public sealed class MainWindowViewModel : ObservableObject
         Rays.Clear();
         LightSources.Clear();
 
-        Prisms.Add(new PrismItemViewModel { Name = "Prism 1", PositionX = 0, PositionY = 0, PositionZ = 0, SizeX = 10, SizeY = 10, SizeZ = 10 });
-        Prisms.Add(new PrismItemViewModel { Name = "Prism 2", PositionX = 16, PositionY = 0, PositionZ = 0, SizeX = 8, SizeY = 8, SizeZ = 8 });
+        Prisms.Add(CreatePrismViewModel("Prism 1", new Vector3(0f, 0f, 0f), Quaternion.Identity, sizeX: 10f, sizeY: 10f, sizeZ: 10f));
+        Prisms.Add(CreatePrismViewModel("Prism 2", new Vector3(16f, 0f, 0f), Quaternion.Identity, sizeX: 8f, sizeY: 8f, sizeZ: 8f));
 
         Rays.Add(new RayItemViewModel { OriginX = -30, OriginY = 0, OriginZ = 0, DirectionX = 1, DirectionY = 0, DirectionZ = 0 });
 
@@ -183,10 +301,35 @@ public sealed class MainWindowViewModel : ObservableObject
             Radius = 4,
             Height = 10,
             RayCount = 120,
+            BaseOrientation = Quaternion.Identity,
         });
 
         RefreshViewport(true);
         StatusMessage = "Demo scene reset with manual and generated rays.";
+    }
+
+    private PrismItemViewModel CreatePrismViewModel(
+        string name,
+        Vector3 position,
+        Quaternion baseOrientation,
+        float? sizeX = null,
+        float? sizeY = null,
+        float? sizeZ = null)
+    {
+        return new PrismItemViewModel
+        {
+            Name = name,
+            PositionX = position.X,
+            PositionY = position.Y,
+            PositionZ = position.Z,
+            RotationX = NewPrismRotX,
+            RotationY = NewPrismRotY,
+            RotationZ = NewPrismRotZ,
+            SizeX = sizeX ?? NewPrismSizeX,
+            SizeY = sizeY ?? NewPrismSizeY,
+            SizeZ = sizeZ ?? NewPrismSizeZ,
+            BaseOrientation = baseOrientation,
+        };
     }
 
     private void RefreshViewport(bool runCollision)
@@ -195,9 +338,19 @@ public sealed class MainWindowViewModel : ObservableObject
         {
             var rows = _renderSyncService.SyncScene(Prisms, LightSources, Rays, runCollision);
             HitResults.Clear();
-            foreach (var row in rows) HitResults.Add(row);
-            if (runCollision) StatusMessage = $"Collision run complete. Hits: {rows.Count(r => r.HasHit)}/{rows.Count}.";
-            else StatusMessage = $"Scene refreshed. Manual rays: {Rays.Count}, generated rays: {LightSources.Sum(s => Math.Max(0, s.RayCount))}.";
+            foreach (var row in rows)
+            {
+                HitResults.Add(row);
+            }
+
+            if (runCollision)
+            {
+                StatusMessage = $"Collision run complete. Hits: {rows.Count(r => r.HasHit)}/{rows.Count}.";
+            }
+            else
+            {
+                StatusMessage = $"Scene refreshed. Manual rays: {Rays.Count}, generated rays: {LightSources.Sum(s => Math.Max(0, s.RayCount))}.";
+            }
         }
         catch (ArgumentException ex)
         {
@@ -210,18 +363,26 @@ public sealed class MainWindowViewModel : ObservableObject
     {
         foreach (var prism in Prisms)
         {
-            if (!ValidatePrismInputs(prism.SizeX, prism.SizeY, prism.SizeZ, out error)) { error = $"Prism '{prism.Name}' invalid. {error}"; return false; }
+            if (!ValidatePrismInputs(prism.SizeX, prism.SizeY, prism.SizeZ, out error))
+            {
+                error = $"Prism '{prism.Name}' invalid. {error}";
+                return false;
+            }
         }
 
         for (var i = 0; i < Rays.Count; i++)
         {
-            if (!ValidateDirection(Rays[i].DirectionX, Rays[i].DirectionY, Rays[i].DirectionZ, out error)) { error = $"Manual ray {i + 1} invalid. {error}"; return false; }
+            if (!ValidateDirection(Rays[i].DirectionX, Rays[i].DirectionY, Rays[i].DirectionZ, out error))
+            {
+                error = $"Manual ray {i + 1} invalid. {error}";
+                return false;
+            }
         }
 
         for (var i = 0; i < LightSources.Count; i++)
         {
-            var s = LightSources[i];
-            if (!ValidateLightSourceInputs(s.Radius, s.Height, s.RayCount, out error))
+            var source = LightSources[i];
+            if (!ValidateLightSourceInputs(source.Radius, source.Height, source.RayCount, out error))
             {
                 error = $"Light source {i + 1} invalid. {error}";
                 return false;
@@ -234,15 +395,59 @@ public sealed class MainWindowViewModel : ObservableObject
 
     private static bool ValidatePrismInputs(float sx, float sy, float sz, out string error)
     {
-        if (sx <= 0 || sy <= 0 || sz <= 0) { error = "Prism sizes must be positive."; return false; }
+        if (sx <= 0 || sy <= 0 || sz <= 0)
+        {
+            error = "Prism sizes must be positive.";
+            return false;
+        }
+
+        error = string.Empty;
+        return true;
+    }
+
+    private static bool ValidatePrismArrayInputs(
+        PrismArrayPlacementMode mode,
+        int count,
+        float radius,
+        float length,
+        out string error)
+    {
+        if (count <= 0)
+        {
+            error = "Prism array count must be greater than zero.";
+            return false;
+        }
+
+        if (mode == PrismArrayPlacementMode.Cylindrical && radius <= 0f)
+        {
+            error = "Cylindrical prism arrays require a positive radius.";
+            return false;
+        }
+
+        if (mode == PrismArrayPlacementMode.Cartesian && length <= 0f)
+        {
+            error = "Cartesian prism arrays require a positive length.";
+            return false;
+        }
+
         error = string.Empty;
         return true;
     }
 
     private static bool ValidateLightSourceInputs(float radius, float height, int rayCount, out string error)
     {
-        if (radius <= 0 || height <= 0) { error = "Light source radius and height must be positive."; return false; }
-        if (rayCount <= 0) { error = "Light source RayCount must be greater than zero."; return false; }
+        if (radius <= 0 || height <= 0)
+        {
+            error = "Light source radius and height must be positive.";
+            return false;
+        }
+
+        if (rayCount <= 0)
+        {
+            error = "Light source RayCount must be greater than zero.";
+            return false;
+        }
+
         error = string.Empty;
         return true;
     }
@@ -261,8 +466,19 @@ public sealed class MainWindowViewModel : ObservableObject
 
     private void RaiseCanExecuteChanges()
     {
-        if (RemoveSelectedPrismCommand is RelayCommand prismCommand) prismCommand.RaiseCanExecuteChanged();
-        if (RemoveSelectedRayCommand is RelayCommand rayCommand) rayCommand.RaiseCanExecuteChanged();
-        if (RemoveSelectedLightSourceCommand is RelayCommand lightCommand) lightCommand.RaiseCanExecuteChanged();
+        if (RemoveSelectedPrismCommand is RelayCommand prismCommand)
+        {
+            prismCommand.RaiseCanExecuteChanged();
+        }
+
+        if (RemoveSelectedRayCommand is RelayCommand rayCommand)
+        {
+            rayCommand.RaiseCanExecuteChanged();
+        }
+
+        if (RemoveSelectedLightSourceCommand is RelayCommand lightCommand)
+        {
+            lightCommand.RaiseCanExecuteChanged();
+        }
     }
 }
