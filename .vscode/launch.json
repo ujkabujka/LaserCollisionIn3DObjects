@@ -1,0 +1,15 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Launch LaserCollisionIn3DObjects.Wpf",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build solution",
+      "program": "${workspaceFolder}/LaserCollisionIn3DObjects.Wpf/bin/Debug/net8.0-windows/LaserCollisionIn3DObjects.Wpf.dll",
+      "cwd": "${workspaceFolder}/LaserCollisionIn3DObjects.Wpf",
+      "console": "internalConsole",
+      "stopAtEntry": false
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+{
+  "dotnet.defaultSolution": "LaserCollisionIn3DObjects.sln",
+  "omnisharp.enableEditorConfigSupport": true,
+  "files.exclude": {
+    "**/bin": true,
+    "**/obj": true
+  }
+}
