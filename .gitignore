@@ -1,0 +1,45 @@
+# Build output
+**/bin/
+**/obj/
+**/out/
+**/publish/
+**/artifacts/
+
+# Visual Studio
+.vs/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.VC.db
+*.VC.VC.opendb
+
+# Test artifacts
+TestResults/
+*.trx
+*.coverage
+*.coveragexml
+
+# Rider / ReSharper
+.idea/
+_ReSharper*/
+*.[Rr]e[Ss]harper
+
+# NuGet
+*.nupkg
+*.snupkg
+packages/
+
+# Logs / caches / temp
+*.log
+*.cache
+*.tmp
+*.temp
+*.pdb
+*.ilk
+
+# Common generated files
+GeneratedFiles/
+*.g.cs
+*.g.i.cs
+*.AssemblyAttributes.cs
