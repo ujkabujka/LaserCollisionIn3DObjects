@@ -27,7 +27,7 @@
                             <UniformGrid Columns="3" Margin="0,0,0,6"><StackPanel Margin="2"><TextBlock Text="Pos X"/><TextBox Text="{Binding NewPrismPosX}"/></StackPanel><StackPanel Margin="2"><TextBlock Text="Pos Y"/><TextBox Text="{Binding NewPrismPosY}"/></StackPanel><StackPanel Margin="2"><TextBlock Text="Pos Z"/><TextBox Text="{Binding NewPrismPosZ}"/></StackPanel></UniformGrid>
                             <UniformGrid Columns="3" Margin="0,0,0,6"><StackPanel Margin="2"><TextBlock Text="Rot X"/><TextBox Text="{Binding NewPrismRotX}"/></StackPanel><StackPanel Margin="2"><TextBlock Text="Rot Y"/><TextBox Text="{Binding NewPrismRotY}"/></StackPanel><StackPanel Margin="2"><TextBlock Text="Rot Z"/><TextBox Text="{Binding NewPrismRotZ}"/></StackPanel></UniformGrid>
                             <UniformGrid Columns="3" Margin="0,0,0,6"><StackPanel Margin="2"><TextBlock Text="Size X"/><TextBox Text="{Binding NewPrismSizeX}"/></StackPanel><StackPanel Margin="2"><TextBlock Text="Size Y"/><TextBox Text="{Binding NewPrismSizeY}"/></StackPanel><StackPanel Margin="2"><TextBlock Text="Size Z"/><TextBox Text="{Binding NewPrismSizeZ}"/></StackPanel></UniformGrid>
-                            <StackPanel Orientation="Horizontal" Margin="0,0,0,6"><Button Content="Add Prism" Command="{Binding AddPrismCommand}" Width="110" Margin="0,0,8,0"/><Button Content="Add Array" Command="{Binding AddPrismArrayCommand}" Width="110" Margin="0,0,8,0"/><Button Content="Remove Selected" Command="{Binding RemoveSelectedPrismCommand}" Width="130"/></StackPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,6"><Button Content="Add Prism" Command="{Binding AddPrismCommand}" Width="100" Margin="0,0,8,0"/><Button Content="Add Array" Command="{Binding AddPrismArrayCommand}" Width="95" Margin="0,0,8,0"/><Button Content="Remove Selected" Command="{Binding RemoveSelectedPrismCommand}" Width="120" Margin="0,0,8,0"/><Button Content="Delete All Prisms" Command="{Binding RemoveAllPrismsCommand}" Width="125"/></StackPanel>
                             <Border Margin="0,0,0,6" Padding="6" Background="#F1F4F7" CornerRadius="4">
                                 <StackPanel>
                                     <TextBlock FontWeight="SemiBold" Text="Batch Placement" Margin="0,0,0,4" />
@@ -40,7 +40,7 @@
                                         <StackPanel Margin="2"><TextBlock Text="Length"/><TextBox Text="{Binding NewPrismArrayLength}"/></StackPanel>
                                         <StackPanel Margin="2"><TextBlock Text="Shared Y"/><TextBox Text="{Binding NewPrismPosY}"/></StackPanel>
                                     </UniformGrid>
-                                    <TextBlock Foreground="#555" TextWrapping="Wrap" Text="Cylindrical arrays use Radius. Cartesian arrays use Length and create a square perimeter. Arrays are centered on the world origin and each prism faces inward; Rot X/Y/Z are applied in the prism's own frame." />
+                                    <TextBlock Foreground="#555" TextWrapping="Wrap" Text="Cylindrical arrays use Radius. Cartesian arrays use Length and create a square perimeter. Arrays are centered on the world origin with the same default XYZ axis as the global frame; Rot X/Y/Z are applied in each prism's own frame." />
                                 </StackPanel>
                             </Border>
                             <DataGrid ItemsSource="{Binding Prisms}" SelectedItem="{Binding SelectedPrism}" AutoGenerateColumns="False" CanUserAddRows="False" Height="130">
@@ -79,9 +79,37 @@
                     </GroupBox>
 
                     <GroupBox Header="Actions" Margin="0,0,0,8" Padding="8">
-                        <StackPanel Orientation="Horizontal">
-                            <Button Content="Run Collision" Command="{Binding RunCollisionCommand}" Width="120" Height="30" Margin="0,0,8,0"/>
-                            <Button Content="Reset Demo Scene" Command="{Binding ResetDemoSceneCommand}" Width="140" Height="30"/>
+                        <StackPanel>
+                            <Grid Margin="0,0,0,8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="120"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="Algorithm" VerticalAlignment="Center"/>
+                                <ComboBox Grid.Column="1" ItemsSource="{Binding CollisionAlgorithms}" SelectedItem="{Binding SelectedCollisionAlgorithm}" />
+                            </Grid>
+                            <UniformGrid Columns="2" Margin="0,0,0,8">
+                                <StackPanel Margin="2">
+                                    <TextBlock Text="Last Run (ms)"/>
+                                    <TextBox IsReadOnly="True" Text="{Binding LastCollisionDurationMs}"/>
+                                </StackPanel>
+                                <StackPanel Margin="2">
+                                    <TextBlock Text="Sequential (ms)"/>
+                                    <TextBox IsReadOnly="True" Text="{Binding LastSequentialCollisionDurationMs}"/>
+                                </StackPanel>
+                            </UniformGrid>
+                            <Grid Margin="0,0,0,8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="120"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="Parallel (ms)" VerticalAlignment="Center"/>
+                                <TextBox Grid.Column="1" IsReadOnly="True" Text="{Binding LastParallelCollisionDurationMs}"/>
+                            </Grid>
+                            <StackPanel Orientation="Horizontal">
+                                <Button Content="Run Collision" Command="{Binding RunCollisionCommand}" Width="120" Height="30" Margin="0,0,8,0"/>
+                                <Button Content="Reset Demo Scene" Command="{Binding ResetDemoSceneCommand}" Width="140" Height="30"/>
+                            </StackPanel>
                         </StackPanel>
                     </GroupBox>
 

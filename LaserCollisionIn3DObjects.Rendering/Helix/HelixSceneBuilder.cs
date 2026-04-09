@@ -31,18 +31,18 @@ public sealed class HelixSceneBuilder
 
         var visuals = new List<Visual3D>();
         var generatedRayLookup = scene.GeneratedRays.Count > 0 ? new HashSet<Ray3D>(scene.GeneratedRays) : null;
+        visuals.AddRange(_frameVisualizer.CreateGlobalFrameVisuals(12f));
 
-        foreach (var prism in scene.RectangularPrisms)
-        {
-            visuals.Add(_meshFactory.CreateRectangularPrism(prism, Colors.SteelBlue));
-            visuals.AddRange(_frameVisualizer.CreateFrameVisuals(prism.Frame, GetPrismFrameAxisLength(prism)));
-        }
+        visuals.Add(_meshFactory.CreateRectangularPrismBatch(scene.RectangularPrisms, Colors.SteelBlue));
+        visuals.AddRange(_frameVisualizer.CreateFrameVisualsBatch(
+            scene.RectangularPrisms.Select(prism => (prism.Frame, GetPrismFrameAxisLength(prism))).ToList()));
 
-        foreach (var lightSource in scene.CylindricalLightSources)
-        {
-            visuals.Add(_meshFactory.CreateCylindricalLightSource(lightSource, Colors.Gold));
-            visuals.AddRange(_frameVisualizer.CreateFrameVisuals(lightSource.Frame, GetLightSourceFrameAxisLength(lightSource)));
-        }
+        visuals.Add(_meshFactory.CreateCylindricalLightSourceBatch(scene.CylindricalLightSources, Colors.Gold));
+        visuals.AddRange(_frameVisualizer.CreateFrameVisualsBatch(
+            scene.CylindricalLightSources.Select(lightSource => (lightSource.Frame, GetLightSourceFrameAxisLength(lightSource))).ToList()));
+
+        var raySegments = new List<(Ray3D Ray, float Length)>(scene.Rays.Count);
+        var generatedRayOriginsWithoutHit = new List<Ray3D>();
 
         foreach (var ray in scene.Rays)
         {
@@ -52,13 +52,12 @@ public sealed class HelixSceneBuilder
 
             if (isGeneratedRay && !hasHit)
             {
-                visuals.Add(_rayVisualizer.CreateRayOriginPoint(ray, color: Colors.OrangeRed));
+                generatedRayOriginsWithoutHit.Add(ray);
                 continue;
             }
 
             var rayLength = hasHit && hit is not null ? hit.Distance : defaultRayLength;
-
-            visuals.Add(_rayVisualizer.CreateRayLine(ray, rayLength, Colors.OrangeRed));
+            raySegments.Add((ray, rayLength));
 
             if (hasHit && hit is not null)
             {
@@ -68,6 +67,16 @@ public sealed class HelixSceneBuilder
                     visuals.Add(hitVisual);
                 }
             }
+        }
+
+        if (raySegments.Count > 0)
+        {
+            visuals.Add(_rayVisualizer.CreateRayLines(raySegments, color: Colors.OrangeRed));
+        }
+
+        if (generatedRayOriginsWithoutHit.Count > 0)
+        {
+            visuals.Add(_rayVisualizer.CreateRayOriginPointBatch(generatedRayOriginsWithoutHit, color: Colors.OrangeRed));
         }
 
         return visuals;

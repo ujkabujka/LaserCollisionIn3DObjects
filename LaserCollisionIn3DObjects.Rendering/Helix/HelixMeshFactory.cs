@@ -11,6 +11,31 @@ namespace LaserCollisionIn3DObjects.Rendering.Helix;
 /// </summary>
 public sealed class HelixMeshFactory
 {
+    public ModelVisual3D CreateRectangularPrismBatch(IReadOnlyList<RectangularPrism> prisms, Color? color = null)
+    {
+        ArgumentNullException.ThrowIfNull(prisms);
+
+        var material = MaterialHelper.CreateMaterial(color ?? Colors.SteelBlue);
+        var group = new Model3DGroup();
+
+        foreach (var prism in prisms)
+        {
+            var meshBuilder = new MeshBuilder();
+            meshBuilder.AddBox(new Point3D(0, 0, 0), prism.SizeX, prism.SizeY, prism.SizeZ);
+            var mesh = meshBuilder.ToMesh();
+
+            group.Children.Add(new GeometryModel3D
+            {
+                Geometry = mesh,
+                Material = material,
+                BackMaterial = material,
+                Transform = CreateTransform(prism.Frame.Position, prism.Frame.Orientation),
+            });
+        }
+
+        return new ModelVisual3D { Content = group };
+    }
+
     /// <summary>
     /// Creates a prism visual from a <see cref="RectangularPrism"/> domain object.
     /// </summary>
@@ -65,6 +90,35 @@ public sealed class HelixMeshFactory
         };
 
         return new ModelVisual3D { Content = geometry };
+    }
+
+    public ModelVisual3D CreateCylindricalLightSourceBatch(IReadOnlyList<CylindricalLightSource> sources, Color? color = null)
+    {
+        ArgumentNullException.ThrowIfNull(sources);
+
+        var material = MaterialHelper.CreateMaterial(color ?? Colors.Goldenrod);
+        var group = new Model3DGroup();
+
+        foreach (var source in sources)
+        {
+            var halfHeight = source.Height * 0.5f;
+            var meshBuilder = new MeshBuilder();
+            meshBuilder.AddCylinder(
+                new Point3D(0, -halfHeight, 0),
+                new Point3D(0, halfHeight, 0),
+                source.Radius,
+                32);
+
+            group.Children.Add(new GeometryModel3D
+            {
+                Geometry = meshBuilder.ToMesh(),
+                Material = material,
+                BackMaterial = material,
+                Transform = CreateTransform(source.Frame.Position, source.Frame.Orientation),
+            });
+        }
+
+        return new ModelVisual3D { Content = group };
     }
 
     private static Transform3D CreateTransform(Vector3 position, System.Numerics.Quaternion orientation)

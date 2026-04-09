@@ -13,6 +13,25 @@ namespace LaserCollisionIn3DObjects.Rendering.Helix;
 /// </summary>
 public sealed class HelixRayVisualizer
 {
+    public Visual3D CreateRayLines(IReadOnlyList<(DomainRay3D Ray, float Length)> rays, double thickness = 2d, Color? color = null)
+    {
+        ArgumentNullException.ThrowIfNull(rays);
+
+        var points = new Point3DCollection(rays.Count * 2);
+        foreach (var (ray, length) in rays)
+        {
+            points.Add(ToPoint3D(ray.Origin));
+            points.Add(ToPoint3D(ray.GetPoint(length)));
+        }
+
+        return new LinesVisual3D
+        {
+            Color = color ?? Colors.OrangeRed,
+            Thickness = thickness,
+            Points = points,
+        };
+    }
+
     /// <summary>
     /// Creates a line visual that represents a ray.
     /// </summary>
@@ -50,6 +69,36 @@ public sealed class HelixRayVisualizer
             ThetaDiv = 12,
             PhiDiv = 12,
         };
+    }
+
+    public Visual3D CreateRayOriginPointBatch(IReadOnlyList<DomainRay3D> rays, double radius = 0.06d, Color? color = null)
+    {
+        ArgumentNullException.ThrowIfNull(rays);
+
+        if (rays.Count == 0)
+        {
+            return new ModelVisual3D();
+        }
+
+        var sphereBuilder = new MeshBuilder();
+        sphereBuilder.AddSphere(new Point3D(0, 0, 0), radius, 10, 10);
+        var sphereMesh = sphereBuilder.ToMesh();
+
+        var material = MaterialHelper.CreateMaterial(color ?? Colors.OrangeRed);
+        var group = new Model3DGroup();
+
+        foreach (var ray in rays)
+        {
+            group.Children.Add(new GeometryModel3D
+            {
+                Geometry = sphereMesh,
+                Material = material,
+                BackMaterial = material,
+                Transform = new TranslateTransform3D(ray.Origin.X, ray.Origin.Y, ray.Origin.Z),
+            });
+        }
+
+        return new ModelVisual3D { Content = group };
     }
 
     /// <summary>
