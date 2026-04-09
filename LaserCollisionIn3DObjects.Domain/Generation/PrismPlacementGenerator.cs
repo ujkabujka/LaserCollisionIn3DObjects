@@ -4,7 +4,7 @@ namespace LaserCollisionIn3DObjects.Domain.Generation;
 
 public static class PrismPlacementGenerator
 {
-    public static IReadOnlyList<FramePlacement> CreateCylindricalPlacements(float radius, int count, float y = 0f)
+    public static IReadOnlyList<FramePlacement> CreateCylindricalPlacements(float radius, int count, float z = 0f)
     {
         if (radius <= 0f)
         {
@@ -23,8 +23,9 @@ public static class PrismPlacementGenerator
             var theta = (2f * MathF.PI * i) / count;
             var position = new Vector3(
                 radius * MathF.Cos(theta),
-                y,
-                radius * MathF.Sin(theta));
+                 radius * MathF.Sin(theta),
+                 z
+               );
 
             placements.Add(new FramePlacement(position, FrameOrientationBuilder.CreateFacingOriginOrientation(position)));
         }
@@ -59,23 +60,23 @@ public static class PrismPlacementGenerator
         return placements;
     }
 
-    private static Vector3 CreateSquarePerimeterPoint(float distance, float halfLength, float sideLength, float y)
+    private static Vector3 CreateSquarePerimeterPoint(float distance, float halfLength, float sideLength, float z)
     {
         if (distance < sideLength)
         {
-            return new Vector3(-halfLength + distance, y, -halfLength);
+            return new Vector3(-halfLength + distance, -halfLength, z );
         }
 
         if (distance < sideLength * 2f)
         {
-            return new Vector3(halfLength, y, -halfLength + (distance - sideLength));
+            return new Vector3(halfLength, -halfLength + (distance - sideLength), z);
         }
 
         if (distance < sideLength * 3f)
         {
-            return new Vector3(halfLength - (distance - (sideLength * 2f)), y, halfLength);
+            return new Vector3(halfLength - (distance - (sideLength * 2f)), halfLength, z);
         }
 
-        return new Vector3(-halfLength, y, halfLength - (distance - (sideLength * 3f)));
+        return new Vector3(-halfLength, halfLength - (distance - (sideLength * 3f)), z);
     }
 }
