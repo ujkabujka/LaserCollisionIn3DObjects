@@ -8,7 +8,7 @@ public sealed class PrismPlacementGeneratorTests
     private const float Tolerance = 1e-4f;
 
     [Fact]
-    public void CreateCylindricalPlacements_PlacesPrismsOnCircleFacingOrigin()
+    public void CreateCylindricalPlacements_PlacesPrismsOnCircleWithIdentityOrientation()
     {
         var placements = PrismPlacementGenerator.CreateCylindricalPlacements(12f, 8, 3f);
 
@@ -16,18 +16,15 @@ public sealed class PrismPlacementGeneratorTests
 
         foreach (var placement in placements)
         {
-            var horizontalRadius = MathF.Sqrt((placement.Position.X * placement.Position.X) + (placement.Position.Z * placement.Position.Z));
-            var forward = Vector3.Normalize(Vector3.Transform(Vector3.UnitZ, placement.Orientation));
-            var directionToOrigin = Vector3.Normalize(new Vector3(-placement.Position.X, 0f, -placement.Position.Z));
-
+            var horizontalRadius = MathF.Sqrt((placement.Position.X * placement.Position.X) + (placement.Position.Y * placement.Position.Y));
             Assert.Equal(12f, horizontalRadius, 3);
-            Assert.Equal(3f, placement.Position.Y, 3);
-            AssertVectorEqual(directionToOrigin, forward);
+            Assert.Equal(3f, placement.Position.Z, 3);
+            AssertVectorEqual(Quaternion.Identity, placement.Orientation);
         }
     }
 
     [Fact]
-    public void CreateCartesianPlacements_PlacesPrismsOnSquarePerimeterFacingOrigin()
+    public void CreateCartesianPlacements_PlacesPrismsOnSquarePerimeterWithIdentityOrientation()
     {
         var placements = PrismPlacementGenerator.CreateCartesianPlacements(20f, 12, 1.5f);
         var halfLength = 10f;
@@ -36,21 +33,19 @@ public sealed class PrismPlacementGeneratorTests
 
         foreach (var placement in placements)
         {
-            var forward = Vector3.Normalize(Vector3.Transform(Vector3.UnitZ, placement.Orientation));
-            var directionToOrigin = Vector3.Normalize(new Vector3(-placement.Position.X, 0f, -placement.Position.Z));
-
-            Assert.Equal(1.5f, placement.Position.Y, 3);
+            Assert.Equal(1.5f, placement.Position.Z, 3);
             Assert.True(
                 MathF.Abs(MathF.Abs(placement.Position.X) - halfLength) < Tolerance ||
-                MathF.Abs(MathF.Abs(placement.Position.Z) - halfLength) < Tolerance);
-            AssertVectorEqual(directionToOrigin, forward);
+                MathF.Abs(MathF.Abs(placement.Position.Y) - halfLength) < Tolerance);
+            AssertVectorEqual(Quaternion.Identity, placement.Orientation);
         }
     }
 
-    private static void AssertVectorEqual(Vector3 expected, Vector3 actual)
+    private static void AssertVectorEqual(Quaternion expected, Quaternion actual)
     {
         Assert.Equal(expected.X, actual.X, Tolerance);
         Assert.Equal(expected.Y, actual.Y, Tolerance);
         Assert.Equal(expected.Z, actual.Z, Tolerance);
+        Assert.Equal(expected.W, actual.W, Tolerance);
     }
 }

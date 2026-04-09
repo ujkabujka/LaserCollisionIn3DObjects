@@ -8,6 +8,12 @@ using LaserCollisionIn3DObjects.Wpf.Services;
 
 namespace LaserCollisionIn3DObjects.Wpf.ViewModels;
 
+public enum CollisionAlgorithmOption
+{
+    ClosestHitSequential,
+    ClosestHitParallel,
+}
+
 public sealed class MainWindowViewModel : ObservableObject
 {
     private readonly SceneRenderSyncService _renderSyncService;
@@ -27,6 +33,10 @@ public sealed class MainWindowViewModel : ObservableObject
     private float _newLightSourceRadius = 5f;
     private float _newLightSourceHeight = 10f;
     private int _newLightSourceRayCount = 200;
+    private CollisionAlgorithmOption _selectedCollisionAlgorithm = CollisionAlgorithmOption.ClosestHitSequential;
+    private string _lastCollisionDurationMs = "N/A";
+    private string _lastSequentialCollisionDurationMs = "N/A";
+    private string _lastParallelCollisionDurationMs = "N/A";
     private string _statusMessage = "Add objects, then click Run Collision.";
 
     public MainWindowViewModel(SceneRenderSyncService renderSyncService)
@@ -38,6 +48,7 @@ public sealed class MainWindowViewModel : ObservableObject
         AddRayCommand = new RelayCommand(AddRay);
         AddLightSourceCommand = new RelayCommand(AddLightSource);
         RemoveSelectedPrismCommand = new RelayCommand(RemoveSelectedPrism, () => SelectedPrism is not null);
+        RemoveAllPrismsCommand = new RelayCommand(RemoveAllPrisms, () => Prisms.Count > 0);
         RemoveSelectedRayCommand = new RelayCommand(RemoveSelectedRay, () => SelectedRay is not null);
         RemoveSelectedLightSourceCommand = new RelayCommand(RemoveSelectedLightSource, () => SelectedLightSource is not null);
         RunCollisionCommand = new RelayCommand(RunCollision);
@@ -55,12 +66,14 @@ public sealed class MainWindowViewModel : ObservableObject
     public ObservableCollection<HitResultItemViewModel> HitResults { get; } = new();
 
     public PrismArrayPlacementMode[] PrismArrayPlacementModes { get; } = Enum.GetValues<PrismArrayPlacementMode>();
+    public CollisionAlgorithmOption[] CollisionAlgorithms { get; } = Enum.GetValues<CollisionAlgorithmOption>();
 
     public ICommand AddPrismCommand { get; }
     public ICommand AddPrismArrayCommand { get; }
     public ICommand AddRayCommand { get; }
     public ICommand AddLightSourceCommand { get; }
     public ICommand RemoveSelectedPrismCommand { get; }
+    public ICommand RemoveAllPrismsCommand { get; }
     public ICommand RemoveSelectedRayCommand { get; }
     public ICommand RemoveSelectedLightSourceCommand { get; }
     public ICommand RunCollisionCommand { get; }
@@ -107,8 +120,16 @@ public sealed class MainWindowViewModel : ObservableObject
     public float NewLightSourceRadius { get => _newLightSourceRadius; set => SetProperty(ref _newLightSourceRadius, value); }
     public float NewLightSourceHeight { get => _newLightSourceHeight; set => SetProperty(ref _newLightSourceHeight, value); }
     public int NewLightSourceRayCount { get => _newLightSourceRayCount; set => SetProperty(ref _newLightSourceRayCount, value); }
+    public CollisionAlgorithmOption SelectedCollisionAlgorithm
+    {
+        get => _selectedCollisionAlgorithm;
+        set => SetProperty(ref _selectedCollisionAlgorithm, value);
+    }
 
     public string StatusMessage { get => _statusMessage; private set => SetProperty(ref _statusMessage, value); }
+    public string LastCollisionDurationMs { get => _lastCollisionDurationMs; private set => SetProperty(ref _lastCollisionDurationMs, value); }
+    public string LastSequentialCollisionDurationMs { get => _lastSequentialCollisionDurationMs; private set => SetProperty(ref _lastSequentialCollisionDurationMs, value); }
+    public string LastParallelCollisionDurationMs { get => _lastParallelCollisionDurationMs; private set => SetProperty(ref _lastParallelCollisionDurationMs, value); }
 
     private void AddPrism()
     {
@@ -125,6 +146,7 @@ public sealed class MainWindowViewModel : ObservableObject
 
         SelectedPrism = Prisms.Last();
         NewPrismName = $"Prism {Prisms.Count + 1}";
+        RaiseCanExecuteChanges();
         RefreshViewport(false);
     }
 
@@ -165,8 +187,9 @@ public sealed class MainWindowViewModel : ObservableObject
 
         SelectedPrism = created.LastOrDefault();
         NewPrismName = $"Prism {Prisms.Count + 1}";
+        RaiseCanExecuteChanges();
         RefreshViewport(false);
-        StatusMessage = $"Added {created.Count} prisms in a {SelectedPrismArrayPlacementMode} array around the world origin.";
+        StatusMessage = $"Added {created.Count} prisms in a {SelectedPrismArrayPlacementMode} array around the world origin with global-axis-aligned default frames.";
     }
 
     private void AddRay()
@@ -229,7 +252,24 @@ public sealed class MainWindowViewModel : ObservableObject
 
         Prisms.Remove(SelectedPrism);
         SelectedPrism = null;
+        RaiseCanExecuteChanges();
         RefreshViewport(false);
+    }
+
+    private void RemoveAllPrisms()
+    {
+        if (Prisms.Count == 0)
+        {
+            StatusMessage = "There are no prisms to delete.";
+            return;
+        }
+
+        var deleted = Prisms.Count;
+        Prisms.Clear();
+        SelectedPrism = null;
+        RaiseCanExecuteChanges();
+        RefreshViewport(false);
+        StatusMessage = $"Deleted {deleted} prisms.";
     }
 
     private void RemoveSelectedRay()
@@ -306,6 +346,7 @@ public sealed class MainWindowViewModel : ObservableObject
 
         RefreshViewport(true);
         StatusMessage = "Demo scene reset with manual and generated rays.";
+        RaiseCanExecuteChanges();
     }
 
     private PrismItemViewModel CreatePrismViewModel(
@@ -336,7 +377,8 @@ public sealed class MainWindowViewModel : ObservableObject
     {
         try
         {
-            var rows = _renderSyncService.SyncScene(Prisms, LightSources, Rays, runCollision);
+            var sceneSyncResult = _renderSyncService.SyncScene(Prisms, LightSources, Rays, runCollision, SelectedCollisionAlgorithm);
+            var rows = sceneSyncResult.HitRows;
             HitResults.Clear();
             foreach (var row in rows)
             {
@@ -345,7 +387,19 @@ public sealed class MainWindowViewModel : ObservableObject
 
             if (runCollision)
             {
-                StatusMessage = $"Collision run complete. Hits: {rows.Count(r => r.HasHit)}/{rows.Count}.";
+                var elapsedMs = sceneSyncResult.CollisionDuration.TotalMilliseconds;
+                LastCollisionDurationMs = $"{elapsedMs:F3}";
+
+                if (sceneSyncResult.CollisionAlgorithm == CollisionAlgorithmOption.ClosestHitSequential)
+                {
+                    LastSequentialCollisionDurationMs = LastCollisionDurationMs;
+                }
+                else if (sceneSyncResult.CollisionAlgorithm == CollisionAlgorithmOption.ClosestHitParallel)
+                {
+                    LastParallelCollisionDurationMs = LastCollisionDurationMs;
+                }
+
+                StatusMessage = $"Collision run complete ({SelectedCollisionAlgorithm}) in {elapsedMs:F3} ms. Hits: {rows.Count(r => r.HasHit)}/{rows.Count}.";
             }
             else
             {
@@ -469,6 +523,11 @@ public sealed class MainWindowViewModel : ObservableObject
         if (RemoveSelectedPrismCommand is RelayCommand prismCommand)
         {
             prismCommand.RaiseCanExecuteChanged();
+        }
+
+        if (RemoveAllPrismsCommand is RelayCommand removeAllPrismsCommand)
+        {
+            removeAllPrismsCommand.RaiseCanExecuteChanged();
         }
 
         if (RemoveSelectedRayCommand is RelayCommand rayCommand)

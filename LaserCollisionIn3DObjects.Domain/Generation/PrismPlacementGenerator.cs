@@ -27,7 +27,7 @@ public static class PrismPlacementGenerator
                  z
                );
 
-            placements.Add(new FramePlacement(position, FrameOrientationBuilder.CreateFacingOriginOrientation(position)));
+            placements.Add(new FramePlacement(position, Quaternion.Identity));
         }
 
         return placements;
@@ -54,7 +54,7 @@ public static class PrismPlacementGenerator
         {
             var distance = ((i + 0.5f) * step) % perimeter;
             var position = CreateSquarePerimeterPoint(distance, halfLength, sideLength, y);
-            placements.Add(new FramePlacement(position, FrameOrientationBuilder.CreateFacingOriginOrientation(position)));
+            placements.Add(new FramePlacement(position, Quaternion.Identity));
         }
 
         return placements;
