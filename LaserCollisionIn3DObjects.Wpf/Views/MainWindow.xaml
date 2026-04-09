@@ -128,7 +128,7 @@
         <Grid Grid.Column="1">
             <h:HelixViewport3D x:Name="Viewport" ShowCoordinateSystem="True" ShowViewCube="True" ZoomExtentsWhenLoaded="True">
                 <h:HelixViewport3D.Camera>
-                    <PerspectiveCamera Position="30,20,30" LookDirection="-30,-20,-30" UpDirection="0,1,0" FieldOfView="45" />
+                    <PerspectiveCamera Position="0,-30,30" LookDirection="0,30,-30" UpDirection="0,1,0" FieldOfView="45" />
                 </h:HelixViewport3D.Camera>
                 <h:SunLight />
                 <h:GridLinesVisual3D Width="120" Length="120" MinorDistance="5" MajorDistance="10" />
