@@ -21,7 +21,7 @@ public static class FrameOrientationBuilder
 
     public static Quaternion CreateFacingOriginOrientation(Vector3 position)
     {
-        var horizontalDirectionToOrigin = new Vector3(-position.X, 0f, -position.Z);
+        var horizontalDirectionToOrigin = new Vector3(-position.X, -position.Y, 0f);
 
         if (horizontalDirectionToOrigin.LengthSquared() <= AngleEpsilon)
         {
@@ -29,7 +29,7 @@ public static class FrameOrientationBuilder
         }
 
         horizontalDirectionToOrigin = Vector3.Normalize(horizontalDirectionToOrigin);
-        var yawRadians = MathF.Atan2(horizontalDirectionToOrigin.X, horizontalDirectionToOrigin.Z);
+        var yawRadians = MathF.Atan2(horizontalDirectionToOrigin.X, horizontalDirectionToOrigin.Y);
         return Quaternion.CreateFromAxisAngle(Vector3.UnitY, yawRadians);
     }
 
