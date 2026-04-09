@@ -12,9 +12,9 @@ namespace LaserCollisionIn3DObjects.Rendering.Helix;
 /// </summary>
 public sealed class HelixFrameVisualizer
 {
-    public IReadOnlyList<Visual3D> CreateGlobalFrameVisuals(float axisLength = 10f)
+    public IReadOnlyList<Visual3D> CreateGlobalFrameVisuals(float axisLength = 3f)
     {
-        return CreateFrameVisuals(new Frame3D(Vector3.Zero, NumericsQuaternion.Identity), axisLength);
+        return CreateFrameVisuals(new Frame3D(Vector3.Zero, NumericsQuaternion.Identity), axisLength, 4f);
     }
 
     public IReadOnlyList<Visual3D> CreateFrameVisualsBatch(IReadOnlyList<(Frame3D Frame, float AxisLength)> frames)
@@ -53,7 +53,7 @@ public sealed class HelixFrameVisualizer
         ];
     }
 
-    public IReadOnlyList<Visual3D> CreateFrameVisuals(Frame3D frame, float axisLength)
+    public IReadOnlyList<Visual3D> CreateFrameVisuals(Frame3D frame, float axisLength, float thickness = 2f)
     {
         ArgumentNullException.ThrowIfNull(frame);
 
@@ -62,9 +62,9 @@ public sealed class HelixFrameVisualizer
 
         return
         [
-            CreateAxis(origin, origin + frame.TransformDirectionToWorld(Vector3.UnitX * safeAxisLength), Colors.IndianRed),
-            CreateAxis(origin, origin + frame.TransformDirectionToWorld(Vector3.UnitY * safeAxisLength), Colors.ForestGreen),
-            CreateAxis(origin, origin + frame.TransformDirectionToWorld(Vector3.UnitZ * safeAxisLength), Colors.DodgerBlue),
+            CreateAxis(origin, origin + frame.TransformDirectionToWorld(Vector3.UnitX * safeAxisLength), Colors.IndianRed, thickness),
+            CreateAxis(origin, origin + frame.TransformDirectionToWorld(Vector3.UnitY * safeAxisLength), Colors.ForestGreen, thickness),
+            CreateAxis(origin, origin + frame.TransformDirectionToWorld(Vector3.UnitZ * safeAxisLength), Colors.DodgerBlue, thickness),
             new SphereVisual3D
             {
                 Center = ToPoint3D(origin),
@@ -76,12 +76,12 @@ public sealed class HelixFrameVisualizer
         ];
     }
 
-    private static Visual3D CreateAxis(Vector3 start, Vector3 end, Color color)
+    private static Visual3D CreateAxis(Vector3 start, Vector3 end, Color color, float thickness)
     {
         return new LinesVisual3D
         {
             Color = color,
-            Thickness = 2,
+            Thickness = thickness,
             Points = new Point3DCollection
             {
                 ToPoint3D(start),
