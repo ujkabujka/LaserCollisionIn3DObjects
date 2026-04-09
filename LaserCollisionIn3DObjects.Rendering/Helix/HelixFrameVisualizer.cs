@@ -3,6 +3,7 @@ using System.Windows.Media;
 using System.Windows.Media.Media3D;
 using HelixToolkit.Wpf;
 using LaserCollisionIn3DObjects.Domain.Geometry;
+using NumericsQuaternion = System.Numerics.Quaternion;
 
 namespace LaserCollisionIn3DObjects.Rendering.Helix;
 
@@ -13,7 +14,7 @@ public sealed class HelixFrameVisualizer
 {
     public IReadOnlyList<Visual3D> CreateGlobalFrameVisuals(float axisLength = 10f)
     {
-        return CreateFrameVisuals(new Frame3D(Vector3.Zero, Quaternion.Identity), axisLength);
+        return CreateFrameVisuals(new Frame3D(Vector3.Zero, NumericsQuaternion.Identity), axisLength);
     }
 
     public IReadOnlyList<Visual3D> CreateFrameVisualsBatch(IReadOnlyList<(Frame3D Frame, float AxisLength)> frames)
