@@ -91,11 +91,11 @@
                             <UniformGrid Columns="2" Margin="0,0,0,8">
                                 <StackPanel Margin="2">
                                     <TextBlock Text="Last Run (ms)"/>
-                                    <TextBox IsReadOnly="False" Text="{Binding LastCollisionDurationMs}"/>
+                                    <TextBox IsReadOnly="True" Text="{Binding LastCollisionDurationMs, Mode=OneWay}"/>
                                 </StackPanel>
                                 <StackPanel Margin="2">
                                     <TextBlock Text="Sequential (ms)"/>
-                                    <TextBox IsReadOnly="False" Text="{Binding LastSequentialCollisionDurationMs}"/>
+                                    <TextBox IsReadOnly="True" Text="{Binding LastSequentialCollisionDurationMs, Mode=OneWay}"/>
                                 </StackPanel>
                             </UniformGrid>
                             <Grid Margin="0,0,0,8">
@@ -104,7 +104,7 @@
                                     <ColumnDefinition Width="*"/>
                                 </Grid.ColumnDefinitions>
                                 <TextBlock Grid.Column="0" Text="Parallel (ms)" VerticalAlignment="Center"/>
-                                <TextBox Grid.Column="1" IsReadOnly="False" Text="{Binding LastParallelCollisionDurationMs}"/>
+                                <TextBox Grid.Column="1" IsReadOnly="True" Text="{Binding LastParallelCollisionDurationMs, Mode=OneWay}"/>
                             </Grid>
                             <StackPanel Orientation="Horizontal">
                                 <Button Content="Run Collision" Command="{Binding RunCollisionCommand}" Width="120" Height="30" Margin="0,0,8,0"/>
