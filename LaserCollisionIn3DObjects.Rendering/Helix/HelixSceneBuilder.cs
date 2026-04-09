@@ -89,6 +89,7 @@ public sealed class HelixSceneBuilder
 
     private static float GetLightSourceFrameAxisLength(CylindricalLightSource source)
     {
-        return Math.Max(source.Height, source.Radius * 2f) * 0.65f;
+        //return Math.Max(source.Height, source.Radius * 2f) * 0.65f;
+        return 1f;
     }
 }

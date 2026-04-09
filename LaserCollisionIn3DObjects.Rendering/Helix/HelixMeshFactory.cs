@@ -101,11 +101,11 @@ public sealed class HelixMeshFactory
 
         foreach (var source in sources)
         {
-            var halfHeight = source.Height * 0.5f;
+            //var halfHeight = source.Height * 0.5f;
             var meshBuilder = new MeshBuilder();
             meshBuilder.AddCylinder(
-                new Point3D(0, -halfHeight, 0),
-                new Point3D(0, halfHeight, 0),
+                new Point3D(0, 0, 0),
+                new Point3D(source.Height, 0, 0),
                 source.Radius,
                 32);
 

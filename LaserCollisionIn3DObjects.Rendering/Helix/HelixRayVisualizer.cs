@@ -81,17 +81,17 @@ public sealed class HelixRayVisualizer
             return new ModelVisual3D();
         }
 
-        var sphereBuilder = new MeshBuilder();
-        sphereBuilder.AddSphere(new Point3D(0, 0, 0), radius, 10, 10);
-        var sphereMesh = sphereBuilder.ToMesh();
+        //var sphereBuilder = new MeshBuilder();
+        //sphereBuilder.AddSphere(new Point3D(0, 0, 0), radius, 10, 10);
+        // var sphereMesh = sphereBuilder.ToMesh();
 
-        var material = MaterialHelper.CreateMaterial(color ?? Colors.OrangeRed);
+        //var material = MaterialHelper.CreateMaterial(color ?? Colors.OrangeRed);
         var points = new PointsVisual3D
         {
             Color = color ?? Colors.OrangeRed,
             Size = 3
         };
-        var group = new Model3DGroup();
+        //var group = new Model3DGroup();
 
         foreach (var ray in rays)
         {

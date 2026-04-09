@@ -50,6 +50,7 @@ public sealed class MainWindowViewModel : ObservableObject
         RemoveSelectedPrismCommand = new RelayCommand(RemoveSelectedPrism, () => SelectedPrism is not null);
         RemoveAllPrismsCommand = new RelayCommand(RemoveAllPrisms, () => Prisms.Count > 0);
         RemoveSelectedRayCommand = new RelayCommand(RemoveSelectedRay, () => SelectedRay is not null);
+        RemoveAllRaysCommand = new RelayCommand(RemoveAllRays, () => Rays.Count > 0);
         RemoveSelectedLightSourceCommand = new RelayCommand(RemoveSelectedLightSource, () => SelectedLightSource is not null);
         RunCollisionCommand = new RelayCommand(RunCollision);
         RegenerateLightSourceRaysCommand = new RelayCommand(RegenerateLightSourceRays);
@@ -75,6 +76,7 @@ public sealed class MainWindowViewModel : ObservableObject
     public ICommand RemoveSelectedPrismCommand { get; }
     public ICommand RemoveAllPrismsCommand { get; }
     public ICommand RemoveSelectedRayCommand { get; }
+    public ICommand RemoveAllRaysCommand { get; }
     public ICommand RemoveSelectedLightSourceCommand { get; }
     public ICommand RunCollisionCommand { get; }
     public ICommand RegenerateLightSourceRaysCommand { get; }
@@ -270,6 +272,22 @@ public sealed class MainWindowViewModel : ObservableObject
         RaiseCanExecuteChanges();
         RefreshViewport(false);
         StatusMessage = $"Deleted {deleted} prisms.";
+    }
+
+    private void RemoveAllRays()
+    {
+        if (Rays.Count == 0)
+        {
+            StatusMessage = "There are no prisms to delete.";
+            return;
+        }
+
+        var deleted = Rays.Count;
+        Rays.Clear();
+        SelectedRay = null;
+        RaiseCanExecuteChanges();
+        RefreshViewport(false);
+        StatusMessage = $"Deleted {deleted} rays.";
     }
 
     private void RemoveSelectedRay()
@@ -533,6 +551,11 @@ public sealed class MainWindowViewModel : ObservableObject
         if (RemoveSelectedRayCommand is RelayCommand rayCommand)
         {
             rayCommand.RaiseCanExecuteChanged();
+        }
+
+        if (RemoveAllRaysCommand is RelayCommand removeAllRaysCommand)
+        {
+            removeAllRaysCommand.RaiseCanExecuteChanged();
         }
 
         if (RemoveSelectedLightSourceCommand is RelayCommand lightCommand)

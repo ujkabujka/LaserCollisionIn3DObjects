@@ -25,13 +25,14 @@ public sealed class CylindricalRayGenerator
             var row = i / columns;
             var column = i % columns;
 
-            var y = source.Height * ((row + 0.5f) / rows - 0.5f);
+            var x = source.Height * ((float)row  / rows);
             var theta = 2f * MathF.PI * ((column + 0.5f * (row % 2)) / columns);
 
             var localOrigin = new Vector3(
+                x,
                 source.Radius * MathF.Cos(theta),
-                y,
-                source.Radius * MathF.Sin(theta));
+                source.Radius * MathF.Sin(theta)
+                );
 
             var localDirection = GetRadialDirection(localOrigin);
             var worldOrigin = source.Frame.TransformPointToWorld(localOrigin);
