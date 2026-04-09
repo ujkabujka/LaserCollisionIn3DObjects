@@ -31,7 +31,7 @@ public sealed class HelixSceneBuilder
 
         var visuals = new List<Visual3D>();
         var generatedRayLookup = scene.GeneratedRays.Count > 0 ? new HashSet<Ray3D>(scene.GeneratedRays) : null;
-        visuals.AddRange(_frameVisualizer.CreateGlobalFrameVisuals(12f));
+        visuals.AddRange(_frameVisualizer.CreateGlobalFrameVisuals(3f));
 
         visuals.Add(_meshFactory.CreateRectangularPrismBatch(scene.RectangularPrisms, Colors.SteelBlue));
         visuals.AddRange(_frameVisualizer.CreateFrameVisualsBatch(

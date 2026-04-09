@@ -1,6 +1,7 @@
 using System.Numerics;
 using System.Windows.Media;
 using System.Windows.Media.Media3D;
+using System.Windows.Navigation;
 using HelixToolkit.Wpf;
 using LaserCollisionIn3DObjects.Domain.Collision;
 using LaserCollisionIn3DObjects.Domain.Geometry;
@@ -85,20 +86,27 @@ public sealed class HelixRayVisualizer
         var sphereMesh = sphereBuilder.ToMesh();
 
         var material = MaterialHelper.CreateMaterial(color ?? Colors.OrangeRed);
+        var points = new PointsVisual3D
+        {
+            Color = color ?? Colors.OrangeRed,
+            Size = 3
+        };
         var group = new Model3DGroup();
 
         foreach (var ray in rays)
         {
-            group.Children.Add(new GeometryModel3D
-            {
-                Geometry = sphereMesh,
-                Material = material,
-                BackMaterial = material,
-                Transform = new TranslateTransform3D(ray.Origin.X, ray.Origin.Y, ray.Origin.Z),
-            });
+            // group.Children.Add(new GeometryModel3D
+            // {
+            //     Geometry = sphereMesh,
+            //     Material = material,
+            //     BackMaterial = material,
+            //     Transform = new TranslateTransform3D(ray.Origin.X, ray.Origin.Y, ray.Origin.Z),
+            // });
+
+            points.Points.Add(new Point3D(ray.Origin.X, ray.Origin.Y, ray.Origin.Z));
         }
 
-        return new ModelVisual3D { Content = group };
+        return  points;
     }
 
     /// <summary>
