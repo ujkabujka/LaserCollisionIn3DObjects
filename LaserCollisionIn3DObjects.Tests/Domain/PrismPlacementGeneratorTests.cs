@@ -16,9 +16,9 @@ public sealed class PrismPlacementGeneratorTests
 
         foreach (var placement in placements)
         {
-            var horizontalRadius = MathF.Sqrt((placement.Position.X * placement.Position.X) + (placement.Position.Z * placement.Position.Z));
+            var horizontalRadius = MathF.Sqrt((placement.Position.X * placement.Position.X) + (placement.Position.Y * placement.Position.Y));
             Assert.Equal(12f, horizontalRadius, 3);
-            Assert.Equal(3f, placement.Position.Y, 3);
+            Assert.Equal(3f, placement.Position.Z, 3);
             AssertVectorEqual(Quaternion.Identity, placement.Orientation);
         }
     }
@@ -33,10 +33,10 @@ public sealed class PrismPlacementGeneratorTests
 
         foreach (var placement in placements)
         {
-            Assert.Equal(1.5f, placement.Position.Y, 3);
+            Assert.Equal(1.5f, placement.Position.Z, 3);
             Assert.True(
                 MathF.Abs(MathF.Abs(placement.Position.X) - halfLength) < Tolerance ||
-                MathF.Abs(MathF.Abs(placement.Position.Z) - halfLength) < Tolerance);
+                MathF.Abs(MathF.Abs(placement.Position.Y) - halfLength) < Tolerance);
             AssertVectorEqual(Quaternion.Identity, placement.Orientation);
         }
     }

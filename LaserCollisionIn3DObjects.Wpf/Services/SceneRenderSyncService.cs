@@ -16,6 +16,11 @@ namespace LaserCollisionIn3DObjects.Wpf.Services;
 /// </summary>
 public sealed class SceneRenderSyncService
 {
+    public sealed record SceneSyncResult(
+        IReadOnlyList<HitResultItemViewModel> HitRows,
+        TimeSpan CollisionDuration,
+        CollisionAlgorithmOption? CollisionAlgorithm);
+
     private readonly HelixViewport3D _viewport;
     private readonly ModelVisual3D _dynamicVisualRoot = new();
     private readonly HelixSceneBuilder _sceneBuilder = new();
@@ -30,7 +35,7 @@ public sealed class SceneRenderSyncService
     /// <summary>
     /// Synchronizes current editable scene data to the viewport and optionally computes hit results.
     /// </summary>
-    public IReadOnlyList<HitResultItemViewModel> SyncScene(
+    public SceneSyncResult SyncScene(
         IReadOnlyList<PrismItemViewModel> prismItems,
         IReadOnlyList<CylindricalLightSourceItemViewModel> lightSourceItems,
         IReadOnlyList<RayItemViewModel> rayItems,
@@ -38,7 +43,9 @@ public sealed class SceneRenderSyncService
         CollisionAlgorithmOption algorithm)
     {
         var scene = BuildDomainScene(prismItems, lightSourceItems, rayItems);
+        var stopwatch = System.Diagnostics.Stopwatch.StartNew();
         var collisionResults = runCollision ? CalculateFirstHits(scene, algorithm) : new List<(DomainRay3D Ray, RayHitResult Hit)>();
+        stopwatch.Stop();
 
         var hitLookup = collisionResults
             .Where(result => result.Hit.HasHit)
@@ -47,7 +54,10 @@ public sealed class SceneRenderSyncService
         var visuals = _sceneBuilder.BuildVisuals(scene, hitLookup);
         UpdateViewport(visuals);
 
-        return BuildHitRows(scene, collisionResults);
+        return new SceneSyncResult(
+            BuildHitRows(scene, collisionResults),
+            runCollision ? stopwatch.Elapsed : TimeSpan.Zero,
+            runCollision ? algorithm : null);
     }
 
     private SceneModel BuildDomainScene(

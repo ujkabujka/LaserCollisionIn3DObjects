@@ -88,6 +88,24 @@
                                 <TextBlock Grid.Column="0" Text="Algorithm" VerticalAlignment="Center"/>
                                 <ComboBox Grid.Column="1" ItemsSource="{Binding CollisionAlgorithms}" SelectedItem="{Binding SelectedCollisionAlgorithm}" />
                             </Grid>
+                            <UniformGrid Columns="2" Margin="0,0,0,8">
+                                <StackPanel Margin="2">
+                                    <TextBlock Text="Last Run (ms)"/>
+                                    <TextBox IsReadOnly="True" Text="{Binding LastCollisionDurationMs}"/>
+                                </StackPanel>
+                                <StackPanel Margin="2">
+                                    <TextBlock Text="Sequential (ms)"/>
+                                    <TextBox IsReadOnly="True" Text="{Binding LastSequentialCollisionDurationMs}"/>
+                                </StackPanel>
+                            </UniformGrid>
+                            <Grid Margin="0,0,0,8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="120"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="Parallel (ms)" VerticalAlignment="Center"/>
+                                <TextBox Grid.Column="1" IsReadOnly="True" Text="{Binding LastParallelCollisionDurationMs}"/>
+                            </Grid>
                             <StackPanel Orientation="Horizontal">
                                 <Button Content="Run Collision" Command="{Binding RunCollisionCommand}" Width="120" Height="30" Margin="0,0,8,0"/>
                                 <Button Content="Reset Demo Scene" Command="{Binding ResetDemoSceneCommand}" Width="140" Height="30"/>

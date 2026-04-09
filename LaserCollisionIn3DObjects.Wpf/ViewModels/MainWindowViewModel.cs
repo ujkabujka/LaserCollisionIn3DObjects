@@ -34,6 +34,9 @@ public sealed class MainWindowViewModel : ObservableObject
     private float _newLightSourceHeight = 10f;
     private int _newLightSourceRayCount = 200;
     private CollisionAlgorithmOption _selectedCollisionAlgorithm = CollisionAlgorithmOption.ClosestHitSequential;
+    private string _lastCollisionDurationMs = "N/A";
+    private string _lastSequentialCollisionDurationMs = "N/A";
+    private string _lastParallelCollisionDurationMs = "N/A";
     private string _statusMessage = "Add objects, then click Run Collision.";
 
     public MainWindowViewModel(SceneRenderSyncService renderSyncService)
@@ -124,6 +127,9 @@ public sealed class MainWindowViewModel : ObservableObject
     }
 
     public string StatusMessage { get => _statusMessage; private set => SetProperty(ref _statusMessage, value); }
+    public string LastCollisionDurationMs { get => _lastCollisionDurationMs; private set => SetProperty(ref _lastCollisionDurationMs, value); }
+    public string LastSequentialCollisionDurationMs { get => _lastSequentialCollisionDurationMs; private set => SetProperty(ref _lastSequentialCollisionDurationMs, value); }
+    public string LastParallelCollisionDurationMs { get => _lastParallelCollisionDurationMs; private set => SetProperty(ref _lastParallelCollisionDurationMs, value); }
 
     private void AddPrism()
     {
@@ -371,7 +377,8 @@ public sealed class MainWindowViewModel : ObservableObject
     {
         try
         {
-            var rows = _renderSyncService.SyncScene(Prisms, LightSources, Rays, runCollision, SelectedCollisionAlgorithm);
+            var sceneSyncResult = _renderSyncService.SyncScene(Prisms, LightSources, Rays, runCollision, SelectedCollisionAlgorithm);
+            var rows = sceneSyncResult.HitRows;
             HitResults.Clear();
             foreach (var row in rows)
             {
@@ -380,7 +387,19 @@ public sealed class MainWindowViewModel : ObservableObject
 
             if (runCollision)
             {
-                StatusMessage = $"Collision run complete. Hits: {rows.Count(r => r.HasHit)}/{rows.Count}.";
+                var elapsedMs = sceneSyncResult.CollisionDuration.TotalMilliseconds;
+                LastCollisionDurationMs = $"{elapsedMs:F3}";
+
+                if (sceneSyncResult.CollisionAlgorithm == CollisionAlgorithmOption.ClosestHitSequential)
+                {
+                    LastSequentialCollisionDurationMs = LastCollisionDurationMs;
+                }
+                else if (sceneSyncResult.CollisionAlgorithm == CollisionAlgorithmOption.ClosestHitParallel)
+                {
+                    LastParallelCollisionDurationMs = LastCollisionDurationMs;
+                }
+
+                StatusMessage = $"Collision run complete ({SelectedCollisionAlgorithm}) in {elapsedMs:F3} ms. Hits: {rows.Count(r => r.HasHit)}/{rows.Count}.";
             }
             else
             {
