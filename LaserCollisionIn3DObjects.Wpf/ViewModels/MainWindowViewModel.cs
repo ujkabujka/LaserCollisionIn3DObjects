@@ -21,9 +21,9 @@ public sealed class MainWindowViewModel : ObservableObject
     private RayItemViewModel? _selectedRay;
     private CylindricalLightSourceItemViewModel? _selectedLightSource;
     private string _newPrismName = "Prism 1";
-    private float _newPrismSizeX = 10f;
-    private float _newPrismSizeY = 10f;
-    private float _newPrismSizeZ = 10f;
+    private float _newPrismSizeX = 0.002f;
+    private float _newPrismSizeY = 1.2f;
+    private float _newPrismSizeZ = 2.4f;
     private int _newPrismArrayCount = 8;
     private float _newPrismArrayRadius = 20f;
     private float _newPrismArrayLength = 20f;
