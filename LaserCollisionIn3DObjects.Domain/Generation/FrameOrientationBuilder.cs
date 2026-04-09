@@ -29,8 +29,9 @@ public static class FrameOrientationBuilder
         }
 
         horizontalDirectionToOrigin = Vector3.Normalize(horizontalDirectionToOrigin);
-        var yawRadians = MathF.Atan2(horizontalDirectionToOrigin.X, horizontalDirectionToOrigin.Y);
-        return Quaternion.CreateFromAxisAngle(Vector3.UnitY, yawRadians);
+        //var yawRadians = MathF.Acos(Vector3.Dot(Vector3.UnitX, horizontalDirectionToOrigin));
+        var yawRadians = MathF.Atan2(horizontalDirectionToOrigin.Y, horizontalDirectionToOrigin.X);
+        return Quaternion.CreateFromAxisAngle(Vector3.UnitZ, yawRadians);
     }
 
     private static Quaternion ApplyLocalAxisRotation(Quaternion currentOrientation, Vector3 localAxis, float angleRadians)
