@@ -2,6 +2,9 @@ using System.Windows;
 
 namespace LaserCollisionIn3DObjects.Wpf.Features.Annotations.Geometry;
 
+/// <summary>
+/// Shared geometry helpers for annotation processing.
+/// </summary>
 public static class GeometryUtilities
 {
     public static double PolygonArea(IReadOnlyList<Point> points)
@@ -57,25 +60,67 @@ public static class GeometryUtilities
 
     public static IReadOnlyList<Point> OrderCornersTopLeftClockwise(IReadOnlyList<Point> corners)
     {
-        var center = new Point(corners.Average(static c => c.X), corners.Average(static c => c.Y));
-        var sorted = corners
-            .Select(c => new { Point = c, Angle = Math.Atan2(c.Y - center.Y, c.X - center.X) })
-            .OrderBy(c => c.Angle)
-            .Select(c => c.Point)
-            .ToList();
-
-        var topLeftIndex = 0;
-        var minScore = double.MaxValue;
-        for (var i = 0; i < sorted.Count; i++)
+        if (corners.Count != 4)
         {
-            var score = sorted[i].X + sorted[i].Y;
-            if (score < minScore)
-            {
-                minScore = score;
-                topLeftIndex = i;
-            }
+            throw new InvalidOperationException("Exactly four corners are required.");
         }
 
-        return sorted.Skip(topLeftIndex).Concat(sorted.Take(topLeftIndex)).ToArray();
+        var sortedByYThenX = corners.OrderBy(c => c.Y).ThenBy(c => c.X).ToArray();
+        var topTwo = sortedByYThenX.Take(2).OrderBy(c => c.X).ToArray();
+        var bottomTwo = sortedByYThenX.Skip(2).OrderByDescending(c => c.X).ToArray();
+
+        var ordered = new[] { topTwo[0], topTwo[1], bottomTwo[0], bottomTwo[1] };
+        return EnsureClockwise(ordered);
+    }
+
+    public static IReadOnlyList<Point> EnsureClockwise(IReadOnlyList<Point> corners)
+    {
+        if (!IsClockwise(corners))
+        {
+            return new[] { corners[0], corners[3], corners[2], corners[1] };
+        }
+
+        return corners.ToArray();
+    }
+
+    public static bool IsClockwise(IReadOnlyList<Point> polygon)
+    {
+        double sum = 0;
+        for (var i = 0; i < polygon.Count; i++)
+        {
+            var next = polygon[(i + 1) % polygon.Count];
+            sum += (next.X - polygon[i].X) * (next.Y + polygon[i].Y);
+        }
+
+        return sum > 0;
+    }
+
+    public static bool IsQuadrilateralValid(IReadOnlyList<Point> corners)
+    {
+        if (corners.Count != 4)
+        {
+            return false;
+        }
+
+        if (PolygonArea(corners) < 1e-3)
+        {
+            return false;
+        }
+
+        return !SegmentsIntersect(corners[0], corners[1], corners[2], corners[3]) &&
+               !SegmentsIntersect(corners[1], corners[2], corners[3], corners[0]);
+    }
+
+    private static bool SegmentsIntersect(Point p1, Point p2, Point q1, Point q2)
+    {
+        static double Orientation(Point a, Point b, Point c)
+            => (b.X - a.X) * (c.Y - a.Y) - (b.Y - a.Y) * (c.X - a.X);
+
+        var o1 = Orientation(p1, p2, q1);
+        var o2 = Orientation(p1, p2, q2);
+        var o3 = Orientation(q1, q2, p1);
+        var o4 = Orientation(q1, q2, p2);
+
+        return (o1 * o2 < 0) && (o3 * o4 < 0);
     }
 }

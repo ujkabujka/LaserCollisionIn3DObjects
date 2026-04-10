@@ -64,7 +64,11 @@ public sealed class ViaAnnotationLoader
             : string.Empty;
 
         var record = new AnnotatedImageRecord { Key = key, FileName = fileName };
-        if (!string.IsNullOrWhiteSpace(fileName))
+        if (string.IsNullOrWhiteSpace(fileName))
+        {
+            record.Diagnostics.Add("Missing filename in VIA image record.");
+        }
+        else
         {
             record.ImagePath = Path.Combine(folderPath, fileName);
             if (!File.Exists(record.ImagePath))
@@ -80,6 +84,11 @@ public sealed class ViaAnnotationLoader
         }
 
         var regions = ReadRegions(regionsElement);
+        if (regions.Count == 0)
+        {
+            record.Diagnostics.Add("No valid regions were parsed for this image.");
+        }
+
         var panelRegions = regions.Where(static r => string.Equals(r.Type, "panel", StringComparison.OrdinalIgnoreCase)).ToList();
         var holeRegions = regions.Where(static r => string.Equals(r.Type, "hole", StringComparison.OrdinalIgnoreCase)).ToList();
 

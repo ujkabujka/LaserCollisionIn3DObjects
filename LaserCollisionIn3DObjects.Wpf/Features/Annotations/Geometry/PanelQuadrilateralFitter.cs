@@ -14,7 +14,8 @@ public sealed class PanelQuadrilateralFitter
             throw new InvalidOperationException("Panel polygon must have at least 3 points.");
         }
 
-        var hull = ComputeConvexHull(polygon);
+        var simplified = SimplifyPolygon(polygon);
+        var hull = ComputeConvexHull(simplified);
         if (hull.Count < 3)
         {
             throw new InvalidOperationException("Panel polygon hull is invalid.");
@@ -28,33 +29,73 @@ public sealed class PanelQuadrilateralFitter
             var p0 = hull[i];
             var p1 = hull[(i + 1) % hull.Count];
             var edge = p1 - p0;
-            var theta = Math.Atan2(edge.Y, edge.X);
+            if (edge.Length < 1e-6)
+            {
+                continue;
+            }
 
+            var theta = Math.Atan2(edge.Y, edge.X);
             var cos = Math.Cos(-theta);
             var sin = Math.Sin(-theta);
-
             var rotated = hull.Select(p => RotatePoint(p, cos, sin)).ToList();
+
             var minX = rotated.Min(static p => p.X);
             var maxX = rotated.Max(static p => p.X);
             var minY = rotated.Min(static p => p.Y);
             var maxY = rotated.Max(static p => p.Y);
-            var area = (maxX - minX) * (maxY - minY);
+            var width = maxX - minX;
+            var height = maxY - minY;
+            var area = width * height;
+
+            if (width < 1e-6 || height < 1e-6)
+            {
+                continue;
+            }
 
             if (area < bestArea)
             {
                 bestArea = area;
-                var candidate = new[]
+                bestCorners = new[]
                 {
                     new Point(minX, minY),
                     new Point(maxX, minY),
                     new Point(maxX, maxY),
                     new Point(minX, maxY),
                 }.Select(p => RotatePoint(p, Math.Cos(theta), Math.Sin(theta))).ToArray();
-                bestCorners = candidate;
             }
         }
 
-        return GeometryUtilities.OrderCornersTopLeftClockwise(bestCorners);
+        var ordered = GeometryUtilities.OrderCornersTopLeftClockwise(bestCorners);
+        if (!GeometryUtilities.IsQuadrilateralValid(ordered))
+        {
+            throw new InvalidOperationException("Fitted panel quadrilateral is degenerate.");
+        }
+
+        return ordered;
+    }
+
+    private static IReadOnlyList<Point> SimplifyPolygon(IReadOnlyList<Point> points)
+    {
+        if (points.Count <= 4)
+        {
+            return points;
+        }
+
+        var deduped = new List<Point>();
+        foreach (var point in points)
+        {
+            if (deduped.Count == 0 || (point - deduped[^1]).Length > 0.5)
+            {
+                deduped.Add(point);
+            }
+        }
+
+        if (deduped.Count > 1 && (deduped[0] - deduped[^1]).Length <= 0.5)
+        {
+            deduped.RemoveAt(deduped.Count - 1);
+        }
+
+        return deduped;
     }
 
     private static Point RotatePoint(Point p, double cos, double sin)

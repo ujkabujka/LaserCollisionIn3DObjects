@@ -3,6 +3,7 @@ using System.Windows.Media.Imaging;
 using LaserCollisionIn3DObjects.Wpf.Features.Annotations.Geometry;
 using LaserCollisionIn3DObjects.Wpf.Features.Annotations.Models;
 using LaserCollisionIn3DObjects.Wpf.Features.Annotations.Rectification;
+using LaserCollisionIn3DObjects.Wpf.Features.Annotations.ViewModels;
 
 namespace LaserCollisionIn3DObjects.Wpf.Features.Annotations.Services;
 
@@ -51,5 +52,25 @@ public sealed class AnnotationWorkspaceService
         => _overlayRenderer.CreateOriginalOverlay(record, image.PixelWidth, image.PixelHeight);
 
     public BitmapSource CreateWarpedOverlay(RectificationResult rectification)
-        => _overlayRenderer.CreateWarpedOverlay(rectification.TransformedHoleCenters, rectification.WarpedImage.PixelWidth, rectification.WarpedImage.PixelHeight);
+        => _overlayRenderer.CreateWarpedOverlay(rectification.TransformedHoleCenters, (int)rectification.DestinationSizePixels.Width, (int)rectification.DestinationSizePixels.Height);
+
+    public static IReadOnlyList<HoleViewModel> BuildHoleRows(AnnotatedImageRecord record, RectificationResult? rectification)
+    {
+        var rows = new List<HoleViewModel>(record.Holes.Count);
+        for (var i = 0; i < record.Holes.Count; i++)
+        {
+            var hole = record.Holes[i];
+            var warpedCenter = rectification?.TransformedHoleCenters.ElementAtOrDefault(i) ?? new Point(double.NaN, double.NaN);
+            rows.Add(new HoleViewModel
+            {
+                Index = i + 1,
+                ShapeType = hole.ShapeType,
+                OriginalCenter = $"({hole.CenterPoint.X:F1}, {hole.CenterPoint.Y:F1})",
+                WarpedCenter = double.IsNaN(warpedCenter.X) ? "N/A" : $"({warpedCenter.X:F1}, {warpedCenter.Y:F1})",
+                PixelArea = hole.PixelArea.ToString("F2"),
+            });
+        }
+
+        return rows;
+    }
 }

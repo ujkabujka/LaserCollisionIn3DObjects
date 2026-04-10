@@ -142,7 +142,7 @@
         <TabItem Header="Annotation Verification">
             <Grid Margin="10">
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="360" />
+                    <ColumnDefinition Width="380" />
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
                 <Grid.RowDefinitions>
@@ -155,35 +155,49 @@
                         <TextBlock Text="VIA Annotation Workspace" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,8" />
                         <Button Content="Select Annotation Folder" Command="{Binding AnnotationWorkspace.SelectFolderCommand}" Height="30" />
                         <TextBlock Text="{Binding AnnotationWorkspace.SelectedFolderPath}" TextWrapping="Wrap" Margin="0,8,0,8" Foreground="#444" />
+                        <Border BorderBrush="#D0D7DE" BorderThickness="1" CornerRadius="4" Padding="6" Margin="0,0,0,8" Background="#F7F9FB">
+                            <TextBlock Text="{Binding AnnotationWorkspace.SelectedImageSummary}" TextWrapping="Wrap" />
+                        </Border>
+
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                            <Button Content="◀ Prev" Command="{Binding AnnotationWorkspace.SelectPreviousImageCommand}" Width="85" Margin="0,0,6,0"/>
+                            <Button Content="Next ▶" Command="{Binding AnnotationWorkspace.SelectNextImageCommand}" Width="85" Margin="0,0,6,0"/>
+                            <TextBlock VerticalAlignment="Center" Text="{Binding AnnotationWorkspace.SelectedImageIndex, StringFormat=Index: {0}}" />
+                        </StackPanel>
+
                         <TextBlock Text="Images" FontWeight="SemiBold" />
                         <ListBox ItemsSource="{Binding AnnotationWorkspace.Images}" SelectedItem="{Binding AnnotationWorkspace.SelectedImage}" Height="220" DisplayMemberPath="DisplayName" Margin="0,4,0,8" />
-                        <TextBlock Text="Selected Image Details" FontWeight="SemiBold" />
+                        <TextBlock Text="Fitted Panel Corners" FontWeight="SemiBold" />
                         <TextBlock Text="{Binding AnnotationWorkspace.SelectedImage.PanelCornersText, TargetNullValue=N/A}" TextWrapping="Wrap" Margin="0,4,0,8" />
-                        <DataGrid ItemsSource="{Binding AnnotationWorkspace.SelectedImage.Holes}" AutoGenerateColumns="False" CanUserAddRows="False" Height="260">
+                        <DataGrid ItemsSource="{Binding AnnotationWorkspace.SelectedImage.Holes}" AutoGenerateColumns="False" CanUserAddRows="False" Height="250" HeadersVisibility="Column">
                             <DataGrid.Columns>
                                 <DataGridTextColumn Header="#" Binding="{Binding Index}" Width="35"/>
-                                <DataGridTextColumn Header="Shape" Binding="{Binding ShapeType}" Width="65"/>
-                                <DataGridTextColumn Header="Orig Center" Binding="{Binding OriginalCenter}" Width="120"/>
-                                <DataGridTextColumn Header="Warp Center" Binding="{Binding WarpedCenter}" Width="120"/>
-                                <DataGridTextColumn Header="Area(px²)" Binding="{Binding PixelArea}" Width="80"/>
+                                <DataGridTextColumn Header="Source Shape" Binding="{Binding ShapeType}" Width="90"/>
+                                <DataGridTextColumn Header="Original Center" Binding="{Binding OriginalCenter}" Width="110"/>
+                                <DataGridTextColumn Header="Warped Center" Binding="{Binding WarpedCenter}" Width="110"/>
+                                <DataGridTextColumn Header="Area (px²)" Binding="{Binding PixelArea}" Width="80"/>
                             </DataGrid.Columns>
                         </DataGrid>
                         <TextBlock Text="{Binding AnnotationWorkspace.StatusMessage}" TextWrapping="Wrap" Margin="0,8,0,0" Foreground="#1A5276" />
                     </StackPanel>
                 </Border>
 
-                <GroupBox Grid.Column="1" Grid.Row="0" Header="Original Image + Panel Fit" Margin="10,0,0,10">
-                    <Grid Background="#222">
-                        <Image Source="{Binding AnnotationWorkspace.SelectedImage.OriginalImage}" Stretch="Uniform"/>
-                        <Image Source="{Binding AnnotationWorkspace.SelectedImage.OriginalOverlay}" Stretch="Uniform"/>
-                    </Grid>
+                <GroupBox Grid.Column="1" Grid.Row="0" Header="Original Image + Overlay" Margin="10,0,0,10">
+                    <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+                        <Grid Background="#222" MinHeight="280" MinWidth="450">
+                            <Image Source="{Binding AnnotationWorkspace.SelectedImage.OriginalImage}" Stretch="None"/>
+                            <Image Source="{Binding AnnotationWorkspace.SelectedImage.OriginalOverlay}" Stretch="None"/>
+                        </Grid>
+                    </ScrollViewer>
                 </GroupBox>
 
                 <GroupBox Grid.Column="1" Grid.Row="1" Header="Rectified Panel + Warped Hole Centers" Margin="10,0,0,0">
-                    <Grid Background="#222">
-                        <Image Source="{Binding AnnotationWorkspace.SelectedImage.WarpedImage}" Stretch="Uniform"/>
-                        <Image Source="{Binding AnnotationWorkspace.SelectedImage.WarpedOverlay}" Stretch="Uniform"/>
-                    </Grid>
+                    <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+                        <Grid Background="#222" MinHeight="280" MinWidth="450">
+                            <Image Source="{Binding AnnotationWorkspace.SelectedImage.WarpedImage}" Stretch="None"/>
+                            <Image Source="{Binding AnnotationWorkspace.SelectedImage.WarpedOverlay}" Stretch="None"/>
+                        </Grid>
+                    </ScrollViewer>
                 </GroupBox>
             </Grid>
         </TabItem>

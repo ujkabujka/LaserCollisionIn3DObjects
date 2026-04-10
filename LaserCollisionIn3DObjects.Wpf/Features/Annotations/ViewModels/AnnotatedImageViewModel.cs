@@ -10,6 +10,12 @@ public sealed class AnnotatedImageViewModel
 
     public string DisplayName => Record.IsImageMissing ? $"{Record.FileName} (missing)" : Record.FileName;
 
+    public string FileName => Record.FileName;
+
+    public bool HasPanel => Record.Panel is not null;
+
+    public int HoleCount => Record.Holes.Count;
+
     public BitmapSource? OriginalImage { get; set; }
 
     public BitmapSource? OriginalOverlay { get; set; }
