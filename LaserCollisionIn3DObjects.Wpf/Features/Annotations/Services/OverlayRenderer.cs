@@ -1,0 +1,108 @@
+using System.Windows;
+using System.Windows.Media;
+using System.Windows.Media.Imaging;
+using LaserCollisionIn3DObjects.Wpf.Features.Annotations.Models;
+
+namespace LaserCollisionIn3DObjects.Wpf.Features.Annotations.Services;
+
+public sealed class OverlayRenderer
+{
+    private static readonly Brush PanelPolygonBrush = Brushes.LimeGreen;
+    private static readonly Brush PanelFitBrush = Brushes.Orange;
+    private static readonly Brush HoleBrush = Brushes.DeepSkyBlue;
+
+    public BitmapSource CreateOriginalOverlay(AnnotatedImageRecord record, int width, int height)
+    {
+        var visual = new DrawingVisual();
+        using var dc = visual.RenderOpen();
+
+        if (record.Panel is not null)
+        {
+            var panelGeometry = BuildPolygon(record.Panel.OriginalPolygonPoints);
+            dc.DrawGeometry(null, new Pen(PanelPolygonBrush, 2), panelGeometry);
+
+            if (record.Panel.FittedQuadrilateralCorners.Count == 4)
+            {
+                var fit = BuildPolygon(record.Panel.FittedQuadrilateralCorners);
+                dc.DrawGeometry(null, new Pen(PanelFitBrush, 2.5), fit);
+
+                for (var i = 0; i < 4; i++)
+                {
+                    var corner = record.Panel.FittedQuadrilateralCorners[i];
+                    DrawPointWithLabel(dc, corner, $"C{i + 1}", Brushes.OrangeRed, 5);
+                }
+            }
+        }
+
+        for (var i = 0; i < record.Holes.Count; i++)
+        {
+            DrawHoleOutline(dc, record.Holes[i].OriginalShape);
+            DrawPointWithLabel(dc, record.Holes[i].CenterPoint, $"H{i + 1}", HoleBrush, 3.5, 11);
+        }
+
+        return RenderVisual(visual, width, height);
+    }
+
+    public BitmapSource CreateWarpedOverlay(IReadOnlyList<Point> transformedHoleCenters, int width, int height)
+    {
+        var visual = new DrawingVisual();
+        using var dc = visual.RenderOpen();
+
+        dc.DrawRectangle(null, new Pen(PanelFitBrush, 2), new Rect(1, 1, Math.Max(1, width - 2), Math.Max(1, height - 2)));
+        for (var i = 0; i < transformedHoleCenters.Count; i++)
+        {
+            DrawPointWithLabel(dc, transformedHoleCenters[i], $"H{i + 1}", HoleBrush, 4, 11);
+        }
+
+        return RenderVisual(visual, width, height);
+    }
+
+    private static void DrawHoleOutline(DrawingContext dc, IAnnotationShape shape)
+    {
+        var pen = new Pen(HoleBrush, 1.2) { DashStyle = DashStyles.Dash };
+        switch (shape)
+        {
+            case PolygonShapeData polygon when polygon.Points.Count >= 3:
+                dc.DrawGeometry(null, pen, BuildPolygon(polygon.Points));
+                break;
+            case CircleShapeData circle:
+                dc.DrawEllipse(null, pen, circle.Center, circle.Radius, circle.Radius);
+                break;
+            case EllipseShapeData ellipse:
+                dc.DrawEllipse(null, pen, ellipse.Center, ellipse.RadiusX, ellipse.RadiusY);
+                break;
+        }
+    }
+
+    private static void DrawPointWithLabel(DrawingContext dc, Point point, string label, Brush color, double radius, double fontSize = 13)
+    {
+        dc.DrawEllipse(color, null, point, radius, radius);
+        var text = new FormattedText(
+            label,
+            System.Globalization.CultureInfo.InvariantCulture,
+            FlowDirection.LeftToRight,
+            new Typeface("Segoe UI"),
+            fontSize,
+            color,
+            1.0);
+        dc.DrawText(text, new Point(point.X + radius + 3, point.Y + radius + 2));
+    }
+
+    private static StreamGeometry BuildPolygon(IReadOnlyList<Point> points)
+    {
+        var geometry = new StreamGeometry();
+        using var ctx = geometry.Open();
+        ctx.BeginFigure(points[0], false, true);
+        ctx.PolyLineTo(points.Skip(1).ToArray(), true, true);
+        geometry.Freeze();
+        return geometry;
+    }
+
+    private static BitmapSource RenderVisual(Visual visual, int width, int height)
+    {
+        var target = new RenderTargetBitmap(width, height, 96, 96, PixelFormats.Pbgra32);
+        target.Render(visual);
+        target.Freeze();
+        return target;
+    }
+}
