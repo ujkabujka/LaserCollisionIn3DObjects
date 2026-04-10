@@ -49,10 +49,10 @@ public sealed class AnnotationWorkspaceService
     }
 
     public BitmapSource CreateOriginalOverlay(AnnotatedImageRecord record, BitmapSource image)
-        => _overlayRenderer.CreateOriginalOverlay(record, image.PixelWidth, image.PixelHeight);
+        => _overlayRenderer.CreateOriginalOverlay(record, image);
 
     public BitmapSource CreateWarpedOverlay(RectificationResult rectification)
-        => _overlayRenderer.CreateWarpedOverlay(rectification.TransformedHoleCenters, (int)rectification.DestinationSizePixels.Width, (int)rectification.DestinationSizePixels.Height);
+        => _overlayRenderer.CreateWarpedOverlay(rectification);
 
     public static IReadOnlyList<HoleViewModel> BuildHoleRows(AnnotatedImageRecord record, RectificationResult? rectification)
     {
