@@ -183,19 +183,49 @@
                 </Border>
 
                 <GroupBox Grid.Column="1" Grid.Row="0" Header="Original Image + Overlay" Margin="10,0,0,10">
-                    <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
-                        <Grid Background="#222" MinHeight="280" MinWidth="450">
-                            <Image Source="{Binding AnnotationWorkspace.SelectedImage.OriginalImage}" Stretch="None"/>
-                            <Image Source="{Binding AnnotationWorkspace.SelectedImage.OriginalOverlay}" Stretch="None"/>
+                    <ScrollViewer x:Name="OriginalScrollViewer"
+                                  HorizontalScrollBarVisibility="Auto"
+                                  VerticalScrollBarVisibility="Auto"
+                                  PreviewMouseWheel="OnAnnotationViewerPreviewMouseWheel"
+                                  SizeChanged="OnOriginalScrollViewerSizeChanged">
+                        <Grid Background="#222" MinHeight="280" MinWidth="450" ClipToBounds="True">
+                            <Canvas x:Name="OriginalCanvas" HorizontalAlignment="Left" VerticalAlignment="Top">
+                                <Canvas.RenderTransform>
+                                    <ScaleTransform x:Name="OriginalScaleTransform"/>
+                                </Canvas.RenderTransform>
+                                <Image x:Name="OriginalBaseImage"
+                                       Source="{Binding AnnotationWorkspace.SelectedImage.OriginalImage}"
+                                       Stretch="None"
+                                       SizeChanged="OnOriginalBaseImageSizeChanged"/>
+                                <Image Source="{Binding AnnotationWorkspace.SelectedImage.OriginalOverlay}"
+                                       Stretch="None"
+                                       IsHitTestVisible="False"
+                                       Panel.ZIndex="1"/>
+                            </Canvas>
                         </Grid>
                     </ScrollViewer>
                 </GroupBox>
 
                 <GroupBox Grid.Column="1" Grid.Row="1" Header="Rectified Panel + Warped Hole Centers" Margin="10,0,0,0">
-                    <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
-                        <Grid Background="#222" MinHeight="280" MinWidth="450">
-                            <Image Source="{Binding AnnotationWorkspace.SelectedImage.WarpedImage}" Stretch="None"/>
-                            <Image Source="{Binding AnnotationWorkspace.SelectedImage.WarpedOverlay}" Stretch="None"/>
+                    <ScrollViewer x:Name="WarpedScrollViewer"
+                                  HorizontalScrollBarVisibility="Auto"
+                                  VerticalScrollBarVisibility="Auto"
+                                  PreviewMouseWheel="OnAnnotationViewerPreviewMouseWheel"
+                                  SizeChanged="OnWarpedScrollViewerSizeChanged">
+                        <Grid Background="#222" MinHeight="280" MinWidth="450" ClipToBounds="True">
+                            <Canvas x:Name="WarpedCanvas" HorizontalAlignment="Left" VerticalAlignment="Top">
+                                <Canvas.RenderTransform>
+                                    <ScaleTransform x:Name="WarpedScaleTransform"/>
+                                </Canvas.RenderTransform>
+                                <Image x:Name="WarpedBaseImage"
+                                       Source="{Binding AnnotationWorkspace.SelectedImage.WarpedImage}"
+                                       Stretch="None"
+                                       SizeChanged="OnWarpedBaseImageSizeChanged"/>
+                                <Image Source="{Binding AnnotationWorkspace.SelectedImage.WarpedOverlay}"
+                                       Stretch="None"
+                                       IsHitTestVisible="False"
+                                       Panel.ZIndex="1"/>
+                            </Canvas>
                         </Grid>
                     </ScrollViewer>
                 </GroupBox>
