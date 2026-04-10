@@ -1,8 +1,10 @@
 using System.Collections.ObjectModel;
 using System.IO;
+using System.Windows;
 using System.Windows.Input;
 using Microsoft.Win32;
 using LaserCollisionIn3DObjects.Wpf.Commands;
+using LaserCollisionIn3DObjects.Wpf.Features.Annotations.Models;
 using LaserCollisionIn3DObjects.Wpf.Features.Annotations.Services;
 using LaserCollisionIn3DObjects.Wpf.Infrastructure;
 using System.Windows.Media.Imaging;
@@ -12,15 +14,19 @@ namespace LaserCollisionIn3DObjects.Wpf.Features.Annotations.ViewModels;
 public sealed class AnnotationWorkspaceViewModel : ObservableObject
 {
     private readonly AnnotationWorkspaceService _workspaceService = new();
+    private readonly Dictionary<AnnotatedImageViewModel, RectificationResult?> _rectificationByImage = new();
     private string _selectedFolderPath = "No folder selected.";
     private string _statusMessage = "Select an annotation folder to begin.";
     private AnnotatedImageViewModel? _selectedImage;
+    private double _globalPanelWidthMm = 1000;
+    private double _globalPanelHeightMm = 1000;
 
     public AnnotationWorkspaceViewModel()
     {
         SelectFolderCommand = new RelayCommand(SelectFolder);
         SelectPreviousImageCommand = new RelayCommand(SelectPreviousImage, () => SelectedImageIndex > 0);
         SelectNextImageCommand = new RelayCommand(SelectNextImage, () => SelectedImageIndex >= 0 && SelectedImageIndex < Images.Count - 1);
+        ApplyGlobalPanelDimensionsCommand = new RelayCommand(ApplyGlobalPanelDimensions, () => Images.Count > 0);
     }
 
     public ICommand SelectFolderCommand { get; }
@@ -28,6 +34,8 @@ public sealed class AnnotationWorkspaceViewModel : ObservableObject
     public ICommand SelectPreviousImageCommand { get; }
 
     public ICommand SelectNextImageCommand { get; }
+
+    public ICommand ApplyGlobalPanelDimensionsCommand { get; }
 
     public ObservableCollection<AnnotatedImageViewModel> Images { get; } = new();
 
@@ -69,6 +77,23 @@ public sealed class AnnotationWorkspaceViewModel : ObservableObject
         ? "No image selected."
         : $"File: {SelectedImage.FileName} | Panel: {(SelectedImage.HasPanel ? "Yes" : "No")} | Holes: {SelectedImage.HoleCount}";
 
+    public IReadOnlyDictionary<string, IReadOnlyList<Point>> WarpedHoleCentersMmByImage
+        => Images.ToDictionary(
+            static image => image.FileName,
+            static image => (IReadOnlyList<Point>)image.WarpedHoleCentersMm.ToList());
+
+    public double GlobalPanelWidthMm
+    {
+        get => _globalPanelWidthMm;
+        set => SetProperty(ref _globalPanelWidthMm, value);
+    }
+
+    public double GlobalPanelHeightMm
+    {
+        get => _globalPanelHeightMm;
+        set => SetProperty(ref _globalPanelHeightMm, value);
+    }
+
     private void SelectFolder()
     {
         var dialog = new OpenFolderDialog
@@ -105,6 +130,7 @@ public sealed class AnnotationWorkspaceViewModel : ObservableObject
     private void LoadProject(string folderPath)
     {
         Images.Clear();
+        _rectificationByImage.Clear();
 
         try
         {
@@ -123,7 +149,14 @@ public sealed class AnnotationWorkspaceViewModel : ObservableObject
                     }
                 }
 
-                Images.Add(new AnnotatedImageViewModel { Record = record });
+                var viewModel = new AnnotatedImageViewModel
+                {
+                    Record = record,
+                    PanelWidthMm = record.Calibration.PhysicalWidthMm,
+                    PanelHeightMm = record.Calibration.PhysicalHeightMm,
+                };
+                viewModel.PropertyChanged += OnImageCalibrationChanged;
+                Images.Add(viewModel);
             }
 
             StatusMessage = $"Loaded {Images.Count} image annotations from {Path.GetFileName(project.JsonFilePath)}.";
@@ -163,10 +196,8 @@ public sealed class AnnotationWorkspaceViewModel : ObservableObject
                 selected.WarpedOverlay = null;
             }
 
-            foreach (var row in AnnotationWorkspaceService.BuildHoleRows(selected.Record, rectified))
-            {
-                selected.Holes.Add(row);
-            }
+            _rectificationByImage[selected] = rectified;
+            RebuildHoleRows(selected);
 
             selected.PanelCornersText = selected.Record.Panel is null
                 ? "No panel"
@@ -188,6 +219,64 @@ public sealed class AnnotationWorkspaceViewModel : ObservableObject
     {
         (SelectPreviousImageCommand as RelayCommand)?.RaiseCanExecuteChanged();
         (SelectNextImageCommand as RelayCommand)?.RaiseCanExecuteChanged();
+        (ApplyGlobalPanelDimensionsCommand as RelayCommand)?.RaiseCanExecuteChanged();
+    }
+
+    private void ApplyGlobalPanelDimensions()
+    {
+        if (GlobalPanelWidthMm <= 0 || GlobalPanelHeightMm <= 0)
+        {
+            StatusMessage = "Global panel dimensions must be greater than zero.";
+            return;
+        }
+
+        foreach (var image in Images)
+        {
+            image.PanelWidthMm = GlobalPanelWidthMm;
+            image.PanelHeightMm = GlobalPanelHeightMm;
+            RebuildHoleRows(image);
+        }
+
+        StatusMessage = $"Applied {GlobalPanelWidthMm:F2}mm x {GlobalPanelHeightMm:F2}mm to {Images.Count} images.";
+    }
+
+    private void OnImageCalibrationChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (sender is not AnnotatedImageViewModel image
+            || (e.PropertyName != nameof(AnnotatedImageViewModel.PanelWidthMm) && e.PropertyName != nameof(AnnotatedImageViewModel.PanelHeightMm)))
+        {
+            return;
+        }
+
+        RebuildHoleRows(image);
+    }
+
+    private void RebuildHoleRows(AnnotatedImageViewModel image)
+    {
+        image.Holes.Clear();
+        image.WarpedHoleCentersMm.Clear();
+        _rectificationByImage.TryGetValue(image, out var rectification);
+        var canConvertToMm = rectification is not null
+            && image.Record.Calibration.IsConfigured
+            && rectification.DestinationSizePixels.Width > 0
+            && rectification.DestinationSizePixels.Height > 0;
+        var mmScaleX = canConvertToMm ? image.Record.Calibration.PhysicalWidthMm!.Value / rectification!.DestinationSizePixels.Width : 0d;
+        var mmScaleY = canConvertToMm ? image.Record.Calibration.PhysicalHeightMm!.Value / rectification!.DestinationSizePixels.Height : 0d;
+
+        foreach (var row in AnnotationWorkspaceService.BuildHoleRows(image.Record, rectification, image.Record.Calibration))
+        {
+            image.Holes.Add(row);
+        }
+
+        if (canConvertToMm)
+        {
+            foreach (var point in rectification!.TransformedHoleCenters)
+            {
+                image.WarpedHoleCentersMm.Add(new Point(point.X * mmScaleX, point.Y * mmScaleY));
+            }
+        }
+
+        RaisePropertyChanged(nameof(WarpedHoleCentersMmByImage));
     }
 
     public static void SaveBitmapSourceAsPng(BitmapSource bitmap, string path)
