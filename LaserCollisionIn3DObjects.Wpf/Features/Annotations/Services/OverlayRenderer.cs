@@ -12,11 +12,11 @@ public sealed class OverlayRenderer
     private static readonly Brush HoleBrush = Brushes.DeepSkyBlue;
     private static readonly Brush HoleFillBrush = new SolidColorBrush(Color.FromArgb(180, 0, 191, 255));
 
-    // I believe this overlay Image is wron please fix this function or make sure it works okey.
-    public BitmapSource CreateOriginalOverlay(AnnotatedImageRecord record, int width, int height)
+    public BitmapSource CreateOriginalOverlay(AnnotatedImageRecord record, BitmapSource image)
     {
         var visual = new DrawingVisual();
         using var dc = visual.RenderOpen();
+        dc.DrawImage(image, new Rect(0, 0, image.PixelWidth, image.PixelHeight));
 
         if (record.Panel is not null)
         {
@@ -42,19 +42,32 @@ public sealed class OverlayRenderer
             DrawPointWithLabel(dc, record.Holes[i].CenterPoint, $"H{i + 1}", HoleBrush, HoleFillBrush, 5, 12);
         }
 
-        return RenderVisual(visual, width, height);
+        return RenderVisual(visual, image.PixelWidth, image.PixelHeight);
     }
 
-    // I believe this overlay Image is wron please fix this function or make sure it works okey.
-    public BitmapSource CreateWarpedOverlay(IReadOnlyList<Point> transformedHoleCenters, int width, int height)
+    public BitmapSource CreateWarpedOverlay(RectificationResult rectification)
     {
+        var width = (int)rectification.DestinationSizePixels.Width;
+        var height = (int)rectification.DestinationSizePixels.Height;
         var visual = new DrawingVisual();
         using var dc = visual.RenderOpen();
+        dc.DrawImage(rectification.WarpedImage, new Rect(0, 0, width, height));
 
-        dc.DrawRectangle(null, new Pen(PanelFitBrush, 2), new Rect(1, 1, Math.Max(1, width - 2), Math.Max(1, height - 2)));
-        for (var i = 0; i < transformedHoleCenters.Count; i++)
+        if (rectification.OrderedDestinationCorners.Count >= 4)
         {
-            DrawPointWithLabel(dc, transformedHoleCenters[i], $"H{i + 1}", HoleBrush, HoleFillBrush, 6, 12);
+            var panelPolygon = BuildPolygon(rectification.OrderedDestinationCorners);
+            dc.DrawGeometry(null, new Pen(PanelFitBrush, 3.5), panelPolygon);
+
+            for (var i = 0; i < 4; i++)
+            {
+                var corner = rectification.OrderedDestinationCorners[i];
+                DrawPointWithLabel(dc, corner, $"R{i + 1}", Brushes.OrangeRed, Brushes.Gold, 5);
+            }
+        }
+
+        for (var i = 0; i < rectification.TransformedHoleCenters.Count; i++)
+        {
+            DrawPointWithLabel(dc, rectification.TransformedHoleCenters[i], $"H{i + 1}", HoleBrush, HoleFillBrush, 6, 12);
         }
 
         return RenderVisual(visual, width, height);

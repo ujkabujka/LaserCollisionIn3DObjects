@@ -194,13 +194,9 @@
                                     <ScaleTransform x:Name="OriginalScaleTransform"/>
                                 </Canvas.RenderTransform>
                                 <Image x:Name="OriginalBaseImage"
-                                       Source="{Binding AnnotationWorkspace.SelectedImage.OriginalImage}"
+                                       Source="{Binding AnnotationWorkspace.SelectedImage.OriginalOverlay}"
                                        Stretch="None"
                                        SizeChanged="OnOriginalBaseImageSizeChanged"/>
-                                <Image Source="{Binding AnnotationWorkspace.SelectedImage.OriginalOverlay}"
-                                       Stretch="None"
-                                       IsHitTestVisible="False"
-                                       Panel.ZIndex="1"/>
                             </Canvas>
                         </Grid>
                     </ScrollViewer>
@@ -218,13 +214,9 @@
                                     <ScaleTransform x:Name="WarpedScaleTransform"/>
                                 </Canvas.RenderTransform>
                                 <Image x:Name="WarpedBaseImage"
-                                       Source="{Binding AnnotationWorkspace.SelectedImage.WarpedImage}"
+                                       Source="{Binding AnnotationWorkspace.SelectedImage.WarpedOverlay}"
                                        Stretch="None"
                                        SizeChanged="OnWarpedBaseImageSizeChanged"/>
-                                <Image Source="{Binding AnnotationWorkspace.SelectedImage.WarpedOverlay}"
-                                       Stretch="None"
-                                       IsHitTestVisible="False"
-                                       Panel.ZIndex="1"/>
                             </Canvas>
                         </Grid>
                     </ScrollViewer>
