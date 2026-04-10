@@ -12,6 +12,7 @@ public sealed class OverlayRenderer
     private static readonly Brush HoleBrush = Brushes.DeepSkyBlue;
     private static readonly Brush HoleFillBrush = new SolidColorBrush(Color.FromArgb(180, 0, 191, 255));
 
+    // I believe this overlay Image is wron please fix this function or make sure it works okey.
     public BitmapSource CreateOriginalOverlay(AnnotatedImageRecord record, int width, int height)
     {
         var visual = new DrawingVisual();
@@ -44,6 +45,7 @@ public sealed class OverlayRenderer
         return RenderVisual(visual, width, height);
     }
 
+    // I believe this overlay Image is wron please fix this function or make sure it works okey.
     public BitmapSource CreateWarpedOverlay(IReadOnlyList<Point> transformedHoleCenters, int width, int height)
     {
         var visual = new DrawingVisual();
