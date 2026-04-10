@@ -3,6 +3,7 @@ using System.Numerics;
 using System.Windows.Input;
 using LaserCollisionIn3DObjects.Domain.Generation;
 using LaserCollisionIn3DObjects.Wpf.Commands;
+using LaserCollisionIn3DObjects.Wpf.Features.Annotations.ViewModels;
 using LaserCollisionIn3DObjects.Wpf.Infrastructure;
 using LaserCollisionIn3DObjects.Wpf.Services;
 
@@ -60,6 +61,8 @@ public sealed class MainWindowViewModel : ObservableObject
     }
 
     public string Title => "Laser Collision in 3D Objects";
+
+    public AnnotationWorkspaceViewModel AnnotationWorkspace { get; } = new();
 
     public ObservableCollection<PrismItemViewModel> Prisms { get; } = new();
     public ObservableCollection<RayItemViewModel> Rays { get; } = new();
