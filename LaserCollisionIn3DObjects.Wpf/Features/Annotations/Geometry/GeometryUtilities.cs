@@ -70,7 +70,8 @@ public static class GeometryUtilities
         var bottomTwo = sortedByYThenX.Skip(2).OrderByDescending(c => c.X).ToArray();
 
         var ordered = new[] { topTwo[0], topTwo[1], bottomTwo[0], bottomTwo[1] };
-        return EnsureClockwise(ordered);
+        //return EnsureClockwise(ordered);
+        return ordered;
     }
 
     public static IReadOnlyList<Point> EnsureClockwise(IReadOnlyList<Point> corners)

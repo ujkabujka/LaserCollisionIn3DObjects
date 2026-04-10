@@ -49,7 +49,7 @@ public sealed class AnnotationWorkspaceService
     }
 
     public BitmapSource CreateOriginalOverlay(AnnotatedImageRecord record, BitmapSource image)
-        => _overlayRenderer.CreateOriginalOverlay(record, image.PixelWidth, image.PixelHeight);
+        => _overlayRenderer.CreateOriginalOverlay(record, image);
 
     public BitmapSource CreateWarpedOverlay(RectificationResult rectification)
         => _overlayRenderer.CreateWarpedOverlay(rectification);

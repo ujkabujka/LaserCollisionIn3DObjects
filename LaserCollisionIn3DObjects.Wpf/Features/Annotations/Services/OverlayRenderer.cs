@@ -12,7 +12,7 @@ public sealed class OverlayRenderer
     private static readonly Brush HoleBrush = Brushes.Orange;
     private static readonly Brush HoleFillBrush = new SolidColorBrush(Color.FromArgb(180, 255, 165, 0));
 
-    public BitmapSource CreateOriginalOverlay(AnnotatedImageRecord record, int width, int height)
+    public BitmapSource CreateOriginalOverlay(AnnotatedImageRecord record, BitmapSource image)
     {
         var visual = new DrawingVisual();
         using var dc = visual.RenderOpen();
@@ -42,7 +42,7 @@ public sealed class OverlayRenderer
             DrawPointWithLabel(dc, record.Holes[i].CenterPoint, $"H{i + 1}", HoleBrush, HoleFillBrush, 5, 12);
         }
 
-        return RenderVisual(visual, width, height);
+        return RenderVisual(visual, image.PixelWidth, image.PixelHeight);
     }
 
     public BitmapSource CreateWarpedOverlay(RectificationResult rectification)
