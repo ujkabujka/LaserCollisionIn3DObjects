@@ -14,60 +14,82 @@ public sealed class OverlayRenderer
 
     public BitmapSource CreateOriginalOverlay(AnnotatedImageRecord record, BitmapSource image)
     {
+            ArgumentNullException.ThrowIfNull(record);
+        ArgumentNullException.ThrowIfNull(image);
+
         var visual = new DrawingVisual();
-        using var dc = visual.RenderOpen();
-        dc.DrawRectangle(Brushes.Transparent, null, new Rect(0, 0, width, height));
 
-        if (record.Panel is not null)
+        using (var dc = visual.RenderOpen())
         {
-            var panelGeometry = BuildPolygon(record.Panel.OriginalPolygonPoints);
-            dc.DrawGeometry(null, new Pen(PanelPolygonBrush, 2.5), panelGeometry);
+            // Draw the original image first
+            dc.DrawImage(image, new Rect(0, 0, image.PixelWidth, image.PixelHeight));
 
-            if (record.Panel.FittedQuadrilateralCorners.Count == 4)
+            if (record.Panel is not null)
             {
-                var fit = BuildPolygon(record.Panel.FittedQuadrilateralCorners);
-                dc.DrawGeometry(null, new Pen(PanelCornerBrush, 3.5), fit);
+                var panelGeometry = BuildPolygon(record.Panel.OriginalPolygonPoints);
+                dc.DrawGeometry(null, new Pen(PanelPolygonBrush, 2.5), panelGeometry);
 
-                for (var i = 0; i < 4; i++)
+                if (record.Panel.FittedQuadrilateralCorners.Count == 4)
                 {
-                    var corner = record.Panel.FittedQuadrilateralCorners[i];
-                    DrawPointWithLabel(dc, corner, $"C{i + 1}", PanelCornerBrush, Brushes.Transparent, 5);
+                    var fit = BuildPolygon(record.Panel.FittedQuadrilateralCorners);
+                    dc.DrawGeometry(null, new Pen(PanelCornerBrush, 3.5), fit);
+
+                    for (var i = 0; i < 4; i++)
+                    {
+                        var corner = record.Panel.FittedQuadrilateralCorners[i];
+                        DrawPointWithLabel(dc, corner, $"C{i + 1}", PanelCornerBrush, Brushes.Transparent, 5);
+                    }
                 }
             }
-        }
 
-        for (var i = 0; i < record.Holes.Count; i++)
-        {
-            DrawHoleOutline(dc, record.Holes[i].OriginalShape);
-            DrawPointWithLabel(dc, record.Holes[i].CenterPoint, $"H{i + 1}", HoleBrush, HoleFillBrush, 5, 12);
+            for (var i = 0; i < record.Holes.Count; i++)
+            {
+                DrawHoleOutline(dc, record.Holes[i].OriginalShape);
+                DrawPointWithLabel(dc, record.Holes[i].CenterPoint, $"H{i + 1}", HoleBrush, HoleFillBrush, 5, 12);
+            }
         }
 
         return RenderVisual(visual, image.PixelWidth, image.PixelHeight);
     }
 
-    public BitmapSource CreateWarpedOverlay(RectificationResult rectification)
+    public BitmapSource CreateWarpedOverlay(RectificationResult rectification, BitmapSource warpedImage)
     {
-        var width = (int)rectification.DestinationSizePixels.Width;
-        var height = (int)rectification.DestinationSizePixels.Height;
+        ArgumentNullException.ThrowIfNull(rectification);
+        ArgumentNullException.ThrowIfNull(warpedImage);
+
+        var width = warpedImage.PixelWidth;
+        var height = warpedImage.PixelHeight;
+
         var visual = new DrawingVisual();
-        using var dc = visual.RenderOpen();
-        dc.DrawRectangle(Brushes.Transparent, null, new Rect(0, 0, width, height));
 
-        if (rectification.OrderedDestinationCorners.Count >= 4)
+        using (var dc = visual.RenderOpen())
         {
-            var panelPolygon = BuildPolygon(rectification.OrderedDestinationCorners);
-            dc.DrawGeometry(null, new Pen(PanelCornerBrush, 3.5), panelPolygon);
+            // Draw the warped image first
+            dc.DrawImage(warpedImage, new Rect(0, 0, width, height));
 
-            for (var i = 0; i < 4; i++)
+            if (rectification.OrderedDestinationCorners.Count >= 4)
             {
-                var corner = rectification.OrderedDestinationCorners[i];
-                DrawPointWithLabel(dc, corner, $"R{i + 1}", PanelCornerBrush, Brushes.Transparent, 5);
-            }
-        }
+                var panelPolygon = BuildPolygon(rectification.OrderedDestinationCorners);
+                dc.DrawGeometry(null, new Pen(PanelCornerBrush, 3.5), panelPolygon);
 
-        for (var i = 0; i < rectification.TransformedHoleCenters.Count; i++)
-        {
-            DrawPointWithLabel(dc, rectification.TransformedHoleCenters[i], $"H{i + 1}", HoleBrush, HoleFillBrush, 6, 12);
+                for (var i = 0; i < 4; i++)
+                {
+                    var corner = rectification.OrderedDestinationCorners[i];
+                    DrawPointWithLabel(dc, corner, $"R{i + 1}", PanelCornerBrush, Brushes.Transparent, 5);
+                }
+            }
+
+            for (var i = 0; i < rectification.TransformedHoleCenters.Count; i++)
+            {
+                DrawPointWithLabel(
+                    dc,
+                    rectification.TransformedHoleCenters[i],
+                    $"H{i + 1}",
+                    HoleBrush,
+                    HoleFillBrush,
+                    6,
+                    12);
+            }
         }
 
         return RenderVisual(visual, width, height);

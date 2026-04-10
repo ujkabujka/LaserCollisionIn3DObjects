@@ -149,12 +149,13 @@ public sealed class AnnotationWorkspaceViewModel : ObservableObject
         {
             selected.OriginalImage = _workspaceService.LoadImage(selected.Record.ImagePath!);
             selected.OriginalOverlay = _workspaceService.CreateOriginalOverlay(selected.Record, selected.OriginalImage);
+            SaveBitmapSourceAsPng(selected.OriginalOverlay, @"C:\Users\ugurcan.karaca\Desktop\Example Images\debug1.png");
 
             var rectified = _workspaceService.CreateRectification(selected.Record, selected.OriginalImage);
             if (rectified is not null)
             {
                 selected.WarpedImage = rectified.WarpedImage;
-                selected.WarpedOverlay = _workspaceService.CreateWarpedOverlay(rectified);
+                selected.WarpedOverlay = _workspaceService.CreateWarpedOverlay(rectified, rectified.WarpedImage);
             }
             else
             {
