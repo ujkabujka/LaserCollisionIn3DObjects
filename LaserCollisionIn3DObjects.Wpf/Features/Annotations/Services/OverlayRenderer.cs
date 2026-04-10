@@ -8,15 +8,15 @@ namespace LaserCollisionIn3DObjects.Wpf.Features.Annotations.Services;
 public sealed class OverlayRenderer
 {
     private static readonly Brush PanelPolygonBrush = Brushes.LimeGreen;
-    private static readonly Brush PanelFitBrush = Brushes.Orange;
-    private static readonly Brush HoleBrush = Brushes.DeepSkyBlue;
-    private static readonly Brush HoleFillBrush = new SolidColorBrush(Color.FromArgb(180, 0, 191, 255));
+    private static readonly Brush PanelCornerBrush = Brushes.Lime;
+    private static readonly Brush HoleBrush = Brushes.Orange;
+    private static readonly Brush HoleFillBrush = new SolidColorBrush(Color.FromArgb(180, 255, 165, 0));
 
     public BitmapSource CreateOriginalOverlay(AnnotatedImageRecord record, BitmapSource image)
     {
         var visual = new DrawingVisual();
         using var dc = visual.RenderOpen();
-        dc.DrawImage(image, new Rect(0, 0, image.PixelWidth, image.PixelHeight));
+        dc.DrawRectangle(Brushes.Transparent, null, new Rect(0, 0, width, height));
 
         if (record.Panel is not null)
         {
@@ -26,12 +26,12 @@ public sealed class OverlayRenderer
             if (record.Panel.FittedQuadrilateralCorners.Count == 4)
             {
                 var fit = BuildPolygon(record.Panel.FittedQuadrilateralCorners);
-                dc.DrawGeometry(null, new Pen(PanelFitBrush, 3.5), fit);
+                dc.DrawGeometry(null, new Pen(PanelCornerBrush, 3.5), fit);
 
                 for (var i = 0; i < 4; i++)
                 {
                     var corner = record.Panel.FittedQuadrilateralCorners[i];
-                    DrawPointWithLabel(dc, corner, $"C{i + 1}", Brushes.OrangeRed, Brushes.Gold, 5);
+                    DrawPointWithLabel(dc, corner, $"C{i + 1}", PanelCornerBrush, Brushes.Transparent, 5);
                 }
             }
         }
@@ -51,17 +51,17 @@ public sealed class OverlayRenderer
         var height = (int)rectification.DestinationSizePixels.Height;
         var visual = new DrawingVisual();
         using var dc = visual.RenderOpen();
-        dc.DrawImage(rectification.WarpedImage, new Rect(0, 0, width, height));
+        dc.DrawRectangle(Brushes.Transparent, null, new Rect(0, 0, width, height));
 
         if (rectification.OrderedDestinationCorners.Count >= 4)
         {
             var panelPolygon = BuildPolygon(rectification.OrderedDestinationCorners);
-            dc.DrawGeometry(null, new Pen(PanelFitBrush, 3.5), panelPolygon);
+            dc.DrawGeometry(null, new Pen(PanelCornerBrush, 3.5), panelPolygon);
 
             for (var i = 0; i < 4; i++)
             {
                 var corner = rectification.OrderedDestinationCorners[i];
-                DrawPointWithLabel(dc, corner, $"R{i + 1}", Brushes.OrangeRed, Brushes.Gold, 5);
+                DrawPointWithLabel(dc, corner, $"R{i + 1}", PanelCornerBrush, Brushes.Transparent, 5);
             }
         }
 
