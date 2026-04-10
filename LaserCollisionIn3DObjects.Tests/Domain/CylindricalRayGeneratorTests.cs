@@ -29,7 +29,7 @@ public sealed class CylindricalRayGeneratorTests
 
         foreach (var ray in rays)
         {
-            var radialDistance = MathF.Sqrt((ray.Origin.X * ray.Origin.X) + (ray.Origin.Z * ray.Origin.Z));
+            var radialDistance = MathF.Sqrt((ray.Origin.Y * ray.Origin.Y) + (ray.Origin.Z * ray.Origin.Z));
             Assert.Equal(3f, radialDistance, 3);
             Assert.InRange(ray.Origin.Y, -3f, 3f);
         }
