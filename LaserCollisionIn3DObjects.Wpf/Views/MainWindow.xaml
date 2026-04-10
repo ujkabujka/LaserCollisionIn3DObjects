@@ -165,6 +165,36 @@
                             <TextBlock VerticalAlignment="Center" Text="{Binding AnnotationWorkspace.SelectedImageIndex, StringFormat=Index: {0}}" />
                         </StackPanel>
 
+                        <Border BorderBrush="#D0D7DE" BorderThickness="1" CornerRadius="4" Padding="6" Margin="0,0,0,8" Background="#F7F9FB">
+                            <StackPanel>
+                                <TextBlock Text="Panel Dimensions (mm)" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                <UniformGrid Columns="2" Margin="0,0,0,6">
+                                    <StackPanel Margin="2">
+                                        <TextBlock Text="Global Width"/>
+                                        <TextBox Text="{Binding AnnotationWorkspace.GlobalPanelWidthMm, UpdateSourceTrigger=PropertyChanged}"/>
+                                    </StackPanel>
+                                    <StackPanel Margin="2">
+                                        <TextBlock Text="Global Height"/>
+                                        <TextBox Text="{Binding AnnotationWorkspace.GlobalPanelHeightMm, UpdateSourceTrigger=PropertyChanged}"/>
+                                    </StackPanel>
+                                </UniformGrid>
+                                <Button Content="Apply To All Images"
+                                        Command="{Binding AnnotationWorkspace.ApplyGlobalPanelDimensionsCommand}"
+                                        Height="26"
+                                        Margin="0,0,0,6"/>
+                                <UniformGrid Columns="2">
+                                    <StackPanel Margin="2">
+                                        <TextBlock Text="Selected Width"/>
+                                        <TextBox Text="{Binding AnnotationWorkspace.SelectedImage.PanelWidthMm, UpdateSourceTrigger=PropertyChanged, TargetNullValue=''}"/>
+                                    </StackPanel>
+                                    <StackPanel Margin="2">
+                                        <TextBlock Text="Selected Height"/>
+                                        <TextBox Text="{Binding AnnotationWorkspace.SelectedImage.PanelHeightMm, UpdateSourceTrigger=PropertyChanged, TargetNullValue=''}"/>
+                                    </StackPanel>
+                                </UniformGrid>
+                            </StackPanel>
+                        </Border>
+
                         <TextBlock Text="Images" FontWeight="SemiBold" />
                         <ListBox ItemsSource="{Binding AnnotationWorkspace.Images}" SelectedItem="{Binding AnnotationWorkspace.SelectedImage}" Height="220" DisplayMemberPath="DisplayName" Margin="0,4,0,8" />
                         <TextBlock Text="Fitted Panel Corners" FontWeight="SemiBold" />
@@ -175,6 +205,7 @@
                                 <DataGridTextColumn Header="Source Shape" Binding="{Binding ShapeType}" Width="90"/>
                                 <DataGridTextColumn Header="Original Center" Binding="{Binding OriginalCenter}" Width="110"/>
                                 <DataGridTextColumn Header="Warped Center" Binding="{Binding WarpedCenter}" Width="110"/>
+                                <DataGridTextColumn Header="Warped Center (mm)" Binding="{Binding WarpedCenterMm}" Width="120"/>
                                 <DataGridTextColumn Header="Area (px²)" Binding="{Binding PixelArea}" Width="80"/>
                             </DataGrid.Columns>
                         </DataGrid>
@@ -183,19 +214,49 @@
                 </Border>
 
                 <GroupBox Grid.Column="1" Grid.Row="0" Header="Original Image + Overlay" Margin="10,0,0,10">
-                    <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
-                        <Grid Background="#222" MinHeight="280" MinWidth="450">
-                            <Image Source="{Binding AnnotationWorkspace.SelectedImage.OriginalImage}" Stretch="None"/>
-                            <Image Source="{Binding AnnotationWorkspace.SelectedImage.OriginalOverlay}" Stretch="None"/>
+                    <ScrollViewer x:Name="OriginalScrollViewer"
+                                  HorizontalScrollBarVisibility="Auto"
+                                  VerticalScrollBarVisibility="Auto"
+                                  PreviewMouseWheel="OnAnnotationViewerPreviewMouseWheel"
+                                  SizeChanged="OnOriginalScrollViewerSizeChanged">
+                        <Grid Background="#222" MinHeight="280" MinWidth="450" ClipToBounds="True">
+                            <Canvas x:Name="OriginalCanvas" HorizontalAlignment="Left" VerticalAlignment="Top">
+                                <Canvas.RenderTransform>
+                                    <ScaleTransform x:Name="OriginalScaleTransform"/>
+                                </Canvas.RenderTransform>
+                                <Image x:Name="OriginalBaseImage"
+                                       Source="{Binding AnnotationWorkspace.SelectedImage.OriginalImage}"
+                                       Stretch="None"
+                                       SizeChanged="OnOriginalBaseImageSizeChanged"/>
+                                <Image Source="{Binding AnnotationWorkspace.SelectedImage.OriginalOverlay}"
+                                       Stretch="None"
+                                       IsHitTestVisible="False"
+                                       Panel.ZIndex="1"/>
+                            </Canvas>
                         </Grid>
                     </ScrollViewer>
                 </GroupBox>
 
                 <GroupBox Grid.Column="1" Grid.Row="1" Header="Rectified Panel + Warped Hole Centers" Margin="10,0,0,0">
-                    <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
-                        <Grid Background="#222" MinHeight="280" MinWidth="450">
-                            <Image Source="{Binding AnnotationWorkspace.SelectedImage.WarpedImage}" Stretch="None"/>
-                            <Image Source="{Binding AnnotationWorkspace.SelectedImage.WarpedOverlay}" Stretch="None"/>
+                    <ScrollViewer x:Name="WarpedScrollViewer"
+                                  HorizontalScrollBarVisibility="Auto"
+                                  VerticalScrollBarVisibility="Auto"
+                                  PreviewMouseWheel="OnAnnotationViewerPreviewMouseWheel"
+                                  SizeChanged="OnWarpedScrollViewerSizeChanged">
+                        <Grid Background="#222" MinHeight="280" MinWidth="450" ClipToBounds="True">
+                            <Canvas x:Name="WarpedCanvas" HorizontalAlignment="Left" VerticalAlignment="Top">
+                                <Canvas.RenderTransform>
+                                    <ScaleTransform x:Name="WarpedScaleTransform"/>
+                                </Canvas.RenderTransform>
+                                <Image x:Name="WarpedBaseImage"
+                                       Source="{Binding AnnotationWorkspace.SelectedImage.WarpedImage}"
+                                       Stretch="None"
+                                       SizeChanged="OnWarpedBaseImageSizeChanged"/>
+                                <Image Source="{Binding AnnotationWorkspace.SelectedImage.WarpedOverlay}"
+                                       Stretch="None"
+                                       IsHitTestVisible="False"
+                                       Panel.ZIndex="1"/>
+                            </Canvas>
                         </Grid>
                     </ScrollViewer>
                 </GroupBox>

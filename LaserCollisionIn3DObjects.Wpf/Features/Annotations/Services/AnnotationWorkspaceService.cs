@@ -52,21 +52,36 @@ public sealed class AnnotationWorkspaceService
         => _overlayRenderer.CreateOriginalOverlay(record, image.PixelWidth, image.PixelHeight);
 
     public BitmapSource CreateWarpedOverlay(RectificationResult rectification)
-        => _overlayRenderer.CreateWarpedOverlay(rectification.TransformedHoleCenters, (int)rectification.DestinationSizePixels.Width, (int)rectification.DestinationSizePixels.Height);
+        => _overlayRenderer.CreateWarpedOverlay(rectification);
 
-    public static IReadOnlyList<HoleViewModel> BuildHoleRows(AnnotatedImageRecord record, RectificationResult? rectification)
+    public static IReadOnlyList<HoleViewModel> BuildHoleRows(
+        AnnotatedImageRecord record,
+        RectificationResult? rectification,
+        PanelMetricCalibration calibration)
     {
         var rows = new List<HoleViewModel>(record.Holes.Count);
+        var canConvertToMm = rectification is not null
+            && calibration.IsConfigured
+            && rectification.DestinationSizePixels.Width > 0
+            && rectification.DestinationSizePixels.Height > 0;
+
+        var mmScaleX = canConvertToMm ? calibration.PhysicalWidthMm!.Value / rectification!.DestinationSizePixels.Width : 0d;
+        var mmScaleY = canConvertToMm ? calibration.PhysicalHeightMm!.Value / rectification!.DestinationSizePixels.Height : 0d;
+
         for (var i = 0; i < record.Holes.Count; i++)
         {
             var hole = record.Holes[i];
             var warpedCenter = rectification?.TransformedHoleCenters.ElementAtOrDefault(i) ?? new Point(double.NaN, double.NaN);
+            var warpedCenterMm = canConvertToMm && !double.IsNaN(warpedCenter.X)
+                ? $"({(warpedCenter.X * mmScaleX):F2}, {(warpedCenter.Y * mmScaleY):F2})"
+                : "N/A";
             rows.Add(new HoleViewModel
             {
                 Index = i + 1,
                 ShapeType = hole.ShapeType,
                 OriginalCenter = $"({hole.CenterPoint.X:F1}, {hole.CenterPoint.Y:F1})",
                 WarpedCenter = double.IsNaN(warpedCenter.X) ? "N/A" : $"({warpedCenter.X:F1}, {warpedCenter.Y:F1})",
+                WarpedCenterMm = warpedCenterMm,
                 PixelArea = hole.PixelArea.ToString("F2"),
             });
         }
