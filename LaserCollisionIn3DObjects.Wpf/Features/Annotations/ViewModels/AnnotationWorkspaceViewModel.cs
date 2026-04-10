@@ -7,6 +7,7 @@ using LaserCollisionIn3DObjects.Wpf.Commands;
 using LaserCollisionIn3DObjects.Wpf.Features.Annotations.Models;
 using LaserCollisionIn3DObjects.Wpf.Features.Annotations.Services;
 using LaserCollisionIn3DObjects.Wpf.Infrastructure;
+using System.Windows.Media.Imaging;
 
 namespace LaserCollisionIn3DObjects.Wpf.Features.Annotations.ViewModels;
 
@@ -181,12 +182,13 @@ public sealed class AnnotationWorkspaceViewModel : ObservableObject
         {
             selected.OriginalImage = _workspaceService.LoadImage(selected.Record.ImagePath!);
             selected.OriginalOverlay = _workspaceService.CreateOriginalOverlay(selected.Record, selected.OriginalImage);
+            SaveBitmapSourceAsPng(selected.OriginalOverlay, @"C:\Users\ugurcan.karaca\Desktop\Example Images\debug1.png");
 
             var rectified = _workspaceService.CreateRectification(selected.Record, selected.OriginalImage);
             if (rectified is not null)
             {
                 selected.WarpedImage = rectified.WarpedImage;
-                selected.WarpedOverlay = _workspaceService.CreateWarpedOverlay(rectified);
+                selected.WarpedOverlay = _workspaceService.CreateWarpedOverlay(rectified, rectified.WarpedImage);
             }
             else
             {
@@ -275,5 +277,23 @@ public sealed class AnnotationWorkspaceViewModel : ObservableObject
         }
 
         RaisePropertyChanged(nameof(WarpedHoleCentersMmByImage));
+    }
+
+    public static void SaveBitmapSourceAsPng(BitmapSource bitmap, string path)
+    {
+        ArgumentNullException.ThrowIfNull(bitmap);
+        ArgumentException.ThrowIfNullOrWhiteSpace(path);
+
+        var directory = Path.GetDirectoryName(path);
+        if (!string.IsNullOrEmpty(directory))
+        {
+            Directory.CreateDirectory(directory);
+        }
+
+        var encoder = new PngBitmapEncoder();
+        encoder.Frames.Add(BitmapFrame.Create(bitmap));
+
+        using var stream = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.None);
+        encoder.Save(stream);
     }
 }
