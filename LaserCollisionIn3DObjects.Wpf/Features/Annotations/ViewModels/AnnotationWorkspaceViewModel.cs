@@ -8,11 +8,13 @@ using LaserCollisionIn3DObjects.Wpf.Features.Annotations.Models;
 using LaserCollisionIn3DObjects.Wpf.Features.Annotations.Services;
 using LaserCollisionIn3DObjects.Wpf.Infrastructure;
 using System.Windows.Media.Imaging;
+using LaserCollisionIn3DObjects.Wpf.Services;
 
 namespace LaserCollisionIn3DObjects.Wpf.Features.Annotations.ViewModels;
 
 public sealed class AnnotationWorkspaceViewModel : ObservableObject
 {
+    private readonly SceneCollectionService? _sceneCollectionService;
     private readonly AnnotationWorkspaceService _workspaceService = new();
     private readonly Dictionary<AnnotatedImageViewModel, RectificationResult?> _rectificationByImage = new();
     private string _selectedFolderPath = "No folder selected.";
@@ -21,8 +23,9 @@ public sealed class AnnotationWorkspaceViewModel : ObservableObject
     private double _globalPanelWidthMm = 1000;
     private double _globalPanelHeightMm = 1000;
 
-    public AnnotationWorkspaceViewModel()
+    public AnnotationWorkspaceViewModel(SceneCollectionService? sceneCollectionService = null)
     {
+        _sceneCollectionService = sceneCollectionService;
         SelectFolderCommand = new RelayCommand(SelectFolder);
         SelectPreviousImageCommand = new RelayCommand(SelectPreviousImage, () => SelectedImageIndex > 0);
         SelectNextImageCommand = new RelayCommand(SelectNextImage, () => SelectedImageIndex >= 0 && SelectedImageIndex < Images.Count - 1);
@@ -38,6 +41,9 @@ public sealed class AnnotationWorkspaceViewModel : ObservableObject
     public ICommand ApplyGlobalPanelDimensionsCommand { get; }
 
     public ObservableCollection<AnnotatedImageViewModel> Images { get; } = new();
+
+    // TODO Phase 2: generate collision scenes from annotation data and push through this shared scene collection.
+    public SceneCollectionService? SceneCollectionService => _sceneCollectionService;
 
     public string SelectedFolderPath
     {

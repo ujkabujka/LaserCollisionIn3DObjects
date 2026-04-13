@@ -23,6 +23,24 @@
                         <StackPanel>
                             <TextBlock Text="Scene Editor" FontSize="20" FontWeight="SemiBold" Margin="0,0,0,10" />
 
+                            <GroupBox Header="Scenes" Margin="0,0,0,8" Padding="8">
+                                <StackPanel>
+                                    <Grid Margin="0,0,0,6">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="90"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="Name" VerticalAlignment="Center"/>
+                                        <TextBox Grid.Column="1" Text="{Binding NewSceneName, UpdateSourceTrigger=PropertyChanged}"/>
+                                    </Grid>
+                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                                        <Button Content="Create Scene" Command="{Binding CreateSceneCommand}" Width="110" Margin="0,0,8,0"/>
+                                        <Button Content="Delete Selected" Command="{Binding DeleteSelectedSceneCommand}" Width="120"/>
+                                    </StackPanel>
+                                    <ListBox ItemsSource="{Binding Scenes}" SelectedItem="{Binding SelectedScene}" Height="120" DisplayMemberPath="Name"/>
+                                </StackPanel>
+                            </GroupBox>
+
                             <GroupBox Header="Prisms" Margin="0,0,0,8" Padding="8">
                                 <StackPanel>
                                     <Grid Margin="0,0,0,6"><Grid.ColumnDefinitions><ColumnDefinition Width="90"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><TextBlock Grid.Column="0" Text="Name" VerticalAlignment="Center"/><TextBox Grid.Column="1" Text="{Binding NewPrismName}"/></Grid>
