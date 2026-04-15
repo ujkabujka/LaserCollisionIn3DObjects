@@ -8,11 +8,13 @@ using LaserCollisionIn3DObjects.Wpf.Features.Annotations.Models;
 using LaserCollisionIn3DObjects.Wpf.Features.Annotations.Services;
 using LaserCollisionIn3DObjects.Wpf.Infrastructure;
 using System.Windows.Media.Imaging;
+using LaserCollisionIn3DObjects.Wpf.Services;
 
 namespace LaserCollisionIn3DObjects.Wpf.Features.Annotations.ViewModels;
 
 public sealed class AnnotationWorkspaceViewModel : ObservableObject
 {
+    private readonly SceneCollectionService? _sceneCollectionService;
     private readonly AnnotationWorkspaceService _workspaceService = new();
     private readonly Dictionary<AnnotatedImageViewModel, RectificationResult?> _rectificationByImage = new();
     private string _selectedFolderPath = "No folder selected.";
@@ -20,13 +22,16 @@ public sealed class AnnotationWorkspaceViewModel : ObservableObject
     private AnnotatedImageViewModel? _selectedImage;
     private double _globalPanelWidthMm = 1000;
     private double _globalPanelHeightMm = 1000;
+    private double _globalPanelThicknessMm = 10;
 
-    public AnnotationWorkspaceViewModel()
+    public AnnotationWorkspaceViewModel(SceneCollectionService? sceneCollectionService = null)
     {
+        _sceneCollectionService = sceneCollectionService;
         SelectFolderCommand = new RelayCommand(SelectFolder);
         SelectPreviousImageCommand = new RelayCommand(SelectPreviousImage, () => SelectedImageIndex > 0);
         SelectNextImageCommand = new RelayCommand(SelectNextImage, () => SelectedImageIndex >= 0 && SelectedImageIndex < Images.Count - 1);
         ApplyGlobalPanelDimensionsCommand = new RelayCommand(ApplyGlobalPanelDimensions, () => Images.Count > 0);
+        GenerateSceneCommand = new RelayCommand(GenerateSceneReadinessCheck, () => Images.Count > 0);
     }
 
     public ICommand SelectFolderCommand { get; }
@@ -37,7 +42,14 @@ public sealed class AnnotationWorkspaceViewModel : ObservableObject
 
     public ICommand ApplyGlobalPanelDimensionsCommand { get; }
 
+    public ICommand GenerateSceneCommand { get; }
+
     public ObservableCollection<AnnotatedImageViewModel> Images { get; } = new();
+
+    public CornerMeasurementMode[] CornerMeasurementModes { get; } = Enum.GetValues<CornerMeasurementMode>();
+
+    // TODO Phase 2: generate collision scenes from annotation data and push through this shared scene collection.
+    public SceneCollectionService? SceneCollectionService => _sceneCollectionService;
 
     public string SelectedFolderPath
     {
@@ -92,6 +104,12 @@ public sealed class AnnotationWorkspaceViewModel : ObservableObject
     {
         get => _globalPanelHeightMm;
         set => SetProperty(ref _globalPanelHeightMm, value);
+    }
+
+    public double GlobalPanelThicknessMm
+    {
+        get => _globalPanelThicknessMm;
+        set => SetProperty(ref _globalPanelThicknessMm, value);
     }
 
     private void SelectFolder()
@@ -154,6 +172,7 @@ public sealed class AnnotationWorkspaceViewModel : ObservableObject
                     Record = record,
                     PanelWidthMm = record.Calibration.PhysicalWidthMm,
                     PanelHeightMm = record.Calibration.PhysicalHeightMm,
+                    PanelThicknessMm = GlobalPanelThicknessMm,
                 };
                 viewModel.PropertyChanged += OnImageCalibrationChanged;
                 Images.Add(viewModel);
@@ -220,13 +239,14 @@ public sealed class AnnotationWorkspaceViewModel : ObservableObject
         (SelectPreviousImageCommand as RelayCommand)?.RaiseCanExecuteChanged();
         (SelectNextImageCommand as RelayCommand)?.RaiseCanExecuteChanged();
         (ApplyGlobalPanelDimensionsCommand as RelayCommand)?.RaiseCanExecuteChanged();
+        (GenerateSceneCommand as RelayCommand)?.RaiseCanExecuteChanged();
     }
 
     private void ApplyGlobalPanelDimensions()
     {
-        if (GlobalPanelWidthMm <= 0 || GlobalPanelHeightMm <= 0)
+        if (GlobalPanelWidthMm <= 0 || GlobalPanelHeightMm <= 0 || GlobalPanelThicknessMm <= 0)
         {
-            StatusMessage = "Global panel dimensions must be greater than zero.";
+            StatusMessage = "Global panel width, height, and thickness must be greater than zero.";
             return;
         }
 
@@ -234,10 +254,11 @@ public sealed class AnnotationWorkspaceViewModel : ObservableObject
         {
             image.PanelWidthMm = GlobalPanelWidthMm;
             image.PanelHeightMm = GlobalPanelHeightMm;
+            image.PanelThicknessMm = GlobalPanelThicknessMm;
             RebuildHoleRows(image);
         }
 
-        StatusMessage = $"Applied {GlobalPanelWidthMm:F2}mm x {GlobalPanelHeightMm:F2}mm to {Images.Count} images.";
+        StatusMessage = $"Applied {GlobalPanelWidthMm:F2}mm x {GlobalPanelHeightMm:F2}mm x {GlobalPanelThicknessMm:F2}mm to {Images.Count} images.";
     }
 
     private void OnImageCalibrationChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
@@ -249,6 +270,104 @@ public sealed class AnnotationWorkspaceViewModel : ObservableObject
         }
 
         RebuildHoleRows(image);
+    }
+
+
+    private void GenerateSceneReadinessCheck()
+    {
+        var errors = ValidateSceneGenerationInputs();
+        if (errors.Count == 0)
+        {
+            StatusMessage = "All required panel measurements are provided. Scene generation can proceed.";
+            return;
+        }
+
+        var firstErrors = errors.Take(8).ToList();
+        var suffix = errors.Count > firstErrors.Count
+            ? $" | ...and {errors.Count - firstErrors.Count} more issue(s)."
+            : string.Empty;
+        StatusMessage = $"Scene generation readiness failed: {string.Join(" | ", firstErrors)}{suffix}";
+    }
+
+    private List<string> ValidateSceneGenerationInputs()
+    {
+        var errors = new List<string>();
+
+        if (Images.Count == 0)
+        {
+            errors.Add("No annotated images are loaded.");
+            return errors;
+        }
+
+        foreach (var image in Images)
+        {
+            if (!image.HasPanel)
+            {
+                errors.Add($"{image.FileName}: panel annotation is missing.");
+            }
+
+            if (image.PanelWidthMm is null or <= 0)
+            {
+                errors.Add($"{image.FileName}: width is missing.");
+            }
+
+            if (image.PanelHeightMm is null or <= 0)
+            {
+                errors.Add($"{image.FileName}: height is missing.");
+            }
+
+            if (image.PanelThicknessMm is null or <= 0)
+            {
+                errors.Add($"{image.FileName}: thickness is missing.");
+            }
+
+            foreach (var corner in image.CornerMeasurements)
+            {
+                var prefix = $"{image.FileName} - {corner.DisplayName}";
+                if (corner.SelectedMode == CornerMeasurementMode.Unspecified)
+                {
+                    errors.Add($"{prefix}: mode is not selected.");
+                    continue;
+                }
+
+                if (corner.SelectedMode == CornerMeasurementMode.ManualMeasurement)
+                {
+                    if (corner.ManualAzimuthDeg is null)
+                    {
+                        errors.Add($"{prefix}: azimuth is missing.");
+                    }
+
+                    if (corner.ManualElevationDeg is null)
+                    {
+                        errors.Add($"{prefix}: elevation is missing.");
+                    }
+
+                    if (corner.ManualDistanceMeters is null)
+                    {
+                        errors.Add($"{prefix}: distance is missing.");
+                    }
+                }
+                else if (corner.SelectedMode == CornerMeasurementMode.DirectCoordinateTheodolite)
+                {
+                    if (corner.DirectX is null)
+                    {
+                        errors.Add($"{prefix}: X coordinate is missing.");
+                    }
+
+                    if (corner.DirectY is null)
+                    {
+                        errors.Add($"{prefix}: Y coordinate is missing.");
+                    }
+
+                    if (corner.DirectZ is null)
+                    {
+                        errors.Add($"{prefix}: Z coordinate is missing.");
+                    }
+                }
+            }
+        }
+
+        return errors;
     }
 
     private void RebuildHoleRows(AnnotatedImageViewModel image)

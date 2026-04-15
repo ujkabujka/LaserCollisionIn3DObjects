@@ -10,6 +10,20 @@ public sealed class AnnotatedImageViewModel : ObservableObject
 {
     private double? _panelWidthMm;
     private double? _panelHeightMm;
+    private double? _panelThicknessMm;
+
+    public AnnotatedImageViewModel()
+    {
+        LeftTopCorner = new CornerMeasurementViewModel(CornerType.LeftTop);
+        RightTopCorner = new CornerMeasurementViewModel(CornerType.RightTop);
+        RightBottomCorner = new CornerMeasurementViewModel(CornerType.RightBottom);
+        LeftBottomCorner = new CornerMeasurementViewModel(CornerType.LeftBottom);
+
+        CornerMeasurements.Add(LeftTopCorner);
+        CornerMeasurements.Add(RightTopCorner);
+        CornerMeasurements.Add(RightBottomCorner);
+        CornerMeasurements.Add(LeftBottomCorner);
+    }
 
     public required AnnotatedImageRecord Record { get; init; }
 
@@ -31,6 +45,16 @@ public sealed class AnnotatedImageViewModel : ObservableObject
 
     public ObservableCollection<HoleViewModel> Holes { get; } = new();
     public ObservableCollection<Point> WarpedHoleCentersMm { get; } = new();
+
+    public ObservableCollection<CornerMeasurementViewModel> CornerMeasurements { get; } = new();
+
+    public CornerMeasurementViewModel LeftTopCorner { get; }
+
+    public CornerMeasurementViewModel RightTopCorner { get; }
+
+    public CornerMeasurementViewModel RightBottomCorner { get; }
+
+    public CornerMeasurementViewModel LeftBottomCorner { get; }
 
     public string PanelCornersText { get; set; } = "N/A";
 
@@ -58,5 +82,11 @@ public sealed class AnnotatedImageViewModel : ObservableObject
                 Record.Calibration.PhysicalHeightMm = value;
             }
         }
+    }
+
+    public double? PanelThicknessMm
+    {
+        get => _panelThicknessMm;
+        set => SetProperty(ref _panelThicknessMm, value);
     }
 }
