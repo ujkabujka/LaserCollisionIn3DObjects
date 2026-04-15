@@ -4,6 +4,7 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:h="http://helix-toolkit.org/wpf"
+        xmlns:avm="clr-namespace:LaserCollisionIn3DObjects.Wpf.Features.Annotations.ViewModels"
         mc:Ignorable="d"
         Title="{Binding Title}"
         Width="1500"
@@ -183,7 +184,7 @@
                         <Border BorderBrush="#D0D7DE" BorderThickness="1" CornerRadius="4" Padding="6" Margin="0,0,0,8" Background="#F7F9FB">
                             <StackPanel>
                                 <TextBlock Text="Panel Dimensions (mm)" FontWeight="SemiBold" Margin="0,0,0,4"/>
-                                <UniformGrid Columns="2" Margin="0,0,0,6">
+                                <UniformGrid Columns="3" Margin="0,0,0,6">
                                     <StackPanel Margin="2">
                                         <TextBlock Text="Global Width"/>
                                         <TextBox Text="{Binding AnnotationWorkspace.GlobalPanelWidthMm, UpdateSourceTrigger=PropertyChanged}"/>
@@ -192,12 +193,16 @@
                                         <TextBlock Text="Global Height"/>
                                         <TextBox Text="{Binding AnnotationWorkspace.GlobalPanelHeightMm, UpdateSourceTrigger=PropertyChanged}"/>
                                     </StackPanel>
+                                    <StackPanel Margin="2">
+                                        <TextBlock Text="Global Thickness"/>
+                                        <TextBox Text="{Binding AnnotationWorkspace.GlobalPanelThicknessMm, UpdateSourceTrigger=PropertyChanged}"/>
+                                    </StackPanel>
                                 </UniformGrid>
                                 <Button Content="Apply To All Images"
                                         Command="{Binding AnnotationWorkspace.ApplyGlobalPanelDimensionsCommand}"
                                         Height="26"
                                         Margin="0,0,0,6"/>
-                                <UniformGrid Columns="2">
+                                <UniformGrid Columns="3" Margin="0,0,0,6">
                                     <StackPanel Margin="2">
                                         <TextBlock Text="Selected Width"/>
                                         <TextBox Text="{Binding AnnotationWorkspace.SelectedImage.PanelWidthMm, UpdateSourceTrigger=PropertyChanged, TargetNullValue=''}"/>
@@ -206,9 +211,76 @@
                                         <TextBlock Text="Selected Height"/>
                                         <TextBox Text="{Binding AnnotationWorkspace.SelectedImage.PanelHeightMm, UpdateSourceTrigger=PropertyChanged, TargetNullValue=''}"/>
                                     </StackPanel>
+                                    <StackPanel Margin="2">
+                                        <TextBlock Text="Selected Thickness"/>
+                                        <TextBox Text="{Binding AnnotationWorkspace.SelectedImage.PanelThicknessMm, UpdateSourceTrigger=PropertyChanged, TargetNullValue=''}"/>
+                                    </StackPanel>
                                 </UniformGrid>
+                                <Button Content="Generate Scene"
+                                        Command="{Binding AnnotationWorkspace.GenerateSceneCommand}"
+                                        Height="28"/>
                             </StackPanel>
                         </Border>
+
+                        <GroupBox Header="Corner Measurements" Margin="0,0,0,8" Padding="6">
+                            <ScrollViewer VerticalScrollBarVisibility="Auto" Height="300">
+                                <ItemsControl ItemsSource="{Binding AnnotationWorkspace.SelectedImage.CornerMeasurements, TargetNullValue={x:Null}}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border BorderBrush="#D0D7DE" BorderThickness="1" CornerRadius="4" Padding="6" Margin="0,0,0,6" Background="#FFFFFF">
+                                                <StackPanel>
+                                                    <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                                                        <TextBlock Text="Input Mode" Width="75" VerticalAlignment="Center"/>
+                                                        <ComboBox Width="220"
+                                                                  ItemsSource="{Binding DataContext.AnnotationWorkspace.CornerMeasurementModes, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                  SelectedItem="{Binding SelectedMode, UpdateSourceTrigger=PropertyChanged}"/>
+                                                    </StackPanel>
+
+                                                    <StackPanel Margin="0,0,0,6">
+                                                        <StackPanel.Style>
+                                                            <Style TargetType="StackPanel">
+                                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding SelectedMode}" Value="{x:Static avm:CornerMeasurementMode.ManualMeasurement}">
+                                                                        <Setter Property="Visibility" Value="Visible"/>
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </StackPanel.Style>
+                                                        <TextBlock Text="Manual Measurement" FontWeight="SemiBold" Foreground="#2E4053"/>
+                                                        <UniformGrid Columns="3">
+                                                            <StackPanel Margin="2"><TextBlock Text="Azimuth (deg)"/><TextBox Text="{Binding ManualAzimuthDeg, UpdateSourceTrigger=PropertyChanged, TargetNullValue=''}"/></StackPanel>
+                                                            <StackPanel Margin="2"><TextBlock Text="Elevation (deg)"/><TextBox Text="{Binding ManualElevationDeg, UpdateSourceTrigger=PropertyChanged, TargetNullValue=''}"/></StackPanel>
+                                                            <StackPanel Margin="2"><TextBlock Text="Distance (m)"/><TextBox Text="{Binding ManualDistanceMeters, UpdateSourceTrigger=PropertyChanged, TargetNullValue=''}"/></StackPanel>
+                                                        </UniformGrid>
+                                                    </StackPanel>
+
+                                                    <StackPanel>
+                                                        <StackPanel.Style>
+                                                            <Style TargetType="StackPanel">
+                                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding SelectedMode}" Value="{x:Static avm:CornerMeasurementMode.DirectCoordinateTheodolite}">
+                                                                        <Setter Property="Visibility" Value="Visible"/>
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </StackPanel.Style>
+                                                        <TextBlock Text="Direct Coordinate (Theodolite)" FontWeight="SemiBold" Foreground="#2E4053"/>
+                                                        <UniformGrid Columns="3">
+                                                            <StackPanel Margin="2"><TextBlock Text="X (m)"/><TextBox Text="{Binding DirectX, UpdateSourceTrigger=PropertyChanged, TargetNullValue=''}"/></StackPanel>
+                                                            <StackPanel Margin="2"><TextBlock Text="Y (m)"/><TextBox Text="{Binding DirectY, UpdateSourceTrigger=PropertyChanged, TargetNullValue=''}"/></StackPanel>
+                                                            <StackPanel Margin="2"><TextBlock Text="Z (m)"/><TextBox Text="{Binding DirectZ, UpdateSourceTrigger=PropertyChanged, TargetNullValue=''}"/></StackPanel>
+                                                        </UniformGrid>
+                                                    </StackPanel>
+                                                </StackPanel>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                        </GroupBox>
 
                         <TextBlock Text="Images" FontWeight="SemiBold" />
                         <ListBox ItemsSource="{Binding AnnotationWorkspace.Images}" SelectedItem="{Binding AnnotationWorkspace.SelectedImage}" Height="220" DisplayMemberPath="DisplayName" Margin="0,4,0,8" />
