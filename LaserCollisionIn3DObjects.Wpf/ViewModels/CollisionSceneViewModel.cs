@@ -1,4 +1,6 @@
 using System.Collections.ObjectModel;
+using System.Windows.Media.Media3D;
+using LaserCollisionIn3DObjects.Domain.Geometry;
 using LaserCollisionIn3DObjects.Wpf.Infrastructure;
 
 namespace LaserCollisionIn3DObjects.Wpf.ViewModels;
@@ -12,6 +14,8 @@ public sealed class CollisionSceneViewModel : ObservableObject
     private PrismItemViewModel? _selectedPrism;
     private RayItemViewModel? _selectedRay;
     private CylindricalLightSourceItemViewModel? _selectedLightSource;
+    private List<Point3>? _holeCenters;
+
 
     public CollisionSceneViewModel(string name)
     {
@@ -28,7 +32,8 @@ public sealed class CollisionSceneViewModel : ObservableObject
     public ObservableCollection<RayItemViewModel> Rays { get; } = new();
     public ObservableCollection<CylindricalLightSourceItemViewModel> LightSources { get; } = new();
     public ObservableCollection<HitResultItemViewModel> HitResults { get; } = new();
-
+    public List<Point3> HoleCenters = new();
+   
     public PrismItemViewModel? SelectedPrism
     {
         get => _selectedPrism;
@@ -46,4 +51,5 @@ public sealed class CollisionSceneViewModel : ObservableObject
         get => _selectedLightSource;
         set => SetProperty(ref _selectedLightSource, value);
     }
+
 }

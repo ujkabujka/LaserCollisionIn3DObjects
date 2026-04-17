@@ -1,4 +1,6 @@
+
 using LaserCollisionIn3DObjects.Domain.Geometry;
+
 
 namespace LaserCollisionIn3DObjects.Domain.Scene;
 
@@ -26,4 +28,10 @@ public sealed class SceneModel
     /// Gets the rays generated from cylindrical light sources.
     /// </summary>
     public List<Ray3D> GeneratedRays { get; } = new();
+
+
+    /// <summary>
+    /// Gets the hole centers from prisms .
+    /// </summary>
+    public List<Point3> holes { get; } = new();
 }

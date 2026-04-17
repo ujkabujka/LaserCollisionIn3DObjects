@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.Numerics;
 using System.Windows.Input;
 using LaserCollisionIn3DObjects.Domain.Generation;
+using LaserCollisionIn3DObjects.Domain.Geometry;
 using LaserCollisionIn3DObjects.Wpf.Commands;
 using LaserCollisionIn3DObjects.Wpf.Features.Annotations.ViewModels;
 using LaserCollisionIn3DObjects.Wpf.Infrastructure;
@@ -21,7 +22,7 @@ public sealed class MainWindowViewModel : ObservableObject
     private static readonly ObservableCollection<RayItemViewModel> EmptyRays = new();
     private static readonly ObservableCollection<CylindricalLightSourceItemViewModel> EmptyLightSources = new();
     private static readonly ObservableCollection<HitResultItemViewModel> EmptyHitResults = new();
-
+    private static readonly List<Point3> EmptyHoles = new();
     private readonly SceneRenderSyncService _renderSyncService;
     private readonly SceneCollectionService _sceneCollectionService;
     private string _newSceneName = "Scene 1";
@@ -575,8 +576,9 @@ public sealed class MainWindowViewModel : ObservableObject
             var prisms = scene?.Prisms ?? EmptyPrisms;
             var lightSources = scene?.LightSources ?? EmptyLightSources;
             var rays = scene?.Rays ?? EmptyRays;
+            var holes = scene?.HoleCenters ?? EmptyHoles;
 
-            var sceneSyncResult = _renderSyncService.SyncScene(prisms, lightSources, rays, runCollision, SelectedCollisionAlgorithm);
+            var sceneSyncResult = _renderSyncService.SyncScene(prisms, lightSources, rays, holes, runCollision, SelectedCollisionAlgorithm);
             var rows = sceneSyncResult.HitRows;
 
             if (scene is not null)

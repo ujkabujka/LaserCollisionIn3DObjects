@@ -135,6 +135,56 @@ public sealed class HelixRayVisualizer
         };
     }
 
+    public Visual3D CreateHitPoints(IReadOnlyList<RayHitResult> hitResult, Color? color = null)
+    {
+         ArgumentNullException.ThrowIfNull(hitResult);
+
+        if (hitResult.Count == 0)
+        {
+            return new ModelVisual3D();
+        }
+
+        var points = new PointsVisual3D
+        {
+            Color = color ?? Colors.Red,
+            Size = 3
+        };
+
+        foreach (var hit in hitResult)
+        {
+
+            points.Points.Add(ToPoint3D(hit.HitPoint));
+        }
+
+        return  points;
+    }
+
+    public Visual3D CreateHitPoints(IReadOnlyList<Point3> holes, Color? color = null)
+    {
+         ArgumentNullException.ThrowIfNull(holes);
+
+        if (holes.Count == 0)
+        {
+            return new ModelVisual3D();
+        }
+
+        var points = new PointsVisual3D
+        {
+            Color = color ?? Colors.Blue,
+            Size = 3
+        };
+
+        foreach (var hole in holes)
+        {
+
+            points.Points.Add(new Point3D(hole.X, hole.Y, hole.Z));
+        }
+
+        return  points;
+    }
+
+
+
     private static Point3D ToPoint3D(Vector3 value)
     {
         return new Point3D(value.X, value.Y, value.Z);

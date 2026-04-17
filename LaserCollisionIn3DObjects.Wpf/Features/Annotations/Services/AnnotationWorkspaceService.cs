@@ -72,8 +72,9 @@ public sealed class AnnotationWorkspaceService
         {
             var hole = record.Holes[i];
             var warpedCenter = rectification?.TransformedHoleCenters.ElementAtOrDefault(i) ?? new Point(double.NaN, double.NaN);
+            var center = new Point(warpedCenter.X * mmScaleX, warpedCenter.Y * mmScaleY);
             var warpedCenterMm = canConvertToMm && !double.IsNaN(warpedCenter.X)
-                ? $"({(warpedCenter.X * mmScaleX):F2}, {(warpedCenter.Y * mmScaleY):F2})"
+                ? $"({(center.X):F2}, {(center.Y):F2})"
                 : "N/A";
             rows.Add(new HoleViewModel
             {
@@ -82,6 +83,7 @@ public sealed class AnnotationWorkspaceService
                 OriginalCenter = $"({hole.CenterPoint.X:F1}, {hole.CenterPoint.Y:F1})",
                 WarpedCenter = double.IsNaN(warpedCenter.X) ? "N/A" : $"({warpedCenter.X:F1}, {warpedCenter.Y:F1})",
                 WarpedCenterMm = warpedCenterMm,
+                WarpedCenterMmNumeric = center,
                 PixelArea = hole.PixelArea.ToString("F2"),
             });
         }

@@ -39,10 +39,11 @@ public sealed class SceneRenderSyncService
         IReadOnlyList<PrismItemViewModel> prismItems,
         IReadOnlyList<CylindricalLightSourceItemViewModel> lightSourceItems,
         IReadOnlyList<RayItemViewModel> rayItems,
+        IReadOnlyList<Point3> holes,
         bool runCollision,
         CollisionAlgorithmOption algorithm)
     {
-        var scene = BuildDomainScene(prismItems, lightSourceItems, rayItems);
+        var scene = BuildDomainScene(prismItems, lightSourceItems, rayItems, holes);
         var stopwatch = System.Diagnostics.Stopwatch.StartNew();
         var collisionResults = runCollision ? CalculateFirstHits(scene, algorithm) : new List<(DomainRay3D Ray, RayHitResult Hit)>();
         stopwatch.Stop();
@@ -63,7 +64,8 @@ public sealed class SceneRenderSyncService
     private SceneModel BuildDomainScene(
         IReadOnlyList<PrismItemViewModel> prisms,
         IReadOnlyList<CylindricalLightSourceItemViewModel> lightSources,
-        IReadOnlyList<RayItemViewModel> rays)
+        IReadOnlyList<RayItemViewModel> rays,
+        IReadOnlyList<Point3> holes)
     {
         var scene = new SceneModel();
 
@@ -111,6 +113,11 @@ public sealed class SceneRenderSyncService
                 new DomainRay3D(
                     new Vector3(ray.OriginX, ray.OriginY, ray.OriginZ),
                     new Vector3(ray.DirectionX, ray.DirectionY, ray.DirectionZ)));
+        }
+
+        foreach (var hole in holes)
+        {
+            scene.holes.Add(hole);
         }
 
         return scene;

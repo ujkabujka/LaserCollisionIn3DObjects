@@ -14,5 +14,7 @@ public sealed class HoleViewModel
 
     public required string WarpedCenterMm { get; init; }
 
+    public required Point WarpedCenterMmNumeric {get; init; }
+
     public required string PixelArea { get; init; }
 }

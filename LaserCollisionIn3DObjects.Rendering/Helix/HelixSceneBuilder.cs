@@ -33,7 +33,7 @@ public sealed class HelixSceneBuilder
         var generatedRayLookup = scene.GeneratedRays.Count > 0 ? new HashSet<Ray3D>(scene.GeneratedRays) : null;
         visuals.AddRange(_frameVisualizer.CreateGlobalFrameVisuals(3f));
 
-        visuals.Add(_meshFactory.CreateRectangularPrismBatch(scene.RectangularPrisms, Colors.SteelBlue));
+        visuals.Add(_meshFactory.CreateRectangularPrismBatch(scene.RectangularPrisms, Colors.LimeGreen));
         visuals.AddRange(_frameVisualizer.CreateFrameVisualsBatch(
             scene.RectangularPrisms.Select(prism => (prism.Frame, GetPrismFrameAxisLength(prism))).ToList()));
 
@@ -44,6 +44,7 @@ public sealed class HelixSceneBuilder
         var raySegments = new List<(Ray3D Ray, float Length)>(scene.Rays.Count);
         var generatedRayOriginsWithoutHit = new List<Ray3D>();
 
+        List<RayHitResult> hitResultList = new List<RayHitResult>();
         foreach (var ray in scene.Rays)
         {
             RayHitResult? hit = null;
@@ -61,12 +62,18 @@ public sealed class HelixSceneBuilder
 
             if (hasHit && hit is not null)
             {
-                var hitVisual = _rayVisualizer.CreateHitPoint(hit);
-                if (hitVisual is not null)
-                {
-                    visuals.Add(hitVisual);
-                }
+                //var hitVisual = _rayVisualizer.CreateHitPoint(hit);
+                // if (hitVisual is not null)
+                // {
+                //     visuals.Add(hitVisual);
+                // }
+                hitResultList.Add(hit);
             }
+        }
+
+        if(hitResultList.Count > 0)
+        {
+            visuals.Add(_rayVisualizer.CreateHitPoints(hitResultList, color: Colors.Red));
         }
 
         if (raySegments.Count > 0)
@@ -77,6 +84,12 @@ public sealed class HelixSceneBuilder
         if (generatedRayOriginsWithoutHit.Count > 0)
         {
             visuals.Add(_rayVisualizer.CreateRayOriginPointBatch(generatedRayOriginsWithoutHit, color: Colors.OrangeRed));
+        }
+
+        if(scene.holes.Count > 0)
+        {
+            visuals.Add(_rayVisualizer.CreateHitPoints(scene.holes, color: Colors.Blue));
+            
         }
 
         return visuals;

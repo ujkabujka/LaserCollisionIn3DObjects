@@ -46,8 +46,18 @@ public static class FrameOrientationBuilder
         return Quaternion.Normalize(delta * currentOrientation);
     }
 
-    private static float DegreesToRadians(float degrees)
+    public static float DegreesToRadians(float degrees)
     {
         return degrees * (MathF.PI / 180f);
+    }
+
+    public static float RadiansToDegrees(float radians)
+    {
+        return radians * (180f / MathF.PI);
+    }
+
+    public static double DegreesToRadians(double degrees)
+    {
+        return degrees * (MathF.PI / 180.0);
     }
 }
