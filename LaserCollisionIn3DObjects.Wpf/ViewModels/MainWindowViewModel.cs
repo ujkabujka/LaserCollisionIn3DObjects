@@ -18,6 +18,13 @@ public enum CollisionAlgorithmOption
     ClosestHitParallel,
 }
 
+public enum WorkspaceKind
+{
+    Collision,
+    Annotation,
+    Projection,
+}
+
 public sealed class MainWindowViewModel : ObservableObject
 {
     private static readonly ObservableCollection<PrismItemViewModel> EmptyPrisms = new();
@@ -47,6 +54,8 @@ public sealed class MainWindowViewModel : ObservableObject
     private string _lastSequentialCollisionDurationMs = "N/A";
     private string _lastParallelCollisionDurationMs = "N/A";
     private string _statusMessage = "Add objects, then click Run Collision.";
+    private bool _isNavigationCollapsed;
+    private WorkspaceKind _selectedWorkspace = WorkspaceKind.Collision;
 
     public MainWindowViewModel(SceneRenderSyncService renderSyncService, ProjectionRenderSyncService projectionRenderSyncService)
     {
@@ -80,6 +89,9 @@ public sealed class MainWindowViewModel : ObservableObject
         LoadProjectionTabCommand = new RelayCommand(LoadProjectionTabState);
         SaveAnnotationTabCommand = new RelayCommand(SaveAnnotationTabState);
         LoadAnnotationTabCommand = new RelayCommand(LoadAnnotationTabState);
+        ShowCollisionWorkspaceCommand = new RelayCommand(() => SelectedWorkspace = WorkspaceKind.Collision);
+        ShowAnnotationWorkspaceCommand = new RelayCommand(() => SelectedWorkspace = WorkspaceKind.Annotation);
+        ShowProjectionWorkspaceCommand = new RelayCommand(() => SelectedWorkspace = WorkspaceKind.Projection);
 
         CreateScene();
         RefreshViewport(false);
@@ -142,6 +154,29 @@ public sealed class MainWindowViewModel : ObservableObject
     public ICommand LoadProjectionTabCommand { get; }
     public ICommand SaveAnnotationTabCommand { get; }
     public ICommand LoadAnnotationTabCommand { get; }
+    public ICommand ShowCollisionWorkspaceCommand { get; }
+    public ICommand ShowAnnotationWorkspaceCommand { get; }
+    public ICommand ShowProjectionWorkspaceCommand { get; }
+
+    public bool IsNavigationCollapsed
+    {
+        get => _isNavigationCollapsed;
+        set
+        {
+            if (SetProperty(ref _isNavigationCollapsed, value))
+            {
+                RaisePropertyChanged(nameof(NavigationRailWidth));
+            }
+        }
+    }
+
+    public double NavigationRailWidth => IsNavigationCollapsed ? 64 : 220;
+
+    public WorkspaceKind SelectedWorkspace
+    {
+        get => _selectedWorkspace;
+        set => SetProperty(ref _selectedWorkspace, value);
+    }
 
     public string NewSceneName { get => _newSceneName; set => SetProperty(ref _newSceneName, value); }
 
