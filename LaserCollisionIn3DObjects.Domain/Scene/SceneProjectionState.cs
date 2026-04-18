@@ -6,5 +6,12 @@ public sealed class SceneProjectionState
 {
     public string SelectedMethodId { get; set; } = ProjectionWorkspaceState.DefaultMethodId;
 
-    public ProjectionComputationResult? LastResult { get; set; }
+    public string? SelectedResultKey { get; set; }
+
+    public List<NamedProjectionResultState> SavedResults { get; } = new();
+
+    public ProjectionComputationResult? SelectedResult =>
+        SelectedResultKey is null
+            ? null
+            : SavedResults.FirstOrDefault(result => result.Key == SelectedResultKey)?.Result;
 }

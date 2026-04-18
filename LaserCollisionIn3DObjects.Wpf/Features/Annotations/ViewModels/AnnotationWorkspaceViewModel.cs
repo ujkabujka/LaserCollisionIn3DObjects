@@ -3,6 +3,7 @@ using System.IO;
 using System.Windows;
 using System.Windows.Input;
 using Microsoft.Win32;
+using LaserCollisionIn3DObjects.Domain.Persistence;
 using LaserCollisionIn3DObjects.Wpf.Commands;
 using LaserCollisionIn3DObjects.Wpf.Features.Annotations.Models;
 using LaserCollisionIn3DObjects.Wpf.Features.Annotations.Services;
@@ -26,6 +27,9 @@ public sealed class AnnotationWorkspaceViewModel : ObservableObject
     private double _globalPanelWidthMm = 1000;
     private double _globalPanelHeightMm = 1000;
     private double _globalPanelThicknessMm = 10;
+    private bool _isFolderResolved;
+    private string? _missingFolderPath;
+    private AnnotationWorkspaceState? _pendingWorkspaceState;
 
     public AnnotationWorkspaceViewModel(SceneCollectionService? sceneCollectionService = null)
     {
@@ -35,6 +39,7 @@ public sealed class AnnotationWorkspaceViewModel : ObservableObject
         SelectNextImageCommand = new RelayCommand(SelectNextImage, () => SelectedImageIndex >= 0 && SelectedImageIndex < Images.Count - 1);
         ApplyGlobalPanelDimensionsCommand = new RelayCommand(ApplyGlobalPanelDimensions, () => Images.Count > 0);
         GenerateSceneCommand = new RelayCommand(GenerateScene, () => Images.Count > 0);
+        RelinkMissingFolderCommand = new RelayCommand(RestoreMissingFolder, () => !string.IsNullOrWhiteSpace(MissingFolderPath));
     }
 
     public ICommand SelectFolderCommand { get; }
@@ -46,6 +51,7 @@ public sealed class AnnotationWorkspaceViewModel : ObservableObject
     public ICommand ApplyGlobalPanelDimensionsCommand { get; }
 
     public ICommand GenerateSceneCommand { get; }
+    public ICommand RelinkMissingFolderCommand { get; }
 
     public ObservableCollection<AnnotatedImageViewModel> Images { get; } = new();
 
@@ -115,6 +121,24 @@ public sealed class AnnotationWorkspaceViewModel : ObservableObject
         set => SetProperty(ref _globalPanelThicknessMm, value);
     }
 
+    public bool IsFolderResolved
+    {
+        get => _isFolderResolved;
+        private set => SetProperty(ref _isFolderResolved, value);
+    }
+
+    public string? MissingFolderPath
+    {
+        get => _missingFolderPath;
+        private set
+        {
+            if (SetProperty(ref _missingFolderPath, value))
+            {
+                (RelinkMissingFolderCommand as RelayCommand)?.RaiseCanExecuteChanged();
+            }
+        }
+    }
+
     private void SelectFolder()
     {
         var dialog = new OpenFolderDialog
@@ -130,6 +154,8 @@ public sealed class AnnotationWorkspaceViewModel : ObservableObject
 
         SelectedFolderPath = dialog.FolderName;
         LoadProject(dialog.FolderName);
+        IsFolderResolved = true;
+        MissingFolderPath = null;
     }
 
     private void SelectPreviousImage()
@@ -183,11 +209,15 @@ public sealed class AnnotationWorkspaceViewModel : ObservableObject
 
             StatusMessage = $"Loaded {Images.Count} image annotations from {Path.GetFileName(project.JsonFilePath)}.";
             SelectedImage = Images.FirstOrDefault();
+            IsFolderResolved = true;
+            MissingFolderPath = null;
             RaiseCanExecuteChanges();
         }
         catch (Exception ex)
         {
             StatusMessage = ex.Message;
+            IsFolderResolved = false;
+            MissingFolderPath = folderPath;
         }
     }
 
@@ -242,6 +272,7 @@ public sealed class AnnotationWorkspaceViewModel : ObservableObject
         (SelectNextImageCommand as RelayCommand)?.RaiseCanExecuteChanged();
         (ApplyGlobalPanelDimensionsCommand as RelayCommand)?.RaiseCanExecuteChanged();
         (GenerateSceneCommand as RelayCommand)?.RaiseCanExecuteChanged();
+        (RelinkMissingFolderCommand as RelayCommand)?.RaiseCanExecuteChanged();
     }
 
     private void ApplyGlobalPanelDimensions()
@@ -513,6 +544,131 @@ public sealed class AnnotationWorkspaceViewModel : ObservableObject
            point3s.Add(new Point3(transformed.X, transformed.Y, transformed.Z));
         }
         return point3s;
+    }
+
+    public AnnotationWorkspaceState ExportWorkspaceState()
+    {
+        return new AnnotationWorkspaceState
+        {
+            FolderPath = SelectedFolderPath == "No folder selected." ? null : SelectedFolderPath,
+            IsFolderResolved = IsFolderResolved,
+            GlobalPanelWidthMm = GlobalPanelWidthMm,
+            GlobalPanelHeightMm = GlobalPanelHeightMm,
+            GlobalPanelThicknessMm = GlobalPanelThicknessMm,
+            Images = Images.Select(image => new AnnotationImageState
+            {
+                FileName = image.FileName,
+                PanelWidthMm = image.PanelWidthMm,
+                PanelHeightMm = image.PanelHeightMm,
+                PanelThicknessMm = image.PanelThicknessMm,
+                Corners = image.CornerMeasurements.Select(corner => new AnnotationCornerState
+                {
+                    CornerType = corner.CornerType.ToString(),
+                    Mode = corner.SelectedMode.ToString(),
+                    ManualAzimuthDeg = corner.ManualAzimuthDeg,
+                    ManualElevationDeg = corner.ManualElevationDeg,
+                    ManualDistanceMeters = corner.ManualDistanceMeters,
+                    DirectX = corner.DirectX,
+                    DirectY = corner.DirectY,
+                    DirectZ = corner.DirectZ,
+                }).ToList(),
+            }).ToList(),
+        };
+    }
+
+    public void ApplyWorkspaceState(AnnotationWorkspaceState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        GlobalPanelWidthMm = state.GlobalPanelWidthMm;
+        GlobalPanelHeightMm = state.GlobalPanelHeightMm;
+        GlobalPanelThicknessMm = state.GlobalPanelThicknessMm;
+
+        if (string.IsNullOrWhiteSpace(state.FolderPath))
+        {
+            StatusMessage = "Annotation state loaded without a folder reference.";
+            IsFolderResolved = false;
+            MissingFolderPath = null;
+            return;
+        }
+
+        if (!AnnotationStateResolver.IsFolderResolved(state))
+        {
+            SelectedFolderPath = state.FolderPath;
+            StatusMessage = $"Annotation folder is missing: {state.FolderPath}. Use Restore/Relink.";
+            IsFolderResolved = false;
+            MissingFolderPath = state.FolderPath;
+            _pendingWorkspaceState = state;
+            Images.Clear();
+            return;
+        }
+
+        SelectedFolderPath = state.FolderPath;
+        LoadProject(state.FolderPath);
+        ApplyImageStateOverrides(state);
+        _pendingWorkspaceState = null;
+    }
+
+    private void RestoreMissingFolder()
+    {
+        var dialog = new OpenFolderDialog
+        {
+            Title = "Relink missing annotation folder",
+            Multiselect = false,
+        };
+
+        if (dialog.ShowDialog() != true || string.IsNullOrWhiteSpace(dialog.FolderName))
+        {
+            return;
+        }
+
+        SelectedFolderPath = dialog.FolderName;
+        LoadProject(dialog.FolderName);
+
+        if (_pendingWorkspaceState is not null)
+        {
+            ApplyImageStateOverrides(_pendingWorkspaceState);
+            _pendingWorkspaceState = null;
+        }
+    }
+
+    private void ApplyImageStateOverrides(AnnotationWorkspaceState state)
+    {
+        var imageLookup = state.Images.ToDictionary(image => image.FileName, StringComparer.OrdinalIgnoreCase);
+        foreach (var image in Images)
+        {
+            if (!imageLookup.TryGetValue(image.FileName, out var persisted))
+            {
+                continue;
+            }
+
+            image.PanelWidthMm = persisted.PanelWidthMm;
+            image.PanelHeightMm = persisted.PanelHeightMm;
+            image.PanelThicknessMm = persisted.PanelThicknessMm;
+
+            var cornersByType = persisted.Corners.ToDictionary(corner => corner.CornerType, StringComparer.OrdinalIgnoreCase);
+            foreach (var corner in image.CornerMeasurements)
+            {
+                if (!cornersByType.TryGetValue(corner.CornerType.ToString(), out var persistedCorner))
+                {
+                    continue;
+                }
+
+                if (Enum.TryParse<CornerMeasurementMode>(persistedCorner.Mode, ignoreCase: true, out var mode))
+                {
+                    corner.SelectedMode = mode;
+                }
+
+                corner.ManualAzimuthDeg = persistedCorner.ManualAzimuthDeg;
+                corner.ManualElevationDeg = persistedCorner.ManualElevationDeg;
+                corner.ManualDistanceMeters = persistedCorner.ManualDistanceMeters;
+                corner.DirectX = persistedCorner.DirectX;
+                corner.DirectY = persistedCorner.DirectY;
+                corner.DirectZ = persistedCorner.DirectZ;
+            }
+
+            RebuildHoleRows(image);
+        }
     }
 
     private void RebuildHoleRows(AnnotatedImageViewModel image)

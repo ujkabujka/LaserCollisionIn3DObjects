@@ -8,7 +8,7 @@ public sealed class PointSourceProjectionMethod : IProjectionMethod
     public ProjectionMethodMetadata Metadata { get; } = new(
         ProjectionMethodIds.PointSource,
         "User-defined point source",
-        "Generates one ray from the provided source point to each hole point.");
+        "Generates one ray from the source origin to each hole point using a user-defined source frame.");
 
     public ProjectionComputationResult Execute(ProjectionRequest request)
     {
@@ -24,7 +24,12 @@ public sealed class PointSourceProjectionMethod : IProjectionMethod
             throw new ArgumentException("Projection requires at least one hole point.", nameof(request));
         }
 
-        var source = parameters.SourcePoint;
+        var sourceFrame = PointSourceFrameBuilder.Build(
+            parameters.SourceOrigin,
+            parameters.SourceFrameX,
+            parameters.SourceFrameY);
+
+        var source = sourceFrame.Origin;
         var rays = new List<ProjectionRay>(request.HolePoints.Count);
 
         foreach (var holePoint in request.HolePoints)
@@ -37,7 +42,7 @@ public sealed class PointSourceProjectionMethod : IProjectionMethod
             if (direction.LengthSquared() <= 0f)
             {
                 throw new ArgumentException(
-                    $"Hole point ({holePoint.X:F4}, {holePoint.Y:F4}, {holePoint.Z:F4}) coincides with the source point.",
+                    $"Hole point ({holePoint.X:F4}, {holePoint.Y:F4}, {holePoint.Z:F4}) coincides with the source origin.",
                     nameof(request));
             }
 
@@ -51,7 +56,7 @@ public sealed class PointSourceProjectionMethod : IProjectionMethod
         return new ProjectionComputationResult
         {
             MethodId = Metadata.Id,
-            PointLightSource = new PointLightSource(source),
+            SourceFrame = sourceFrame,
             Rays = rays,
         };
     }

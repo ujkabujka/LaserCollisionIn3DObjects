@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.Windows.Input;
 using LaserCollisionIn3DObjects.Domain.Geometry;
+using LaserCollisionIn3DObjects.Domain.Persistence;
 using LaserCollisionIn3DObjects.Domain.Projection;
 using LaserCollisionIn3DObjects.Wpf.Commands;
 using LaserCollisionIn3DObjects.Wpf.Infrastructure;
@@ -14,21 +15,23 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
 {
     private readonly SceneCollectionService _sceneCollectionService;
     private readonly ProjectionRenderSyncService _projectionRenderSyncService;
+    private readonly ProjectionMethodRegistry _methodRegistry;
     private ProjectionMethodOptionViewModel? _selectedMethod;
     private CollisionSceneViewModel? _selectedScene;
     private string _statusMessage = "Select a scene with holes to begin projection.";
+    private string _newResultName = "Projection Result 1";
 
     public ProjectionWorkspaceViewModel(
         SceneCollectionService sceneCollectionService,
         ProjectionRenderSyncService projectionRenderSyncService,
-        IEnumerable<IProjectionMethod>? projectionMethods = null)
+        ProjectionMethodRegistry? methodRegistry = null)
     {
         _sceneCollectionService = sceneCollectionService ?? throw new ArgumentNullException(nameof(sceneCollectionService));
         _projectionRenderSyncService = projectionRenderSyncService ?? throw new ArgumentNullException(nameof(projectionRenderSyncService));
+        _methodRegistry = methodRegistry ?? new ProjectionMethodRegistry(new[] { new PointSourceProjectionMethod() });
 
-        var methods = projectionMethods?.ToList() ?? new List<IProjectionMethod> { new PointSourceProjectionMethod() };
         ProjectionMethods = new ObservableCollection<ProjectionMethodOptionViewModel>(
-            methods.Select(method => new ProjectionMethodOptionViewModel { Method = method }));
+            _methodRegistry.Methods.Select(method => new ProjectionMethodOptionViewModel { Method = method }));
 
         _selectedMethod = ProjectionMethods.FirstOrDefault(method => method.Id == ProjectionWorkspaceState.DefaultMethodId)
             ?? ProjectionMethods.FirstOrDefault();
@@ -46,10 +49,54 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
     public ICommand RunProjectionCommand { get; }
 
     public double SourceX { get; set; }
-
     public double SourceY { get; set; }
-
     public double SourceZ { get; set; }
+
+    public double SourceFrameXx { get; set; } = 1;
+    public double SourceFrameXy { get; set; }
+    public double SourceFrameXz { get; set; }
+
+    public double SourceFrameYx { get; set; }
+    public double SourceFrameYy { get; set; } = 1;
+    public double SourceFrameYz { get; set; }
+
+    public string NewResultName
+    {
+        get => _newResultName;
+        set => SetProperty(ref _newResultName, value);
+    }
+
+    public IReadOnlyList<NamedProjectionResultState> SavedResults
+    {
+        get => SelectedScene?.ProjectionState.SavedResults ?? _emptyResults;
+    }
+
+    private static readonly List<NamedProjectionResultState> _emptyResults = new();
+
+    public NamedProjectionResultState? SelectedResult
+    {
+        get
+        {
+            var scene = SelectedScene;
+            if (scene?.ProjectionState.SelectedResultKey is null)
+            {
+                return null;
+            }
+
+            return scene.ProjectionState.SavedResults.FirstOrDefault(result => result.Key == scene.ProjectionState.SelectedResultKey);
+        }
+        set
+        {
+            if (SelectedScene is null)
+            {
+                return;
+            }
+
+            SelectedScene.ProjectionState.SelectedResultKey = value?.Key;
+            RefreshViewport();
+            RaisePropertyChanged();
+        }
+    }
 
     public ProjectionMethodOptionViewModel? SelectedMethod
     {
@@ -65,7 +112,7 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
             {
                 SelectedScene.ProjectionState.SelectedMethodId = value?.Id ?? ProjectionWorkspaceState.DefaultMethodId;
             }
-            RefreshViewport();
+
             RaiseCanExecuteChanged();
         }
     }
@@ -86,6 +133,8 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
                     ?? ProjectionMethods.FirstOrDefault();
             }
 
+            RaisePropertyChanged(nameof(SavedResults));
+            RaisePropertyChanged(nameof(SelectedResult));
             RefreshViewport();
             RaiseCanExecuteChanged();
         }
@@ -97,10 +146,29 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
         private set => SetProperty(ref _statusMessage, value);
     }
 
-    private bool CanRunProjection()
+    public ProjectionWorkspaceStateDto ExportWorkspaceState()
     {
-        return SelectedScene is not null && SelectedScene.HolePoints.Count > 0 && SelectedMethod is not null;
+        return new ProjectionWorkspaceStateDto
+        {
+            SelectedSceneName = SelectedScene?.Name,
+            SelectedMethodId = SelectedMethod?.Id ?? ProjectionWorkspaceState.DefaultMethodId,
+        };
     }
+
+    public void ApplyWorkspaceState(ProjectionWorkspaceStateDto state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        SelectedMethod = ProjectionMethods.FirstOrDefault(method => method.Id == state.SelectedMethodId)
+            ?? ProjectionMethods.FirstOrDefault(method => method.Id == ProjectionWorkspaceState.DefaultMethodId)
+            ?? ProjectionMethods.FirstOrDefault();
+
+        SelectedScene = AvailableScenes.FirstOrDefault(scene => scene.Name == state.SelectedSceneName)
+            ?? AvailableScenes.FirstOrDefault();
+    }
+
+    private bool CanRunProjection() =>
+        SelectedScene is not null && SelectedScene.HolePoints.Count > 0 && SelectedMethod is not null;
 
     private void RunProjection()
     {
@@ -117,6 +185,12 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
             return;
         }
 
+        if (string.IsNullOrWhiteSpace(NewResultName))
+        {
+            StatusMessage = "Provide a projection result name.";
+            return;
+        }
+
         try
         {
             var request = new ProjectionRequest
@@ -126,10 +200,13 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
             };
 
             var result = SelectedMethod.Method.Execute(request);
-            SceneProjectionStateUpdater.Apply(scene.ProjectionState, result);
+            var namedResult = SceneProjectionStateUpdater.SaveResult(scene.ProjectionState, NewResultName, result);
+            NewResultName = $"Projection Result {scene.ProjectionState.SavedResults.Count + 1}";
+            scene.ProjectionState.SelectedMethodId = SelectedMethod.Id;
+            RaisePropertyChanged(nameof(SavedResults));
+            SelectedResult = namedResult;
 
-            RefreshViewport();
-            StatusMessage = $"Projection completed. Generated {result.Rays.Count} ray(s) using '{SelectedMethod.DisplayName}'.";
+            StatusMessage = $"Projection completed and saved as '{namedResult.DisplayName}' ({result.Rays.Count} ray(s)).";
         }
         catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
         {
@@ -141,7 +218,10 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
     {
         if (method.Metadata.Id == ProjectionMethodIds.PointSource)
         {
-            return new PointSourceProjectionParameters(new Point3(SourceX, SourceY, SourceZ));
+            return new PointSourceProjectionParameters(
+                new Point3(SourceX, SourceY, SourceZ),
+                new Vector3D(SourceFrameXx, SourceFrameXy, SourceFrameXz),
+                new Vector3D(SourceFrameYx, SourceFrameYy, SourceFrameYz));
         }
 
         throw new InvalidOperationException($"Projection method '{method.Metadata.Id}' is not yet supported by the workspace UI parameter panel.");
@@ -151,14 +231,11 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
     {
         var scene = SelectedScene;
         var holePoints = scene?.HolePoints?.ToList() ?? new List<Point3>();
-        var result = scene?.ProjectionState.LastResult;
+        var result = scene?.ProjectionState.SelectedResult;
         _projectionRenderSyncService.SyncProjectionScene(holePoints, result);
     }
 
-    private void OnScenesCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
-    {
-        RefreshAvailableScenes();
-    }
+    private void OnScenesCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e) => RefreshAvailableScenes();
 
     private void RefreshAvailableScenes()
     {
@@ -170,14 +247,9 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
             AvailableScenes.Add(scene);
         }
 
-        if (selected is not null && AvailableScenes.Contains(selected))
-        {
-            SelectedScene = selected;
-        }
-        else
-        {
-            SelectedScene = AvailableScenes.FirstOrDefault();
-        }
+        SelectedScene = selected is not null && AvailableScenes.Contains(selected)
+            ? selected
+            : AvailableScenes.FirstOrDefault();
 
         RaiseCanExecuteChanged();
     }

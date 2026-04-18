@@ -5,6 +5,7 @@ using LaserCollisionIn3DObjects.Domain.Collision;
 using LaserCollisionIn3DObjects.Domain.Generation;
 using LaserCollisionIn3DObjects.Domain.Geometry;
 using LaserCollisionIn3DObjects.Domain.Scene;
+using LaserCollisionIn3DObjects.Domain.Projection;
 using LaserCollisionIn3DObjects.Rendering.Helix;
 using LaserCollisionIn3DObjects.Wpf.ViewModels;
 using DomainRay3D = LaserCollisionIn3DObjects.Domain.Geometry.Ray3D;
@@ -40,10 +41,11 @@ public sealed class SceneRenderSyncService
         IReadOnlyList<CylindricalLightSourceItemViewModel> lightSourceItems,
         IReadOnlyList<RayItemViewModel> rayItems,
         IReadOnlyList<Point3> holePoints,
+        ProjectionComputationResult? projectionResult,
         bool runCollision,
         CollisionAlgorithmOption algorithm)
     {
-        var scene = BuildDomainScene(prismItems, lightSourceItems, rayItems, holePoints);
+        var scene = BuildDomainScene(prismItems, lightSourceItems, rayItems, holePoints, projectionResult);
         var stopwatch = System.Diagnostics.Stopwatch.StartNew();
         var collisionResults = runCollision ? CalculateFirstHits(scene, algorithm) : new List<(DomainRay3D Ray, RayHitResult Hit)>();
         stopwatch.Stop();
@@ -65,7 +67,8 @@ public sealed class SceneRenderSyncService
         IReadOnlyList<PrismItemViewModel> prisms,
         IReadOnlyList<CylindricalLightSourceItemViewModel> lightSources,
         IReadOnlyList<RayItemViewModel> rays,
-        IReadOnlyList<Point3> holePoints)
+        IReadOnlyList<Point3> holePoints,
+        ProjectionComputationResult? projectionResult)
     {
         var scene = new SceneModel();
 
@@ -118,6 +121,11 @@ public sealed class SceneRenderSyncService
         foreach (var hole in holePoints)
         {
             scene.HolePoints.Add(hole);
+        }
+
+        if (projectionResult is not null)
+        {
+            scene.Rays.AddRange(projectionResult.Rays.Select(projectionRay => projectionRay.Ray));
         }
 
         return scene;

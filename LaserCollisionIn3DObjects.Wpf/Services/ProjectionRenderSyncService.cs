@@ -8,12 +8,14 @@ namespace LaserCollisionIn3DObjects.Wpf.Services;
 
 public sealed class ProjectionRenderSyncService
 {
+    private readonly HelixViewport3D _viewport;
     private readonly ModelVisual3D _dynamicVisualRoot = new();
     private readonly HelixSceneBuilder _sceneBuilder = new();
 
     public ProjectionRenderSyncService(HelixViewport3D viewport)
     {
         ArgumentNullException.ThrowIfNull(viewport);
+        _viewport = viewport;
         viewport.Children.Add(_dynamicVisualRoot);
     }
 
@@ -24,6 +26,11 @@ public sealed class ProjectionRenderSyncService
         foreach (var visual in visuals)
         {
             _dynamicVisualRoot.Children.Add(visual);
+        }
+
+        if (projectionResult is not null)
+        {
+            _viewport.ZoomExtents();
         }
     }
 }

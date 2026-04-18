@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Numerics;
 using System.Windows.Input;
+using Microsoft.Win32;
 using LaserCollisionIn3DObjects.Domain.Generation;
 using LaserCollisionIn3DObjects.Domain.Geometry;
 using LaserCollisionIn3DObjects.Wpf.Commands;
@@ -26,6 +27,7 @@ public sealed class MainWindowViewModel : ObservableObject
     private static readonly ObservableCollection<Point3> EmptyHoles = new();
     private readonly SceneRenderSyncService _renderSyncService;
     private readonly SceneCollectionService _sceneCollectionService;
+    private readonly ProjectPersistenceCoordinator _projectPersistenceCoordinator = new();
     private string _newSceneName = "Scene 1";
     private string _newPrismName = "Prism 1";
     private float _newPrismSizeX = 0.002f;
@@ -70,6 +72,14 @@ public sealed class MainWindowViewModel : ObservableObject
         RunCollisionCommand = new RelayCommand(RunCollision, () => SelectedScene is not null);
         RegenerateLightSourceRaysCommand = new RelayCommand(RegenerateLightSourceRays, () => SelectedScene is not null);
         ResetDemoSceneCommand = new RelayCommand(ResetDemoScene, () => SelectedScene is not null);
+        SaveProjectCommand = new RelayCommand(SaveProject);
+        LoadProjectCommand = new RelayCommand(LoadProject);
+        SaveCollisionTabCommand = new RelayCommand(SaveCollisionTabState);
+        LoadCollisionTabCommand = new RelayCommand(LoadCollisionTabState);
+        SaveProjectionTabCommand = new RelayCommand(SaveProjectionTabState);
+        LoadProjectionTabCommand = new RelayCommand(LoadProjectionTabState);
+        SaveAnnotationTabCommand = new RelayCommand(SaveAnnotationTabState);
+        LoadAnnotationTabCommand = new RelayCommand(LoadAnnotationTabState);
 
         CreateScene();
         RefreshViewport(false);
@@ -124,6 +134,14 @@ public sealed class MainWindowViewModel : ObservableObject
     public ICommand RunCollisionCommand { get; }
     public ICommand RegenerateLightSourceRaysCommand { get; }
     public ICommand ResetDemoSceneCommand { get; }
+    public ICommand SaveProjectCommand { get; }
+    public ICommand LoadProjectCommand { get; }
+    public ICommand SaveCollisionTabCommand { get; }
+    public ICommand LoadCollisionTabCommand { get; }
+    public ICommand SaveProjectionTabCommand { get; }
+    public ICommand LoadProjectionTabCommand { get; }
+    public ICommand SaveAnnotationTabCommand { get; }
+    public ICommand LoadAnnotationTabCommand { get; }
 
     public string NewSceneName { get => _newSceneName; set => SetProperty(ref _newSceneName, value); }
 
@@ -581,8 +599,9 @@ public sealed class MainWindowViewModel : ObservableObject
             var lightSources = scene?.LightSources ?? EmptyLightSources;
             var rays = scene?.Rays ?? EmptyRays;
             var holes = scene?.HolePoints ?? EmptyHoles;
+            var projectionResult = scene?.ProjectionState.SelectedResult;
 
-            var sceneSyncResult = _renderSyncService.SyncScene(prisms, lightSources, rays, holes, runCollision, SelectedCollisionAlgorithm);
+            var sceneSyncResult = _renderSyncService.SyncScene(prisms, lightSources, rays, holes, projectionResult, runCollision, SelectedCollisionAlgorithm);
             var rows = sceneSyncResult.HitRows;
 
             if (scene is not null)
@@ -748,6 +767,141 @@ public sealed class MainWindowViewModel : ObservableObject
         {
             RefreshSceneBindingsAndViewport();
         }
+    }
+
+    private void SaveProject()
+    {
+        var dialog = new SaveFileDialog
+        {
+            Filter = "Laser Collision Project (*.lc3d.json)|*.lc3d.json|JSON (*.json)|*.json",
+            FileName = "project.lc3d.json",
+        };
+
+        if (dialog.ShowDialog() != true)
+        {
+            return;
+        }
+
+        _projectPersistenceCoordinator.SaveProject(dialog.FileName, _sceneCollectionService, SelectedScene, AnnotationWorkspace, ProjectionWorkspace);
+        StatusMessage = $"Project saved to '{dialog.FileName}'.";
+    }
+
+    private void LoadProject()
+    {
+        var dialog = new OpenFileDialog
+        {
+            Filter = "Laser Collision Project (*.lc3d.json)|*.lc3d.json|JSON (*.json)|*.json",
+        };
+
+        if (dialog.ShowDialog() != true)
+        {
+            return;
+        }
+
+        _projectPersistenceCoordinator.LoadProject(dialog.FileName, _sceneCollectionService, AnnotationWorkspace, ProjectionWorkspace);
+        RefreshSceneBindingsAndViewport();
+        StatusMessage = $"Project loaded from '{dialog.FileName}'.";
+    }
+
+    private void SaveCollisionTabState()
+    {
+        var dialog = new SaveFileDialog
+        {
+            Filter = "Collision Tab State (*.collision.json)|*.collision.json|JSON (*.json)|*.json",
+            FileName = "collision-tab.collision.json",
+        };
+
+        if (dialog.ShowDialog() != true)
+        {
+            return;
+        }
+
+        _projectPersistenceCoordinator.SaveCollisionTab(dialog.FileName, _sceneCollectionService, SelectedScene);
+        StatusMessage = $"Collision tab state saved to '{dialog.FileName}'.";
+    }
+
+    private void LoadCollisionTabState()
+    {
+        var dialog = new OpenFileDialog
+        {
+            Filter = "Collision Tab State (*.collision.json)|*.collision.json|JSON (*.json)|*.json",
+        };
+
+        if (dialog.ShowDialog() != true)
+        {
+            return;
+        }
+
+        _projectPersistenceCoordinator.LoadCollisionTab(dialog.FileName, _sceneCollectionService);
+        RefreshSceneBindingsAndViewport();
+        StatusMessage = $"Collision tab state loaded from '{dialog.FileName}'.";
+    }
+
+    private void SaveProjectionTabState()
+    {
+        var dialog = new SaveFileDialog
+        {
+            Filter = "Projection Tab State (*.projection.json)|*.projection.json|JSON (*.json)|*.json",
+            FileName = "projection-tab.projection.json",
+        };
+
+        if (dialog.ShowDialog() != true)
+        {
+            return;
+        }
+
+        _projectPersistenceCoordinator.SaveProjectionTab(dialog.FileName, _sceneCollectionService, ProjectionWorkspace);
+        StatusMessage = $"Projection tab state saved to '{dialog.FileName}'.";
+    }
+
+    private void LoadProjectionTabState()
+    {
+        var dialog = new OpenFileDialog
+        {
+            Filter = "Projection Tab State (*.projection.json)|*.projection.json|JSON (*.json)|*.json",
+        };
+
+        if (dialog.ShowDialog() != true)
+        {
+            return;
+        }
+
+        _projectPersistenceCoordinator.LoadProjectionTab(dialog.FileName, _sceneCollectionService, ProjectionWorkspace);
+        RefreshSceneBindingsAndViewport();
+        StatusMessage = $"Projection tab state loaded from '{dialog.FileName}'.";
+    }
+
+    private void SaveAnnotationTabState()
+    {
+        var dialog = new SaveFileDialog
+        {
+            Filter = "Annotation Tab State (*.annotation.json)|*.annotation.json|JSON (*.json)|*.json",
+            FileName = "annotation-tab.annotation.json",
+        };
+
+        if (dialog.ShowDialog() != true)
+        {
+            return;
+        }
+
+        _projectPersistenceCoordinator.SaveAnnotationTab(dialog.FileName, AnnotationWorkspace);
+        StatusMessage = $"Annotation tab state saved to '{dialog.FileName}'.";
+    }
+
+    private void LoadAnnotationTabState()
+    {
+        var dialog = new OpenFileDialog
+        {
+            Filter = "Annotation Tab State (*.annotation.json)|*.annotation.json|JSON (*.json)|*.json",
+        };
+
+        if (dialog.ShowDialog() != true)
+        {
+            return;
+        }
+
+        _projectPersistenceCoordinator.LoadAnnotationTab(dialog.FileName, AnnotationWorkspace);
+        StatusMessage = $"Annotation tab state loaded from '{dialog.FileName}'.";
     }
 
     private void RefreshSceneBindingsAndViewport()
