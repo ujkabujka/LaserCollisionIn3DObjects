@@ -135,6 +135,12 @@
                                         <Button Content="Run Collision" Command="{Binding RunCollisionCommand}" Width="120" Height="30" Margin="0,0,8,0"/>
                                         <Button Content="Reset Demo Scene" Command="{Binding ResetDemoSceneCommand}" Width="140" Height="30"/>
                                     </StackPanel>
+                                    <WrapPanel Margin="0,8,0,0">
+                                        <Button Content="Save Project" Command="{Binding SaveProjectCommand}" Width="110" Margin="0,0,6,0"/>
+                                        <Button Content="Load Project" Command="{Binding LoadProjectCommand}" Width="110" Margin="0,0,6,0"/>
+                                        <Button Content="Save Collision Tab" Command="{Binding SaveCollisionTabCommand}" Width="140"/>
+                                        <Button Content="Load Collision Tab" Command="{Binding LoadCollisionTabCommand}" Width="140" Margin="6,0,0,0"/>
+                                    </WrapPanel>
                                 </StackPanel>
                             </GroupBox>
 
@@ -176,7 +182,11 @@
                         <StackPanel>
                             <TextBlock Text="VIA Annotation Workspace" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,8" />
                             <Button Content="Select Annotation Folder" Command="{Binding AnnotationWorkspace.SelectFolderCommand}" Height="30" />
+                            <Button Content="Restore / Relink Missing Folder" Command="{Binding AnnotationWorkspace.RelinkMissingFolderCommand}" Height="26" Margin="0,6,0,0"/>
+                            <Button Content="Save Annotation Tab State" Command="{Binding SaveAnnotationTabCommand}" Height="26" Margin="0,6,0,0"/>
+                            <Button Content="Load Annotation Tab State" Command="{Binding LoadAnnotationTabCommand}" Height="26" Margin="0,6,0,0"/>
                             <TextBlock Text="{Binding AnnotationWorkspace.SelectedFolderPath}" TextWrapping="Wrap" Margin="0,8,0,8" Foreground="#444" />
+                            <TextBlock Text="{Binding AnnotationWorkspace.StatusMessage}" TextWrapping="Wrap" Margin="0,0,0,8" Foreground="#1A5276" />
                             <Border BorderBrush="#D0D7DE" BorderThickness="1" CornerRadius="4" Padding="6" Margin="0,0,0,8" Background="#F7F9FB">
                                 <TextBlock Text="{Binding AnnotationWorkspace.SelectedImageSummary}" TextWrapping="Wrap" />
                             </Border>
@@ -354,6 +364,106 @@
                         </Grid>
                     </ScrollViewer>
                 </GroupBox>
+            </Grid>
+        </TabItem>
+
+        <TabItem Header="Projection Workspace">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="430" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <Border Grid.Column="0" Padding="12" BorderBrush="#D8D8D8" BorderThickness="0,0,1,0" Background="#FAFAFA">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <StackPanel>
+                            <TextBlock Text="Projection Workspace" FontSize="20" FontWeight="SemiBold" Margin="0,0,0,10" />
+
+                            <GroupBox Header="Scene Selection" Margin="0,0,0,8" Padding="8">
+                                <StackPanel>
+                                    <TextBlock Margin="0,0,0,6" Foreground="#555" TextWrapping="Wrap"
+                                               Text="Only scenes that contain 3D hole points are listed here." />
+                                    <ListBox ItemsSource="{Binding ProjectionWorkspace.AvailableScenes}"
+                                             SelectedItem="{Binding ProjectionWorkspace.SelectedScene}"
+                                             DisplayMemberPath="Name"
+                                             Height="140" />
+                                </StackPanel>
+                            </GroupBox>
+
+                            <GroupBox Header="Methodology" Margin="0,0,0,8" Padding="8">
+                                <StackPanel>
+                                    <ComboBox ItemsSource="{Binding ProjectionWorkspace.ProjectionMethods}"
+                                              SelectedItem="{Binding ProjectionWorkspace.SelectedMethod}"
+                                              DisplayMemberPath="DisplayName"
+                                              Margin="0,0,0,6" />
+                                    <TextBlock Text="{Binding ProjectionWorkspace.SelectedMethod.Description}"
+                                               Foreground="#555"
+                                               TextWrapping="Wrap" />
+                                </StackPanel>
+                            </GroupBox>
+
+                            <GroupBox Header="Projection Result" Margin="0,0,0,8" Padding="8">
+                                <StackPanel>
+                                    <TextBlock Text="Result Name"/>
+                                    <TextBox Text="{Binding ProjectionWorkspace.NewResultName, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,6"/>
+                                    <TextBlock Text="Saved Results"/>
+                                    <ListBox ItemsSource="{Binding ProjectionWorkspace.SavedResults}"
+                                             SelectedItem="{Binding ProjectionWorkspace.SelectedResult}"
+                                             DisplayMemberPath="DisplayName"
+                                             Height="90" />
+                                </StackPanel>
+                            </GroupBox>
+
+                            <GroupBox Header="Point Source Parameters" Margin="0,0,0,8" Padding="8">
+                                <StackPanel>
+                                    <UniformGrid Columns="3" Margin="0,0,0,6">
+                                        <StackPanel Margin="2"><TextBlock Text="Source X"/><TextBox Text="{Binding ProjectionWorkspace.SourceX, UpdateSourceTrigger=PropertyChanged, Converter={StaticResource FlexibleNumericConverter}}"/></StackPanel>
+                                        <StackPanel Margin="2"><TextBlock Text="Source Y"/><TextBox Text="{Binding ProjectionWorkspace.SourceY, UpdateSourceTrigger=PropertyChanged, Converter={StaticResource FlexibleNumericConverter}}"/></StackPanel>
+                                        <StackPanel Margin="2"><TextBlock Text="Source Z"/><TextBox Text="{Binding ProjectionWorkspace.SourceZ, UpdateSourceTrigger=PropertyChanged, Converter={StaticResource FlexibleNumericConverter}}"/></StackPanel>
+                                    </UniformGrid>
+                                    <TextBlock Text="Source Frame X Direction"/>
+                                    <UniformGrid Columns="3" Margin="0,0,0,6">
+                                        <StackPanel Margin="2"><TextBlock Text="Xx"/><TextBox Text="{Binding ProjectionWorkspace.SourceFrameXx, UpdateSourceTrigger=PropertyChanged, Converter={StaticResource FlexibleNumericConverter}}"/></StackPanel>
+                                        <StackPanel Margin="2"><TextBlock Text="Xy"/><TextBox Text="{Binding ProjectionWorkspace.SourceFrameXy, UpdateSourceTrigger=PropertyChanged, Converter={StaticResource FlexibleNumericConverter}}"/></StackPanel>
+                                        <StackPanel Margin="2"><TextBlock Text="Xz"/><TextBox Text="{Binding ProjectionWorkspace.SourceFrameXz, UpdateSourceTrigger=PropertyChanged, Converter={StaticResource FlexibleNumericConverter}}"/></StackPanel>
+                                    </UniformGrid>
+                                    <TextBlock Text="Source Frame Y Direction"/>
+                                    <UniformGrid Columns="3" Margin="0,0,0,6">
+                                        <StackPanel Margin="2"><TextBlock Text="Yx"/><TextBox Text="{Binding ProjectionWorkspace.SourceFrameYx, UpdateSourceTrigger=PropertyChanged, Converter={StaticResource FlexibleNumericConverter}}"/></StackPanel>
+                                        <StackPanel Margin="2"><TextBlock Text="Yy"/><TextBox Text="{Binding ProjectionWorkspace.SourceFrameYy, UpdateSourceTrigger=PropertyChanged, Converter={StaticResource FlexibleNumericConverter}}"/></StackPanel>
+                                        <StackPanel Margin="2"><TextBlock Text="Yz"/><TextBox Text="{Binding ProjectionWorkspace.SourceFrameYz, UpdateSourceTrigger=PropertyChanged, Converter={StaticResource FlexibleNumericConverter}}"/></StackPanel>
+                                    </UniformGrid>
+                                    <Button Content="Run Projection"
+                                            Command="{Binding ProjectionWorkspace.RunProjectionCommand}"
+                                            Width="130"
+                                            Height="30" />
+                                </StackPanel>
+                            </GroupBox>
+
+                            <TextBlock Text="{Binding ProjectionWorkspace.StatusMessage}" TextWrapping="Wrap" Foreground="#444" />
+                            <Button Content="Save Projection Tab State"
+                                    Command="{Binding SaveProjectionTabCommand}"
+                                    Width="180"
+                                    Height="28"
+                                    Margin="0,8,0,0" />
+                            <Button Content="Load Projection Tab State"
+                                    Command="{Binding LoadProjectionTabCommand}"
+                                    Width="180"
+                                    Height="28"
+                                    Margin="0,6,0,0" />
+                        </StackPanel>
+                    </ScrollViewer>
+                </Border>
+
+                <Grid Grid.Column="1">
+                    <h:HelixViewport3D x:Name="ProjectionViewport" ShowCoordinateSystem="True" ShowViewCube="True" ZoomExtentsWhenLoaded="True">
+                        <h:HelixViewport3D.Camera>
+                            <PerspectiveCamera Position="0,-30,30" LookDirection="0,30,-30" UpDirection="0,0,1" FieldOfView="45" />
+                        </h:HelixViewport3D.Camera>
+                        <h:SunLight />
+                        <h:GridLinesVisual3D Width="120" Length="120" MinorDistance="5" MajorDistance="10" />
+                    </h:HelixViewport3D>
+                </Grid>
             </Grid>
         </TabItem>
     </TabControl>

@@ -1,7 +1,9 @@
 using System.Windows.Media;
 using System.Windows.Media.Media3D;
+using System.Numerics;
 using LaserCollisionIn3DObjects.Domain.Collision;
 using LaserCollisionIn3DObjects.Domain.Geometry;
+using LaserCollisionIn3DObjects.Domain.Projection;
 using LaserCollisionIn3DObjects.Domain.Scene;
 
 namespace LaserCollisionIn3DObjects.Rendering.Helix;
@@ -86,10 +88,45 @@ public sealed class HelixSceneBuilder
             visuals.Add(_rayVisualizer.CreateRayOriginPointBatch(generatedRayOriginsWithoutHit, color: Colors.OrangeRed));
         }
 
-        if(scene.holes.Count > 0)
+        if (scene.HolePoints.Count > 0)
         {
-            visuals.Add(_rayVisualizer.CreateHitPoints(scene.holes, color: Colors.Blue));
-            
+            visuals.Add(_rayVisualizer.CreatePoints(scene.HolePoints, color: Colors.Blue));
+        }
+
+        return visuals;
+    }
+
+    public IReadOnlyList<Visual3D> BuildProjectionVisuals(
+        IReadOnlyList<Point3> holePoints,
+        ProjectionComputationResult? projectionResult)
+    {
+        ArgumentNullException.ThrowIfNull(holePoints);
+
+        var visuals = new List<Visual3D>();
+        if (holePoints.Count > 0)
+        {
+            visuals.Add(_rayVisualizer.CreatePoints(holePoints, Colors.DodgerBlue, size: 4));
+        }
+
+        if (projectionResult?.SourceFrame is { } sourceFrame)
+        {
+            visuals.AddRange(_frameVisualizer.CreateFrameVisualsBatch(new[] { (ToFrame3D(sourceFrame), 1.5f) }));
+        }
+
+        if (projectionResult is not null && projectionResult.Rays.Count > 0)
+        {
+            var segments = projectionResult.Rays
+                .Select(projectionRay =>
+                {
+                    var dx = projectionRay.TargetHolePoint.X - projectionRay.Ray.Origin.X;
+                    var dy = projectionRay.TargetHolePoint.Y - projectionRay.Ray.Origin.Y;
+                    var dz = projectionRay.TargetHolePoint.Z - projectionRay.Ray.Origin.Z;
+                    var length = (float)Math.Sqrt((dx * dx) + (dy * dy) + (dz * dz));
+                    return (projectionRay.Ray, length);
+                })
+                .ToList();
+
+            visuals.Add(_rayVisualizer.CreateRayLines(segments, color: Colors.Orange));
         }
 
         return visuals;
@@ -104,5 +141,21 @@ public sealed class HelixSceneBuilder
     {
         //return Math.Max(source.Height, source.Radius * 2f) * 0.65f;
         return 1f;
+    }
+
+    private static Frame3D ToFrame3D(PointSourceFrameState frame)
+    {
+        var x = new Vector3((float)frame.AxisX.X, (float)frame.AxisX.Y, (float)frame.AxisX.Z);
+        var y = new Vector3((float)frame.AxisY.X, (float)frame.AxisY.Y, (float)frame.AxisY.Z);
+        var z = new Vector3((float)frame.AxisZ.X, (float)frame.AxisZ.Y, (float)frame.AxisZ.Z);
+        var matrix = new Matrix4x4(
+            x.X, x.Y, x.Z, 0,
+            y.X, y.Y, y.Z, 0,
+            z.X, z.Y, z.Z, 0,
+            0, 0, 0, 1);
+        var orientation = System.Numerics.Quaternion.CreateFromRotationMatrix(matrix);
+        return new Frame3D(
+            new Vector3((float)frame.Origin.X, (float)frame.Origin.Y, (float)frame.Origin.Z),
+            orientation);
     }
 }
