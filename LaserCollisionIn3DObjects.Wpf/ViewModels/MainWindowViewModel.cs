@@ -5,6 +5,7 @@ using LaserCollisionIn3DObjects.Domain.Generation;
 using LaserCollisionIn3DObjects.Domain.Geometry;
 using LaserCollisionIn3DObjects.Wpf.Commands;
 using LaserCollisionIn3DObjects.Wpf.Features.Annotations.ViewModels;
+using LaserCollisionIn3DObjects.Wpf.Features.Projection.ViewModels;
 using LaserCollisionIn3DObjects.Wpf.Infrastructure;
 using LaserCollisionIn3DObjects.Wpf.Services;
 
@@ -22,7 +23,7 @@ public sealed class MainWindowViewModel : ObservableObject
     private static readonly ObservableCollection<RayItemViewModel> EmptyRays = new();
     private static readonly ObservableCollection<CylindricalLightSourceItemViewModel> EmptyLightSources = new();
     private static readonly ObservableCollection<HitResultItemViewModel> EmptyHitResults = new();
-    private static readonly List<Point3> EmptyHoles = new();
+    private static readonly ObservableCollection<Point3> EmptyHoles = new();
     private readonly SceneRenderSyncService _renderSyncService;
     private readonly SceneCollectionService _sceneCollectionService;
     private string _newSceneName = "Scene 1";
@@ -45,13 +46,15 @@ public sealed class MainWindowViewModel : ObservableObject
     private string _lastParallelCollisionDurationMs = "N/A";
     private string _statusMessage = "Add objects, then click Run Collision.";
 
-    public MainWindowViewModel(SceneRenderSyncService renderSyncService)
+    public MainWindowViewModel(SceneRenderSyncService renderSyncService, ProjectionRenderSyncService projectionRenderSyncService)
     {
         _renderSyncService = renderSyncService ?? throw new ArgumentNullException(nameof(renderSyncService));
+        ArgumentNullException.ThrowIfNull(projectionRenderSyncService);
         _sceneCollectionService = new SceneCollectionService();
         _sceneCollectionService.PropertyChanged += OnSceneCollectionPropertyChanged;
 
         AnnotationWorkspace = new AnnotationWorkspaceViewModel(_sceneCollectionService);
+        ProjectionWorkspace = new ProjectionWorkspaceViewModel(_sceneCollectionService, projectionRenderSyncService);
 
         CreateSceneCommand = new RelayCommand(CreateScene);
         DeleteSelectedSceneCommand = new RelayCommand(DeleteSelectedScene, () => SelectedScene is not null);
@@ -75,6 +78,7 @@ public sealed class MainWindowViewModel : ObservableObject
     public string Title => "Laser Collision in 3D Objects";
 
     public AnnotationWorkspaceViewModel AnnotationWorkspace { get; }
+    public ProjectionWorkspaceViewModel ProjectionWorkspace { get; }
 
     public ObservableCollection<CollisionSceneViewModel> Scenes => _sceneCollectionService.Scenes;
 
@@ -576,7 +580,7 @@ public sealed class MainWindowViewModel : ObservableObject
             var prisms = scene?.Prisms ?? EmptyPrisms;
             var lightSources = scene?.LightSources ?? EmptyLightSources;
             var rays = scene?.Rays ?? EmptyRays;
-            var holes = scene?.HoleCenters ?? EmptyHoles;
+            var holes = scene?.HolePoints ?? EmptyHoles;
 
             var sceneSyncResult = _renderSyncService.SyncScene(prisms, lightSources, rays, holes, runCollision, SelectedCollisionAlgorithm);
             var rows = sceneSyncResult.HitRows;

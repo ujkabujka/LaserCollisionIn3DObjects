@@ -30,12 +30,12 @@ public sealed class SceneCollectionService : ObservableObject
         return scene;
     }
 
-    public void AddScene(CollisionSceneViewModel scene)
+    public void AddScene(CollisionSceneViewModel scene, bool selectScene = true)
     {
         ArgumentNullException.ThrowIfNull(scene);
         Scenes.Add(scene);
 
-        if (SelectedScene is null)
+        if (selectScene || SelectedScene is null)
         {
             SelectedScene = scene;
         }

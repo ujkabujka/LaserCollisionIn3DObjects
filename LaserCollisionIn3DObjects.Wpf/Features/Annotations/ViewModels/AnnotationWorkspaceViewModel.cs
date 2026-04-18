@@ -7,13 +7,11 @@ using LaserCollisionIn3DObjects.Wpf.Commands;
 using LaserCollisionIn3DObjects.Wpf.Features.Annotations.Models;
 using LaserCollisionIn3DObjects.Wpf.Features.Annotations.Services;
 using LaserCollisionIn3DObjects.Wpf.Infrastructure;
-using System.Windows.Media.Imaging;
 using LaserCollisionIn3DObjects.Wpf.Services;
 using System.Windows.Media.Media3D;
 using LaserCollisionIn3DObjects.Domain.Geometry;
 using LaserCollisionIn3DObjects.Domain.Generation;
 using System.Numerics;
-using System.Security.Cryptography.Xml;
 
 namespace LaserCollisionIn3DObjects.Wpf.Features.Annotations.ViewModels;
 
@@ -206,7 +204,6 @@ public sealed class AnnotationWorkspaceViewModel : ObservableObject
         {
             selected.OriginalImage = _workspaceService.LoadImage(selected.Record.ImagePath!);
             selected.OriginalOverlay = _workspaceService.CreateOriginalOverlay(selected.Record, selected.OriginalImage);
-            SaveBitmapSourceAsPng(selected.OriginalOverlay, @"C:\Users\ugurcan.karaca\Desktop\Example Images\debug1.png");
 
             var rectified = _workspaceService.CreateRectification(selected.Record, selected.OriginalImage);
             if (rectified is not null)
@@ -293,7 +290,10 @@ public sealed class AnnotationWorkspaceViewModel : ObservableObject
 
                 // Create Holes
                 List<Point3> holes = CreateHolePoints(item);
-                sceneModel.HoleCenters?.AddRange(holes);
+                foreach (var hole in holes)
+                {
+                    sceneModel.HolePoints.Add(hole);
+                }
 
             }
 
@@ -541,23 +541,5 @@ public sealed class AnnotationWorkspaceViewModel : ObservableObject
         }
 
         RaisePropertyChanged(nameof(WarpedHoleCentersMmByImage));
-    }
-
-    public static void SaveBitmapSourceAsPng(BitmapSource bitmap, string path)
-    {
-        ArgumentNullException.ThrowIfNull(bitmap);
-        ArgumentException.ThrowIfNullOrWhiteSpace(path);
-
-        var directory = Path.GetDirectoryName(path);
-        if (!string.IsNullOrEmpty(directory))
-        {
-            Directory.CreateDirectory(directory);
-        }
-
-        var encoder = new PngBitmapEncoder();
-        encoder.Frames.Add(BitmapFrame.Create(bitmap));
-
-        using var stream = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.None);
-        encoder.Save(stream);
     }
 }

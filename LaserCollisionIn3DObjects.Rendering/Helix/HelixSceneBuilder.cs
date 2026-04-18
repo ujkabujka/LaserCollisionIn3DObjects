@@ -2,6 +2,7 @@ using System.Windows.Media;
 using System.Windows.Media.Media3D;
 using LaserCollisionIn3DObjects.Domain.Collision;
 using LaserCollisionIn3DObjects.Domain.Geometry;
+using LaserCollisionIn3DObjects.Domain.Projection;
 using LaserCollisionIn3DObjects.Domain.Scene;
 
 namespace LaserCollisionIn3DObjects.Rendering.Helix;
@@ -86,10 +87,45 @@ public sealed class HelixSceneBuilder
             visuals.Add(_rayVisualizer.CreateRayOriginPointBatch(generatedRayOriginsWithoutHit, color: Colors.OrangeRed));
         }
 
-        if(scene.holes.Count > 0)
+        if (scene.HolePoints.Count > 0)
         {
-            visuals.Add(_rayVisualizer.CreateHitPoints(scene.holes, color: Colors.Blue));
-            
+            visuals.Add(_rayVisualizer.CreatePoints(scene.HolePoints, color: Colors.Blue));
+        }
+
+        return visuals;
+    }
+
+    public IReadOnlyList<Visual3D> BuildProjectionVisuals(
+        IReadOnlyList<Point3> holePoints,
+        ProjectionComputationResult? projectionResult)
+    {
+        ArgumentNullException.ThrowIfNull(holePoints);
+
+        var visuals = new List<Visual3D>();
+        if (holePoints.Count > 0)
+        {
+            visuals.Add(_rayVisualizer.CreatePoints(holePoints, Colors.DodgerBlue, size: 4));
+        }
+
+        if (projectionResult?.SourcePoint is { } sourcePoint)
+        {
+            visuals.Add(_rayVisualizer.CreatePoints(new[] { sourcePoint }, Colors.Gold, size: 7));
+        }
+
+        if (projectionResult is not null && projectionResult.Rays.Count > 0)
+        {
+            var segments = projectionResult.Rays
+                .Select(projectionRay =>
+                {
+                    var dx = projectionRay.TargetHolePoint.X - projectionRay.Ray.Origin.X;
+                    var dy = projectionRay.TargetHolePoint.Y - projectionRay.Ray.Origin.Y;
+                    var dz = projectionRay.TargetHolePoint.Z - projectionRay.Ray.Origin.Z;
+                    var length = (float)Math.Sqrt((dx * dx) + (dy * dy) + (dz * dz));
+                    return (projectionRay.Ray, length);
+                })
+                .ToList();
+
+            visuals.Add(_rayVisualizer.CreateRayLines(segments, color: Colors.Orange));
         }
 
         return visuals;
