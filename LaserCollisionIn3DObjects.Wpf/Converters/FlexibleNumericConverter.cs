@@ -16,8 +16,6 @@ public sealed class FlexibleNumericConverter : IValueConverter
         {
             double number => number.ToString("G", CultureInfo.InvariantCulture),
             float number => number.ToString("G", CultureInfo.InvariantCulture),
-            double? nullableNumber when nullableNumber.HasValue => nullableNumber.Value.ToString("G", CultureInfo.InvariantCulture),
-            float? nullableNumber when nullableNumber.HasValue => nullableNumber.Value.ToString("G", CultureInfo.InvariantCulture),
             _ => value.ToString(),
         };
     }

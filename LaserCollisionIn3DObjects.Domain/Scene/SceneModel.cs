@@ -1,4 +1,3 @@
-
 using LaserCollisionIn3DObjects.Domain.Geometry;
 
 
@@ -33,5 +32,5 @@ public sealed class SceneModel
     /// <summary>
     /// Gets the hole centers from prisms .
     /// </summary>
-    public List<Point3> holes { get; } = new();
+    public List<Point3> HolePoints { get; } = new();
 }

@@ -18,7 +18,8 @@ public partial class MainWindow : Window
         InitializeComponent();
 
         var renderSyncService = new SceneRenderSyncService(Viewport);
-        DataContext = new MainWindowViewModel(renderSyncService);
+        var projectionRenderSyncService = new ProjectionRenderSyncService(ProjectionViewport);
+        DataContext = new MainWindowViewModel(renderSyncService, projectionRenderSyncService);
     }
 
     private void OnAnnotationViewerPreviewMouseWheel(object sender, MouseWheelEventArgs e)
