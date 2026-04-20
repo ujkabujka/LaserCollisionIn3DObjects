@@ -31,7 +31,7 @@ public sealed class CylindricalRayGeneratorTests
         {
             var radialDistance = MathF.Sqrt((ray.Origin.Y * ray.Origin.Y) + (ray.Origin.Z * ray.Origin.Z));
             Assert.Equal(3f, radialDistance, 3);
-            Assert.InRange(ray.Origin.Y, -3f, 3f);
+            Assert.InRange(ray.Origin.X, 0f, 6f);
         }
     }
 
@@ -50,10 +50,33 @@ public sealed class CylindricalRayGeneratorTests
         {
             var localOrigin = frame.TransformPointToLocal(ray.Origin);
             var localDirection = Vector3.Normalize(frame.TransformDirectionToLocal(ray.Direction));
-            var expectedLocalDirection = Vector3.Normalize(new Vector3(localOrigin.X, 0f, localOrigin.Z));
+            var expectedLocalDirection = Vector3.Normalize(new Vector3(0f, localOrigin.Y, localOrigin.Z));
 
             AssertVectorEqual(expectedLocalDirection, localDirection);
-            Assert.Equal(0f, localDirection.Y, 3);
+            Assert.Equal(0f, localDirection.X, Tolerance);
+        }
+    }
+
+    [Fact]
+    public void Generate_RayDirectionsRemainRadialUnderNonTrivialWorldTransform()
+    {
+        var generator = new CylindricalRayGenerator();
+        var frame = new Frame3D(
+            new Vector3(-11f, 8f, 2f),
+            Quaternion.CreateFromYawPitchRoll(-0.9f, 0.3f, 1.1f));
+        var source = new CylindricalLightSource("S", frame, 1.2f, 5f, 63);
+
+        var rays = generator.Generate(source);
+
+        foreach (var ray in rays)
+        {
+            var localOrigin = frame.TransformPointToLocal(ray.Origin);
+            var localDirection = Vector3.Normalize(frame.TransformDirectionToLocal(ray.Direction));
+            var radial = new Vector3(0f, localOrigin.Y, localOrigin.Z);
+            var expectedLocalDirection = Vector3.Normalize(radial);
+
+            Assert.Equal(0f, localDirection.X, Tolerance);
+            AssertVectorEqual(expectedLocalDirection, localDirection);
         }
     }
 

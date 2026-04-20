@@ -46,6 +46,6 @@ public sealed class CylindricalRayGenerator
 
     private static Vector3 GetRadialDirection(Vector3 localOrigin)
     {
-        return Vector3.Normalize(new Vector3(localOrigin.X, 0f, localOrigin.Z));
+        return Vector3.Normalize(new Vector3(0f, localOrigin.Y, localOrigin.Z));
     }
 }
