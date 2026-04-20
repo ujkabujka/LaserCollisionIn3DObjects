@@ -113,6 +113,11 @@ public sealed class HelixSceneBuilder
             visuals.AddRange(_frameVisualizer.CreateFrameVisualsBatch(new[] { (ToFrame3D(sourceFrame), 1.5f) }));
         }
 
+        if (projectionResult is not null)
+        {
+            visuals.Add(_rayVisualizer.CreatePoints(new[] { projectionResult.PointSourceOrigin }, Colors.OrangeRed, size: 5));
+        }
+
         if (projectionResult is not null && projectionResult.Rays.Count > 0)
         {
             var segments = projectionResult.Rays

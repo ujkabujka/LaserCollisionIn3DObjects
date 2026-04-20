@@ -25,19 +25,19 @@ public sealed class PointSourceProjectionMethod : IProjectionMethod
         }
 
         var sourceFrame = PointSourceFrameBuilder.Build(
-            parameters.SourceOrigin,
+            parameters.BeamOrigin,
             parameters.SourceFrameX,
             parameters.SourceFrameY);
 
-        var source = sourceFrame.Origin;
+        var pointSource = parameters.PointSourceOrigin;
         var rays = new List<ProjectionRay>(request.HolePoints.Count);
 
         foreach (var holePoint in request.HolePoints)
         {
             var direction = new Vector3(
-                (float)(holePoint.X - source.X),
-                (float)(holePoint.Y - source.Y),
-                (float)(holePoint.Z - source.Z));
+                (float)(holePoint.X - pointSource.X),
+                (float)(holePoint.Y - pointSource.Y),
+                (float)(holePoint.Z - pointSource.Z));
 
             if (direction.LengthSquared() <= 0f)
             {
@@ -47,7 +47,7 @@ public sealed class PointSourceProjectionMethod : IProjectionMethod
             }
 
             var ray = new Ray3D(
-                new Vector3((float)source.X, (float)source.Y, (float)source.Z),
+                new Vector3((float)pointSource.X, (float)pointSource.Y, (float)pointSource.Z),
                 direction);
 
             rays.Add(new ProjectionRay(ray, holePoint));
@@ -56,6 +56,7 @@ public sealed class PointSourceProjectionMethod : IProjectionMethod
         return new ProjectionComputationResult
         {
             MethodId = Metadata.Id,
+            PointSourceOrigin = pointSource,
             SourceFrame = sourceFrame,
             Rays = rays,
         };
