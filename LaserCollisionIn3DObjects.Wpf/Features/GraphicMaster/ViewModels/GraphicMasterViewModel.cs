@@ -2,6 +2,7 @@ using LaserCollisionIn3DObjects.Domain.Generation;
 using LaserCollisionIn3DObjects.Domain.Geometry;
 using LaserCollisionIn3DObjects.Domain.Graphing;
 using LaserCollisionIn3DObjects.Wpf.Commands;
+using LaserCollisionIn3DObjects.Wpf.Features.GraphicMaster.Services;
 using LaserCollisionIn3DObjects.Wpf.Infrastructure;
 using LaserCollisionIn3DObjects.Wpf.Services;
 using LaserCollisionIn3DObjects.Wpf.ViewModels;
@@ -23,16 +24,28 @@ public sealed class GraphicMasterViewModel : ObservableObject
     {
         new AngleBinBarChartGraphType(),
         new AngleBinXyChartGraphType(),
+        new CylindricalNormalizedAxialAngleXyGraphType(),
     });
+    private readonly IGraphicMasterSaveFileDialogService _saveFileDialogService;
+    private readonly IGraphicMasterPngExportService _pngExportService;
 
     private GraphTypeOptionViewModel? _selectedGraphType;
+    private StoredGraphChartViewModel? _selectedStoredChart;
     private double _binSizeDeg = 10;
     private PlotModel _plotModel = CreateEmptyPlotModel();
     private string _statusMessage = "Select graph type and data sources, then generate chart.";
+    private string _chartName = "Chart 1";
+    private int _plotExportWidth = 1600;
+    private int _plotExportHeight = 1000;
 
-    public GraphicMasterViewModel(SceneCollectionService sceneCollectionService)
+    public GraphicMasterViewModel(
+        SceneCollectionService sceneCollectionService,
+        IGraphicMasterSaveFileDialogService? saveFileDialogService = null,
+        IGraphicMasterPngExportService? pngExportService = null)
     {
         _sceneCollectionService = sceneCollectionService ?? throw new ArgumentNullException(nameof(sceneCollectionService));
+        _saveFileDialogService = saveFileDialogService ?? new GraphicMasterSaveFileDialogService();
+        _pngExportService = pngExportService ?? new GraphicMasterPngExportService();
 
         foreach (var graphType in _graphTypeRegistry.GraphTypes)
         {
@@ -42,6 +55,8 @@ public sealed class GraphicMasterViewModel : ObservableObject
         SelectedGraphType = GraphTypes.FirstOrDefault();
 
         GenerateChartCommand = new RelayCommand(GenerateChart);
+        DeleteStoredChartCommand = new RelayCommand(DeleteStoredChart, () => SelectedStoredChart is not null);
+        SaveChartAsPngCommand = new RelayCommand(SaveChartAsPng);
 
         _sceneCollectionService.Scenes.CollectionChanged += OnScenesCollectionChanged;
         foreach (var scene in _sceneCollectionService.Scenes)
@@ -53,13 +68,44 @@ public sealed class GraphicMasterViewModel : ObservableObject
 
     public ObservableCollection<GraphTypeOptionViewModel> GraphTypes { get; } = new();
     public ObservableCollection<GraphableSourceItemViewModel> Sources { get; } = new();
+    public ObservableCollection<StoredGraphChartViewModel> StoredCharts { get; } = new();
 
     public ICommand GenerateChartCommand { get; }
+    public ICommand DeleteStoredChartCommand { get; }
+    public ICommand SaveChartAsPngCommand { get; }
 
     public GraphTypeOptionViewModel? SelectedGraphType
     {
         get => _selectedGraphType;
         set => SetProperty(ref _selectedGraphType, value);
+    }
+
+    public StoredGraphChartViewModel? SelectedStoredChart
+    {
+        get => _selectedStoredChart;
+        set
+        {
+            if (!SetProperty(ref _selectedStoredChart, value))
+            {
+                return;
+            }
+
+            if (DeleteStoredChartCommand is RelayCommand deleteCommand)
+            {
+                deleteCommand.RaiseCanExecuteChanged();
+            }
+
+            if (value is not null)
+            {
+                RestoreStoredChart(value);
+            }
+        }
+    }
+
+    public string ChartName
+    {
+        get => _chartName;
+        set => SetProperty(ref _chartName, value);
     }
 
     public double BinSizeDeg
@@ -97,29 +143,148 @@ public sealed class GraphicMasterViewModel : ObservableObject
             return;
         }
 
-        var selectedSources = Sources.Where(source => source.IsSelected).Select(source => source.SourceData).ToList();
-        if (selectedSources.Count == 0)
+        var selectedSourceIds = Sources.Where(source => source.IsSelected).Select(source => source.SourceData.Id).ToList();
+        if (selectedSourceIds.Count == 0)
         {
             StatusMessage = "Select at least one source or projection result.";
             return;
         }
 
+        var chartResult = RenderFromConfiguration(selectedGraphType.Id, BinSizeDeg, selectedSourceIds, chartNameOverride: ChartName);
+        if (!chartResult.Success)
+        {
+            return;
+        }
+
+        var normalizedChartName = string.IsNullOrWhiteSpace(ChartName)
+            ? $"{selectedGraphType.DisplayName} {StoredCharts.Count + 1}"
+            : ChartName.Trim();
+
+        var stored = new StoredGraphChartViewModel
+        {
+            Id = Guid.NewGuid().ToString("N"),
+            DisplayName = normalizedChartName,
+            GraphTypeId = selectedGraphType.Id,
+            BinSizeDeg = BinSizeDeg,
+            SelectedSourceIds = selectedSourceIds,
+        };
+
+        StoredCharts.Add(stored);
+        SelectedStoredChart = stored;
+        StatusMessage = $"Generated and stored '{stored.DisplayName}'.";
+    }
+
+    private void RestoreStoredChart(StoredGraphChartViewModel storedChart)
+    {
+        var graphType = GraphTypes.FirstOrDefault(type => type.GraphType.Id == storedChart.GraphTypeId);
+        if (graphType is null)
+        {
+            StatusMessage = $"Stored graph type '{storedChart.GraphTypeId}' is no longer available.";
+            return;
+        }
+
+        SelectedGraphType = graphType;
+        ChartName = storedChart.DisplayName;
+        BinSizeDeg = storedChart.BinSizeDeg;
+
+        RefreshSources();
+        var selectedIds = storedChart.SelectedSourceIds.ToHashSet(StringComparer.Ordinal);
+        foreach (var source in Sources)
+        {
+            source.IsSelected = selectedIds.Contains(source.SourceData.Id);
+        }
+
+        _ = RenderFromConfiguration(storedChart.GraphTypeId, storedChart.BinSizeDeg, storedChart.SelectedSourceIds, chartNameOverride: storedChart.DisplayName);
+    }
+
+    private void DeleteStoredChart()
+    {
+        if (SelectedStoredChart is null)
+        {
+            StatusMessage = "Select a stored chart to delete.";
+            return;
+        }
+
+        var deleted = SelectedStoredChart;
+        var deletedIndex = StoredCharts.IndexOf(deleted);
+        StoredCharts.Remove(deleted);
+
+        if (StoredCharts.Count == 0)
+        {
+            SelectedStoredChart = null;
+            PlotModel = CreateEmptyPlotModel();
+            StatusMessage = $"Deleted '{deleted.DisplayName}'. No stored charts remain.";
+            return;
+        }
+
+        var nextIndex = Math.Clamp(deletedIndex, 0, StoredCharts.Count - 1);
+        SelectedStoredChart = StoredCharts[nextIndex];
+        StatusMessage = $"Deleted '{deleted.DisplayName}'.";
+    }
+
+    private void SaveChartAsPng()
+    {
+        if (PlotModel.Series.Count == 0)
+        {
+            StatusMessage = "No chart is currently available to save.";
+            return;
+        }
+
+        var path = _saveFileDialogService.SelectPngPath();
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            StatusMessage = "Save canceled.";
+            return;
+        }
+
+        _pngExportService.Export(PlotModel, path, _plotExportWidth, _plotExportHeight);
+        StatusMessage = $"Saved chart to '{path}'.";
+    }
+
+    public void UpdateExportSize(double width, double height)
+    {
+        if (width > 1)
+        {
+            _plotExportWidth = Math.Max(1, (int)Math.Round(width));
+        }
+
+        if (height > 1)
+        {
+            _plotExportHeight = Math.Max(1, (int)Math.Round(height));
+        }
+    }
+
+    private (bool Success, int SourceCount) RenderFromConfiguration(string graphTypeId, double binSizeDeg, IReadOnlyList<string> sourceIds, string? chartNameOverride = null)
+    {
+        var selectedGraphType = _graphTypeRegistry.Resolve(graphTypeId);
+        var selectedSourceSet = sourceIds.ToHashSet(StringComparer.Ordinal);
+        var selectedSources = Sources
+            .Where(source => selectedSourceSet.Contains(source.SourceData.Id))
+            .Select(source => source.SourceData)
+            .ToList();
+
         var result = selectedGraphType.Build(new GraphBuildContext
         {
             Sources = selectedSources,
-            BinSizeDeg = BinSizeDeg,
+            BinSizeDeg = binSizeDeg,
         });
 
-        PlotModel = BuildPlotModel(result);
-        StatusMessage = $"Generated {selectedGraphType.DisplayName} for {selectedSources.Count} source(s).";
+        if (result.Series.Count == 0)
+        {
+            PlotModel = CreateEmptyPlotModel();
+            StatusMessage = selectedGraphType is CylindricalNormalizedAxialAngleXyGraphType
+                ? "No compatible cylindrical sources selected for normalized axial-angle XY graph."
+                : "No chart data was produced for the selected sources.";
+            return (false, 0);
+        }
+
+        PlotModel = BuildPlotModel(result, chartNameOverride ?? selectedGraphType.DisplayName);
+        return (true, selectedSources.Count);
     }
 
-    private PlotModel BuildPlotModel(GraphResult result)
+    private static PlotModel BuildPlotModel(GraphResult result, string title)
     {
-        var plotModel = new PlotModel
-        {
-            Title = SelectedGraphType?.DisplayName ?? "Graph",
-        };
+        var plotModel = new PlotModel { Title = title, Background = OxyColors.White };
 
         if (result.Series.Count == 0)
         {
@@ -150,6 +315,27 @@ public sealed class GraphicMasterViewModel : ObservableObject
                 }
 
                 plotModel.Series.Add(rectangleSeries);
+            }
+
+            return plotModel;
+        }
+
+        var usesPointSeries = result.Series.Any(series => series.Points.Count > 0);
+
+        if (usesPointSeries)
+        {
+            plotModel.Axes.Add(new LinearAxis { Position = AxisPosition.Bottom, Title = "Normalized axial position (x/L)" });
+            plotModel.Axes.Add(new LinearAxis { Position = AxisPosition.Left, Title = "Angle to source X axis (deg)", Minimum = 0, Maximum = 180 });
+
+            foreach (var series in result.Series)
+            {
+                var lineSeries = new LineSeries { Title = series.Name, StrokeThickness = 2, MarkerType = MarkerType.Circle, MarkerSize = 2.5 };
+                foreach (var point in series.Points.OrderBy(point => point.X))
+                {
+                    lineSeries.Points.Add(new DataPoint(point.X, point.Y));
+                }
+
+                plotModel.Series.Add(lineSeries);
             }
 
             return plotModel;

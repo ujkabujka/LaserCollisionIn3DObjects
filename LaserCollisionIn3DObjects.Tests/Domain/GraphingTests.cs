@@ -139,10 +139,141 @@ public sealed class GraphingTests
         {
             new AngleBinBarChartGraphType(),
             new AngleBinXyChartGraphType(),
+            new CylindricalNormalizedAxialAngleXyGraphType(),
         });
 
         var resolved = registry.Resolve("graph.angle-bin-xy");
         Assert.IsType<AngleBinXyChartGraphType>(resolved);
+    }
+
+    [Fact]
+    public void CylindricalNormalizedAxialAngleXy_ExcludesProjectionResultSources()
+    {
+        var type = new CylindricalNormalizedAxialAngleXyGraphType();
+        var result = type.Build(new GraphBuildContext
+        {
+            BinSizeDeg = 10,
+            Sources =
+            [
+                new GraphableSourceData
+                {
+                    Id = "proj",
+                    DisplayName = "Projection",
+                    Kind = GraphableSourceKind.ProjectionResult,
+                    AxisX = Vector3.UnitX,
+                    FrameOrigin = Vector3.Zero,
+                    SourceLength = null,
+                    Rays = [new Ray3D(Vector3.Zero, Vector3.UnitX)],
+                },
+            ],
+        });
+
+        Assert.Equal(GraphVisualizationKind.Xy, result.VisualizationKind);
+        Assert.Empty(result.Series);
+    }
+
+    [Fact]
+    public void CylindricalNormalizedAxialAngleXy_ComputesNormalizedPositionAndAngle()
+    {
+        var type = new CylindricalNormalizedAxialAngleXyGraphType();
+        var result = type.Build(new GraphBuildContext
+        {
+            BinSizeDeg = 10,
+            Sources =
+            [
+                new GraphableSourceData
+                {
+                    Id = "cyl-1",
+                    DisplayName = "Cyl 1",
+                    Kind = GraphableSourceKind.CylindricalLightSource,
+                    AxisX = Vector3.UnitX,
+                    FrameOrigin = Vector3.Zero,
+                    SourceLength = 10,
+                    Rays =
+                    [
+                        new Ray3D(new Vector3(2f, 0f, 0f), Vector3.UnitX),
+                        new Ray3D(new Vector3(5f, 0f, 0f), Vector3.UnitY),
+                    ],
+                },
+            ],
+        });
+
+        Assert.Single(result.Series);
+        Assert.Equal(2, result.Series[0].Points.Count);
+        Assert.Equal(0.2, result.Series[0].Points[0].X, 5);
+        Assert.Equal(0, result.Series[0].Points[0].Y, 5);
+        Assert.Equal(0.5, result.Series[0].Points[1].X, 5);
+        Assert.Equal(90, result.Series[0].Points[1].Y, 5);
+    }
+
+    [Fact]
+    public void CylindricalNormalizedAxialAngleXy_UsesMultipleSeriesForMultipleCylinders()
+    {
+        var type = new CylindricalNormalizedAxialAngleXyGraphType();
+        var result = type.Build(new GraphBuildContext
+        {
+            BinSizeDeg = 10,
+            Sources =
+            [
+                new GraphableSourceData
+                {
+                    Id = "cyl-1",
+                    DisplayName = "Cyl 1",
+                    Kind = GraphableSourceKind.CylindricalLightSource,
+                    AxisX = Vector3.UnitX,
+                    FrameOrigin = Vector3.Zero,
+                    SourceLength = 10,
+                    Rays = [new Ray3D(new Vector3(1f, 0f, 0f), Vector3.UnitX)],
+                },
+                new GraphableSourceData
+                {
+                    Id = "cyl-2",
+                    DisplayName = "Cyl 2",
+                    Kind = GraphableSourceKind.CylindricalLightSource,
+                    AxisX = Vector3.UnitX,
+                    FrameOrigin = Vector3.Zero,
+                    SourceLength = 5,
+                    Rays = [new Ray3D(new Vector3(2.5f, 0f, 0f), Vector3.UnitY)],
+                },
+            ],
+        });
+
+        Assert.Equal(2, result.Series.Count);
+        Assert.Equal("Cyl 1", result.Series[0].Name);
+        Assert.Equal("Cyl 2", result.Series[1].Name);
+    }
+
+    [Fact]
+    public void StoredGraphChartSession_AddSelectDelete_Works()
+    {
+        var session = new StoredGraphChartSession();
+        session.AddAndSelect(new StoredGraphChart
+        {
+            Id = "c1",
+            DisplayName = "Chart 1",
+            GraphTypeId = "graph.angle-bin-bar",
+            BinSizeDeg = 15,
+            SelectedSourceIds = ["s1"],
+        });
+        session.AddAndSelect(new StoredGraphChart
+        {
+            Id = "c2",
+            DisplayName = "Chart 2",
+            GraphTypeId = "graph.angle-bin-xy",
+            BinSizeDeg = 10,
+            SelectedSourceIds = ["s1", "s2"],
+        });
+
+        Assert.Equal(2, session.Charts.Count);
+        Assert.Equal("c2", session.SelectedChart?.Id);
+
+        Assert.True(session.Select("c1"));
+        Assert.Equal("c1", session.SelectedChart?.Id);
+
+        var deleted = session.DeleteSelected();
+        Assert.Equal("c1", deleted?.Id);
+        Assert.Single(session.Charts);
+        Assert.Equal("c2", session.SelectedChart?.Id);
     }
 
     [Fact]

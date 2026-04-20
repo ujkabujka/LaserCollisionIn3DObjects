@@ -24,11 +24,20 @@ public sealed class GraphableSourceData
     public required GraphableSourceKind Kind { get; init; }
     public required Vector3 AxisX { get; init; }
     public required IReadOnlyList<Ray3D> Rays { get; init; }
+    public Vector3? FrameOrigin { get; init; }
+    public double? SourceLength { get; init; }
 }
 
 public sealed record AngleBinCount(double BinStartInclusiveDeg, double BinEndDeg, double BinCenterDeg, int Count);
 
-public sealed record GraphSeriesData(string Name, IReadOnlyList<AngleBinCount> Bins);
+public sealed record ScatterPointData(double X, double Y);
+
+public sealed class GraphSeriesData
+{
+    public required string Name { get; init; }
+    public IReadOnlyList<AngleBinCount> Bins { get; init; } = [];
+    public IReadOnlyList<ScatterPointData> Points { get; init; } = [];
+}
 
 public enum GraphVisualizationKind
 {
