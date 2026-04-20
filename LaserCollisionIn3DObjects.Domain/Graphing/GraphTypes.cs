@@ -104,6 +104,28 @@ public sealed class AngleBinXyChartGraphType : IGraphType
             Series = series,
         };
     }
+
+    private static ScatterPointData BuildPoint(GraphableSourceData source, Geometry.Ray3D ray)
+    {
+        var axis = NormalizeOrThrow(source.AxisX, nameof(source.AxisX));
+        var length = source.SourceLength ?? throw new InvalidOperationException("Source length is required.");
+        var frameOrigin = source.FrameOrigin ?? throw new InvalidOperationException("Source frame origin is required.");
+
+        var localX = Vector3.Dot(ray.Origin - frameOrigin, axis);
+        var normalizedX = localX / length;
+        var angle = AngleHistogramService.CalculateAngleDegrees(axis, ray.Direction);
+        return new ScatterPointData(normalizedX, angle);
+    }
+
+    private static Vector3 NormalizeOrThrow(Vector3 value, string parameterName)
+    {
+        if (value.LengthSquared() <= 0f)
+        {
+            throw new ArgumentException("Vector must be non-zero.", parameterName);
+        }
+
+        return Vector3.Normalize(value);
+    }
 }
 
 public sealed class CylindricalNormalizedAxialAngleXyGraphType : IGraphType
