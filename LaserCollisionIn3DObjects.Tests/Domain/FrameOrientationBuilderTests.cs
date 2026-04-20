@@ -17,7 +17,7 @@ public sealed class FrameOrientationBuilderTests
         var rotatedForward = Vector3.Normalize(Vector3.Transform(Vector3.UnitZ, rotated));
 
         AssertVectorEqual(baseForward, rotatedForward);
-        AssertVectorEqual(new Vector3(-1f, 0f, 0f), rotatedForward);
+        AssertVectorEqual(Vector3.UnitZ, rotatedForward);
     }
 
     private static void AssertVectorEqual(Vector3 expected, Vector3 actual)

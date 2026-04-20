@@ -20,6 +20,17 @@ public class PersistenceRoundTripTests
                     new SceneState
                     {
                         Name = "Scene A",
+                        CylindricalLightSources =
+                        [
+                            new CylindricalLightSourceState
+                            {
+                                Name = "Light Source 1",
+                                Radius = 3,
+                                Height = 5,
+                                RayCount = 10,
+                                TiltWeight = 0.25f,
+                            },
+                        ],
                         HolePoints = [new Point3(1, 2, 3)],
                         Projection = new SceneProjectionStateDto
                         {
@@ -77,6 +88,8 @@ public class PersistenceRoundTripTests
             Assert.Single(roundTrip.Scenes[0].Projection.Results);
             Assert.Equal("Result 1", roundTrip.Scenes[0].Projection.Results[0].Name);
             Assert.Equal(new Point3(1, 1, 1), roundTrip.Scenes[0].Projection.Results[0].PointSourceOrigin);
+            Assert.Single(roundTrip.Scenes[0].CylindricalLightSources);
+            Assert.Equal(0.25f, roundTrip.Scenes[0].CylindricalLightSources[0].TiltWeight, 3);
             Assert.False(roundTrip.AnnotationWorkspace.IsFolderResolved);
             Assert.Equal("/missing/path", roundTrip.AnnotationWorkspace.FolderPath);
         }

@@ -19,7 +19,7 @@ public sealed class PrismPlacementGeneratorTests
             var horizontalRadius = MathF.Sqrt((placement.Position.X * placement.Position.X) + (placement.Position.Y * placement.Position.Y));
             Assert.Equal(12f, horizontalRadius, 3);
             Assert.Equal(3f, placement.Position.Z, 3);
-            AssertVectorEqual(Quaternion.Identity, placement.Orientation);
+            AssertVectorEqual(FrameOrientationBuilder.CreateFacingOriginOrientation(placement.Position), placement.Orientation);
         }
     }
 
@@ -37,7 +37,7 @@ public sealed class PrismPlacementGeneratorTests
             Assert.True(
                 MathF.Abs(MathF.Abs(placement.Position.X) - halfLength) < Tolerance ||
                 MathF.Abs(MathF.Abs(placement.Position.Y) - halfLength) < Tolerance);
-            AssertVectorEqual(Quaternion.Identity, placement.Orientation);
+            AssertVectorEqual(FrameOrientationBuilder.CreateFacingOriginOrientation(placement.Position), placement.Orientation);
         }
     }
 

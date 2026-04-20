@@ -51,6 +51,7 @@ public sealed class MainWindowViewModel : ObservableObject
     private float _newLightSourceRadius = 5f;
     private float _newLightSourceHeight = 10f;
     private int _newLightSourceRayCount = 200;
+    private float _newLightSourceTiltWeight = 0.1f;
     private CollisionAlgorithmOption _selectedCollisionAlgorithm = CollisionAlgorithmOption.ClosestHitSequential;
     private string _lastCollisionDurationMs = "N/A";
     private string _lastSequentialCollisionDurationMs = "N/A";
@@ -270,6 +271,7 @@ public sealed class MainWindowViewModel : ObservableObject
     public float NewLightSourceRadius { get => _newLightSourceRadius; set => SetProperty(ref _newLightSourceRadius, value); }
     public float NewLightSourceHeight { get => _newLightSourceHeight; set => SetProperty(ref _newLightSourceHeight, value); }
     public int NewLightSourceRayCount { get => _newLightSourceRayCount; set => SetProperty(ref _newLightSourceRayCount, value); }
+    public float NewLightSourceTiltWeight { get => _newLightSourceTiltWeight; set => SetProperty(ref _newLightSourceTiltWeight, value); }
     public CollisionAlgorithmOption SelectedCollisionAlgorithm
     {
         get => _selectedCollisionAlgorithm;
@@ -418,7 +420,7 @@ public sealed class MainWindowViewModel : ObservableObject
             return;
         }
 
-        if (!ValidateLightSourceInputs(NewLightSourceRadius, NewLightSourceHeight, NewLightSourceRayCount, out var error))
+        if (!ValidateLightSourceInputs(NewLightSourceRadius, NewLightSourceHeight, NewLightSourceRayCount, NewLightSourceTiltWeight, out var error))
         {
             StatusMessage = error;
             return;
@@ -436,6 +438,7 @@ public sealed class MainWindowViewModel : ObservableObject
             Radius = NewLightSourceRadius,
             Height = NewLightSourceHeight,
             RayCount = NewLightSourceRayCount,
+            TiltWeight = NewLightSourceTiltWeight,
             BaseOrientation = Quaternion.Identity,
         });
 
@@ -595,6 +598,7 @@ public sealed class MainWindowViewModel : ObservableObject
             Radius = 4,
             Height = 10,
             RayCount = 120,
+            TiltWeight = 0.1f,
             BaseOrientation = Quaternion.Identity,
         });
 
@@ -709,7 +713,7 @@ public sealed class MainWindowViewModel : ObservableObject
         for (var i = 0; i < LightSources.Count; i++)
         {
             var source = LightSources[i];
-            if (!ValidateLightSourceInputs(source.Radius, source.Height, source.RayCount, out error))
+            if (!ValidateLightSourceInputs(source.Radius, source.Height, source.RayCount, source.TiltWeight, out error))
             {
                 error = $"Light source {i + 1} invalid. {error}";
                 return false;
@@ -761,7 +765,7 @@ public sealed class MainWindowViewModel : ObservableObject
         return true;
     }
 
-    private static bool ValidateLightSourceInputs(float radius, float height, int rayCount, out string error)
+    private static bool ValidateLightSourceInputs(float radius, float height, int rayCount, float tiltWeight, out string error)
     {
         if (radius <= 0 || height <= 0)
         {
@@ -772,6 +776,12 @@ public sealed class MainWindowViewModel : ObservableObject
         if (rayCount <= 0)
         {
             error = "Light source RayCount must be greater than zero.";
+            return false;
+        }
+
+        if (tiltWeight < 0f)
+        {
+            error = "Light source TiltWeight must be greater than or equal to zero.";
             return false;
         }
 

@@ -157,6 +157,7 @@ public sealed class ProjectPersistenceCoordinator
                 Radius = source.Radius,
                 Height = source.Height,
                 RayCount = source.RayCount,
+                TiltWeight = source.TiltWeight,
             }).ToList(),
             HolePoints = scene.HolePoints.ToList(),
             Projection = new SceneProjectionStateDto
@@ -248,6 +249,7 @@ public sealed class ProjectPersistenceCoordinator
                 Radius = source.Radius,
                 Height = source.Height,
                 RayCount = source.RayCount,
+                TiltWeight = source.TiltWeight,
                 BaseOrientation = Quaternion.Identity,
             });
         }

@@ -76,6 +76,7 @@ public sealed class CylindricalLightSourceState
     public float Radius { get; set; }
     public float Height { get; set; }
     public int RayCount { get; set; }
+    public float TiltWeight { get; set; } = 0.1f;
 }
 
 public sealed class SceneProjectionStateDto

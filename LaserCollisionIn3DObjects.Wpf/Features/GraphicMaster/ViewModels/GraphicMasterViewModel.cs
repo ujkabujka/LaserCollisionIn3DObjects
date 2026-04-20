@@ -217,7 +217,8 @@ public sealed class GraphicMasterViewModel : ObservableObject
             new Frame3D(new Vector3(source.PositionX, source.PositionY, source.PositionZ), orientation),
             source.Radius,
             source.Height,
-            source.RayCount);
+            source.RayCount,
+            source.TiltWeight);
     }
 
     private void OnScenesCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)

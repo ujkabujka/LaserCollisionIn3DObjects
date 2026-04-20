@@ -34,7 +34,7 @@ public sealed class CylindricalRayGenerator
                 source.Radius * MathF.Sin(theta)
                 );
 
-            var localDirection = GetRadialDirection(localOrigin);
+            var localDirection = GetTiltedDirection(localOrigin, source.TiltWeight);
             var worldOrigin = source.Frame.TransformPointToWorld(localOrigin);
             var worldDirection = Vector3.Normalize(source.Frame.TransformDirectionToWorld(localDirection));
 
@@ -44,8 +44,15 @@ public sealed class CylindricalRayGenerator
         return rays;
     }
 
-    private static Vector3 GetRadialDirection(Vector3 localOrigin)
+    private static Vector3 GetTiltedDirection(Vector3 localOrigin, float tiltWeight)
     {
-        return Vector3.Normalize(new Vector3(0f, localOrigin.Y, localOrigin.Z));
+        var radial = Vector3.Normalize(new Vector3(0f, localOrigin.Y, localOrigin.Z));
+        if (tiltWeight <= 0f)
+        {
+            return radial;
+        }
+
+        var tilt = Vector3.Normalize(localOrigin);
+        return Vector3.Normalize(radial + (tiltWeight * tilt));
     }
 }
