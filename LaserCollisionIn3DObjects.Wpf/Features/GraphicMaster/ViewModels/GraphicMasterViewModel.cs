@@ -35,6 +35,8 @@ public sealed class GraphicMasterViewModel : ObservableObject
     private PlotModel _plotModel = CreateEmptyPlotModel();
     private string _statusMessage = "Select graph type and data sources, then generate chart.";
     private string _chartName = "Chart 1";
+    private int _plotExportWidth = 1600;
+    private int _plotExportHeight = 1000;
 
     public GraphicMasterViewModel(
         SceneCollectionService sceneCollectionService,
@@ -235,8 +237,21 @@ public sealed class GraphicMasterViewModel : ObservableObject
             return;
         }
 
-        _pngExportService.Export(PlotModel, path, width: 1600, height: 1000);
+        _pngExportService.Export(PlotModel, path, _plotExportWidth, _plotExportHeight);
         StatusMessage = $"Saved chart to '{path}'.";
+    }
+
+    public void UpdateExportSize(double width, double height)
+    {
+        if (width > 1)
+        {
+            _plotExportWidth = Math.Max(1, (int)Math.Round(width));
+        }
+
+        if (height > 1)
+        {
+            _plotExportHeight = Math.Max(1, (int)Math.Round(height));
+        }
     }
 
     private (bool Success, int SourceCount) RenderFromConfiguration(string graphTypeId, double binSizeDeg, IReadOnlyList<string> sourceIds, string? chartNameOverride = null)
@@ -269,7 +284,7 @@ public sealed class GraphicMasterViewModel : ObservableObject
 
     private static PlotModel BuildPlotModel(GraphResult result, string title)
     {
-        var plotModel = new PlotModel { Title = title };
+        var plotModel = new PlotModel { Title = title, Background = OxyColors.White };
 
         if (result.Series.Count == 0)
         {
@@ -305,22 +320,22 @@ public sealed class GraphicMasterViewModel : ObservableObject
             return plotModel;
         }
 
-        var usesScatter = result.Series.Any(series => series.Points.Count > 0);
+        var usesPointSeries = result.Series.Any(series => series.Points.Count > 0);
 
-        if (usesScatter)
+        if (usesPointSeries)
         {
             plotModel.Axes.Add(new LinearAxis { Position = AxisPosition.Bottom, Title = "Normalized axial position (x/L)" });
             plotModel.Axes.Add(new LinearAxis { Position = AxisPosition.Left, Title = "Angle to source X axis (deg)", Minimum = 0, Maximum = 180 });
 
             foreach (var series in result.Series)
             {
-                var scatter = new ScatterSeries { Title = series.Name, MarkerType = MarkerType.Circle, MarkerSize = 2.5 };
-                foreach (var point in series.Points)
+                var lineSeries = new LineSeries { Title = series.Name, StrokeThickness = 2, MarkerType = MarkerType.Circle, MarkerSize = 2.5 };
+                foreach (var point in series.Points.OrderBy(point => point.X))
                 {
-                    scatter.Points.Add(new ScatterPoint(point.X, point.Y));
+                    lineSeries.Points.Add(new DataPoint(point.X, point.Y));
                 }
 
-                plotModel.Series.Add(scatter);
+                plotModel.Series.Add(lineSeries);
             }
 
             return plotModel;

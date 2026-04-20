@@ -38,6 +38,13 @@ public sealed class GraphicMasterPngExportService : IGraphicMasterPngExportServi
         ArgumentNullException.ThrowIfNull(plotModel);
         ArgumentException.ThrowIfNullOrWhiteSpace(filePath);
 
-        PngExporter.Export(plotModel, filePath, width, height, 96d);
+        var exporter = new PngExporter
+        {
+            Width = Math.Max(1, width),
+            Height = Math.Max(1, height),
+            Resolution = 96,
+        };
+
+        exporter.ExportToFile(plotModel, filePath);
     }
 }
