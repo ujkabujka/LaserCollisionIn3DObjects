@@ -37,6 +37,7 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
             ?? ProjectionMethods.FirstOrDefault();
 
         RunProjectionCommand = new RelayCommand(RunProjection, CanRunProjection);
+        DeleteSelectedResultCommand = new RelayCommand(DeleteSelectedResult, () => SelectedResult is not null);
 
         _sceneCollectionService.Scenes.CollectionChanged += OnScenesCollectionChanged;
         RefreshAvailableScenes();
@@ -47,6 +48,7 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
     public ObservableCollection<CollisionSceneViewModel> AvailableScenes { get; } = new();
 
     public ICommand RunProjectionCommand { get; }
+    public ICommand DeleteSelectedResultCommand { get; }
 
     public double PointSourceX { get; set; }
     public double PointSourceY { get; set; }
@@ -75,7 +77,7 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
         get => SelectedScene?.ProjectionState.SavedResults ?? _emptyResults;
     }
 
-    private static readonly List<NamedProjectionResultState> _emptyResults = new();
+    private static readonly IReadOnlyList<NamedProjectionResultState> _emptyResults = Array.Empty<NamedProjectionResultState>();
 
     public NamedProjectionResultState? SelectedResult
     {
@@ -99,6 +101,7 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
             SelectedScene.ProjectionState.SelectedResultKey = value?.Key;
             RefreshViewport();
             RaisePropertyChanged();
+            RaiseCanExecuteChanged();
         }
     }
 
@@ -126,15 +129,27 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
         get => _selectedScene;
         set
         {
+            if (ReferenceEquals(_selectedScene, value))
+            {
+                return;
+            }
+
+            var previousScene = _selectedScene;
             if (!SetProperty(ref _selectedScene, value))
             {
                 return;
+            }
+
+            if (previousScene is not null)
+            {
+                previousScene.ProjectionState.SavedResults.CollectionChanged -= OnSavedResultsCollectionChanged;
             }
 
             if (value is not null)
             {
                 SelectedMethod = ProjectionMethods.FirstOrDefault(method => method.Id == value.ProjectionState.SelectedMethodId)
                     ?? ProjectionMethods.FirstOrDefault();
+                value.ProjectionState.SavedResults.CollectionChanged += OnSavedResultsCollectionChanged;
             }
 
             RaisePropertyChanged(nameof(SavedResults));
@@ -207,7 +222,6 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
             var namedResult = SceneProjectionStateUpdater.SaveResult(scene.ProjectionState, NewResultName, result);
             NewResultName = $"Projection Result {scene.ProjectionState.SavedResults.Count + 1}";
             scene.ProjectionState.SelectedMethodId = SelectedMethod.Id;
-            RaisePropertyChanged(nameof(SavedResults));
             SelectedResult = namedResult;
 
             StatusMessage = $"Projection completed and saved as '{namedResult.DisplayName}' ({result.Rays.Count} ray(s)).";
@@ -216,6 +230,30 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
         {
             StatusMessage = ex.Message;
         }
+    }
+
+    private void DeleteSelectedResult()
+    {
+        var scene = SelectedScene;
+        var selectedResult = SelectedResult;
+        if (scene is null || selectedResult is null)
+        {
+            StatusMessage = "Select a projection result to delete.";
+            return;
+        }
+
+        var deleted = SceneProjectionStateUpdater.DeleteResult(scene.ProjectionState, selectedResult);
+        if (!deleted)
+        {
+            StatusMessage = "Selected projection result could not be deleted.";
+            return;
+        }
+
+        RaisePropertyChanged(nameof(SavedResults));
+        RaisePropertyChanged(nameof(SelectedResult));
+        RefreshViewport();
+        RaiseCanExecuteChanged();
+        StatusMessage = $"Deleted projection result '{selectedResult.DisplayName}'.";
     }
 
     private IProjectionParameters BuildParameters(IProjectionMethod method)
@@ -265,5 +303,17 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
         {
             runProjectionCommand.RaiseCanExecuteChanged();
         }
+
+        if (DeleteSelectedResultCommand is RelayCommand deleteSelectedResultCommand)
+        {
+            deleteSelectedResultCommand.RaiseCanExecuteChanged();
+        }
+    }
+
+    private void OnSavedResultsCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        RaisePropertyChanged(nameof(SavedResults));
+        RaisePropertyChanged(nameof(SelectedResult));
+        RaiseCanExecuteChanged();
     }
 }

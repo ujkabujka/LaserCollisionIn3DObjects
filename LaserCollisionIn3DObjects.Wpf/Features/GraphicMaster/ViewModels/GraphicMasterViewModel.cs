@@ -44,6 +44,10 @@ public sealed class GraphicMasterViewModel : ObservableObject
         GenerateChartCommand = new RelayCommand(GenerateChart);
 
         _sceneCollectionService.Scenes.CollectionChanged += OnScenesCollectionChanged;
+        foreach (var scene in _sceneCollectionService.Scenes)
+        {
+            AttachSceneObservers(scene);
+        }
         RefreshSources();
     }
 
@@ -216,7 +220,40 @@ public sealed class GraphicMasterViewModel : ObservableObject
             source.RayCount);
     }
 
-    private void OnScenesCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e) => RefreshSources();
+    private void OnScenesCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        if (e.OldItems is not null)
+        {
+            foreach (var removedScene in e.OldItems.OfType<CollisionSceneViewModel>())
+            {
+                DetachSceneObservers(removedScene);
+            }
+        }
+
+        if (e.NewItems is not null)
+        {
+            foreach (var addedScene in e.NewItems.OfType<CollisionSceneViewModel>())
+            {
+                AttachSceneObservers(addedScene);
+            }
+        }
+
+        RefreshSources();
+    }
+
+    private void AttachSceneObservers(CollisionSceneViewModel scene)
+    {
+        scene.LightSources.CollectionChanged += OnSceneGraphInputsChanged;
+        scene.ProjectionState.SavedResults.CollectionChanged += OnSceneGraphInputsChanged;
+    }
+
+    private void DetachSceneObservers(CollisionSceneViewModel scene)
+    {
+        scene.LightSources.CollectionChanged -= OnSceneGraphInputsChanged;
+        scene.ProjectionState.SavedResults.CollectionChanged -= OnSceneGraphInputsChanged;
+    }
+
+    private void OnSceneGraphInputsChanged(object? sender, NotifyCollectionChangedEventArgs e) => RefreshSources();
 
     private static PlotModel CreateEmptyPlotModel()
     {

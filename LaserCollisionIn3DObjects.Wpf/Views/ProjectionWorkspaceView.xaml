@@ -52,6 +52,10 @@
                                      SelectedItem="{Binding ProjectionWorkspace.SelectedResult}"
                                      DisplayMemberPath="DisplayName"
                                      Height="90" />
+                            <Button Content="Delete Selected Result"
+                                    Command="{Binding ProjectionWorkspace.DeleteSelectedResultCommand}"
+                                    Height="28"
+                                    Margin="0,6,0,0"/>
                         </StackPanel>
                     </GroupBox>
 

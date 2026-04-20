@@ -220,4 +220,46 @@ public sealed class GraphingTests
         Assert.Equal(1, pointLaser.AxisX.X);
         Assert.Single(pointLaser.Rays);
     }
+
+    [Fact]
+    public void Extraction_ReflectsProjectionResultAddAndRemove()
+    {
+        var service = new GraphSourceExtractionService();
+        var projectionResults = new List<NamedProjectionResultState>();
+        var scene = new GraphSceneData
+        {
+            SceneName = "Scene One",
+            CylindricalSources = [],
+            ProjectionResults = projectionResults,
+        };
+
+        var before = service.Extract([scene]);
+        Assert.Empty(before);
+
+        projectionResults.Add(new NamedProjectionResultState
+        {
+            Key = "r1",
+            DisplayName = "Result 1",
+            Result = new ProjectionComputationResult
+            {
+                MethodId = ProjectionMethodIds.PointSource,
+                PointSourceOrigin = new Point3(0, 0, 0),
+                SourceFrame = new PointSourceFrameState
+                {
+                    Origin = new Point3(1, 2, 3),
+                    AxisX = new Vector3D(1, 0, 0),
+                    AxisY = new Vector3D(0, 1, 0),
+                    AxisZ = new Vector3D(0, 0, 1),
+                },
+                Rays = [new ProjectionRay(new Ray3D(Vector3.Zero, Vector3.UnitX), new Point3(0, 0, 0))],
+            },
+        });
+
+        var afterAdd = service.Extract([scene]);
+        Assert.Single(afterAdd);
+
+        projectionResults.Clear();
+        var afterRemove = service.Extract([scene]);
+        Assert.Empty(afterRemove);
+    }
 }
