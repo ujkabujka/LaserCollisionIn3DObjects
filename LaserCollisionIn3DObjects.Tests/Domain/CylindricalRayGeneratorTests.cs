@@ -53,7 +53,7 @@ public sealed class CylindricalRayGeneratorTests
             var expectedLocalDirection = Vector3.Normalize(new Vector3(0f, localOrigin.Y, localOrigin.Z));
 
             AssertVectorEqual(expectedLocalDirection, localDirection);
-            Assert.Equal(0f, localDirection.X, 3);
+            Assert.Equal(0f, localDirection.X, Tolerance);
         }
     }
 
@@ -75,7 +75,7 @@ public sealed class CylindricalRayGeneratorTests
             var radial = new Vector3(0f, localOrigin.Y, localOrigin.Z);
             var expectedLocalDirection = Vector3.Normalize(radial);
 
-            Assert.Equal(0f, localDirection.X, 3);
+            Assert.Equal(0f, localDirection.X, Tolerance);
             AssertVectorEqual(expectedLocalDirection, localDirection);
         }
     }
