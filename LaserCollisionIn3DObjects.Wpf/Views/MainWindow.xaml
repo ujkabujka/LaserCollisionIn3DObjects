@@ -48,6 +48,39 @@
                 </DataTrigger>
             </Style.Triggers>
         </Style>
+
+        <Style x:Key="HamburgerToggleStyle" TargetType="ToggleButton">
+            <Setter Property="Width" Value="30"/>
+            <Setter Property="Height" Value="30"/>
+            <Setter Property="Margin" Value="8,8,8,6"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderBrush" Value="#D1D5DB"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Foreground" Value="#334155"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ToggleButton">
+                        <Border x:Name="Root"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="6">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Root" Property="Background" Value="#EEF2FF"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Root" Property="Background" Value="#E2E8F0"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </Window.Resources>
 
     <DockPanel>
@@ -84,9 +117,7 @@
                     </Grid.RowDefinitions>
 
                     <ToggleButton Grid.Row="0"
-                                  Margin="8"
-                                  Padding="8"
-                                  FontSize="18"
+                                  Style="{StaticResource HamburgerToggleStyle}"
                                   Content="☰"
                                   IsChecked="{Binding IsNavigationCollapsed}"
                                   ToolTip="Collapse navigation"/>
@@ -141,6 +172,23 @@
                                 <TextBlock Text="Projection" Style="{StaticResource NavigationLabelStyle}" VerticalAlignment="Center"/>
                             </StackPanel>
                         </Button>
+
+                        <Button Command="{Binding ShowGraphicMasterWorkspaceCommand}"
+                                Margin="0,6,0,0">
+                            <Button.Style>
+                                <Style TargetType="Button" BasedOn="{StaticResource NavigationButtonBaseStyle}">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding SelectedWorkspace}" Value="{x:Static vm:WorkspaceKind.GraphicMaster}">
+                                            <Setter Property="Background" Value="#DBEAFE"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Button.Style>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="📊" FontSize="14" VerticalAlignment="Center"/>
+                                <TextBlock Text="Graphic Master" Style="{StaticResource NavigationLabelStyle}" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Button>
                     </StackPanel>
                 </Grid>
             </Border>
@@ -184,6 +232,19 @@
                         </Style>
                     </v:ProjectionWorkspaceView.Style>
                 </v:ProjectionWorkspaceView>
+
+                <v:GraphicMasterView DataContext="{Binding}">
+                    <v:GraphicMasterView.Style>
+                        <Style TargetType="v:GraphicMasterView">
+                            <Setter Property="Visibility" Value="Collapsed"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding SelectedWorkspace}" Value="{x:Static vm:WorkspaceKind.GraphicMaster}">
+                                    <Setter Property="Visibility" Value="Visible"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </v:GraphicMasterView.Style>
+                </v:GraphicMasterView>
             </Grid>
         </Grid>
     </DockPanel>

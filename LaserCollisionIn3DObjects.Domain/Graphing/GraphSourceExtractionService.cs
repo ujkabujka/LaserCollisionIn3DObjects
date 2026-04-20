@@ -1,0 +1,53 @@
+using LaserCollisionIn3DObjects.Domain.Generation;
+using LaserCollisionIn3DObjects.Domain.Geometry;
+using System.Numerics;
+
+namespace LaserCollisionIn3DObjects.Domain.Graphing;
+
+public sealed class GraphSourceExtractionService
+{
+    private readonly CylindricalRayGenerator _rayGenerator;
+
+    public GraphSourceExtractionService(CylindricalRayGenerator? rayGenerator = null)
+    {
+        _rayGenerator = rayGenerator ?? new CylindricalRayGenerator();
+    }
+
+    public IReadOnlyList<GraphableSourceData> Extract(IReadOnlyList<GraphSceneData> scenes)
+    {
+        ArgumentNullException.ThrowIfNull(scenes);
+
+        var sources = new List<GraphableSourceData>();
+
+        foreach (var scene in scenes)
+        {
+            foreach (var source in scene.CylindricalSources)
+            {
+                var rays = _rayGenerator.Generate(source).ToList();
+                sources.Add(new GraphableSourceData
+                {
+                    Id = $"{scene.SceneName}::cyl::{source.Name}",
+                    DisplayName = $"[{scene.SceneName}] Cylindrical Source: {source.Name}",
+                    Kind = GraphableSourceKind.CylindricalLightSource,
+                    AxisX = source.Frame.TransformDirectionToWorld(Vector3.UnitX),
+                    Rays = rays,
+                });
+            }
+
+            foreach (var result in scene.ProjectionResults)
+            {
+                var axisX = result.Result.SourceFrame.AxisX;
+                sources.Add(new GraphableSourceData
+                {
+                    Id = $"{scene.SceneName}::proj::{result.Key}",
+                    DisplayName = $"[{scene.SceneName}] Projection Result: {result.DisplayName}",
+                    Kind = GraphableSourceKind.ProjectionResult,
+                    AxisX = new Vector3((float)axisX.X, (float)axisX.Y, (float)axisX.Z),
+                    Rays = result.Result.Rays.Select(projectionRay => projectionRay.Ray).ToList(),
+                });
+            }
+        }
+
+        return sources;
+    }
+}

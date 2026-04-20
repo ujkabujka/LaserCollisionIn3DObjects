@@ -58,21 +58,21 @@
                     <GroupBox Header="Point Source Parameters" Margin="0,0,0,8" Padding="8">
                         <StackPanel>
                             <UniformGrid Columns="3" Margin="0,0,0,6">
-                                <StackPanel Margin="2"><TextBlock Text="Source X"/><TextBox Text="{Binding ProjectionWorkspace.SourceX, UpdateSourceTrigger=PropertyChanged, Converter={StaticResource FlexibleNumericConverter}}"/></StackPanel>
-                                <StackPanel Margin="2"><TextBlock Text="Source Y"/><TextBox Text="{Binding ProjectionWorkspace.SourceY, UpdateSourceTrigger=PropertyChanged, Converter={StaticResource FlexibleNumericConverter}}"/></StackPanel>
-                                <StackPanel Margin="2"><TextBlock Text="Source Z"/><TextBox Text="{Binding ProjectionWorkspace.SourceZ, UpdateSourceTrigger=PropertyChanged, Converter={StaticResource FlexibleNumericConverter}}"/></StackPanel>
+                                <StackPanel Margin="2"><TextBlock Text="Source X"/><TextBox Text="{Binding ProjectionWorkspace.SourceX, UpdateSourceTrigger=LostFocus, Converter={StaticResource FlexibleNumericConverter}}"/></StackPanel>
+                                <StackPanel Margin="2"><TextBlock Text="Source Y"/><TextBox Text="{Binding ProjectionWorkspace.SourceY, UpdateSourceTrigger=LostFocus, Converter={StaticResource FlexibleNumericConverter}}"/></StackPanel>
+                                <StackPanel Margin="2"><TextBlock Text="Source Z"/><TextBox Text="{Binding ProjectionWorkspace.SourceZ, UpdateSourceTrigger=LostFocus, Converter={StaticResource FlexibleNumericConverter}}"/></StackPanel>
                             </UniformGrid>
                             <TextBlock Text="Source Frame X Direction"/>
                             <UniformGrid Columns="3" Margin="0,0,0,6">
-                                <StackPanel Margin="2"><TextBlock Text="Xx"/><TextBox Text="{Binding ProjectionWorkspace.SourceFrameXx, UpdateSourceTrigger=PropertyChanged, Converter={StaticResource FlexibleNumericConverter}}"/></StackPanel>
-                                <StackPanel Margin="2"><TextBlock Text="Xy"/><TextBox Text="{Binding ProjectionWorkspace.SourceFrameXy, UpdateSourceTrigger=PropertyChanged, Converter={StaticResource FlexibleNumericConverter}}"/></StackPanel>
-                                <StackPanel Margin="2"><TextBlock Text="Xz"/><TextBox Text="{Binding ProjectionWorkspace.SourceFrameXz, UpdateSourceTrigger=PropertyChanged, Converter={StaticResource FlexibleNumericConverter}}"/></StackPanel>
+                                <StackPanel Margin="2"><TextBlock Text="Xx"/><TextBox Text="{Binding ProjectionWorkspace.SourceFrameXx, UpdateSourceTrigger=LostFocus, Converter={StaticResource FlexibleNumericConverter}}"/></StackPanel>
+                                <StackPanel Margin="2"><TextBlock Text="Xy"/><TextBox Text="{Binding ProjectionWorkspace.SourceFrameXy, UpdateSourceTrigger=LostFocus, Converter={StaticResource FlexibleNumericConverter}}"/></StackPanel>
+                                <StackPanel Margin="2"><TextBlock Text="Xz"/><TextBox Text="{Binding ProjectionWorkspace.SourceFrameXz, UpdateSourceTrigger=LostFocus, Converter={StaticResource FlexibleNumericConverter}}"/></StackPanel>
                             </UniformGrid>
                             <TextBlock Text="Source Frame Y Direction"/>
                             <UniformGrid Columns="3" Margin="0,0,0,6">
-                                <StackPanel Margin="2"><TextBlock Text="Yx"/><TextBox Text="{Binding ProjectionWorkspace.SourceFrameYx, UpdateSourceTrigger=PropertyChanged, Converter={StaticResource FlexibleNumericConverter}}"/></StackPanel>
-                                <StackPanel Margin="2"><TextBlock Text="Yy"/><TextBox Text="{Binding ProjectionWorkspace.SourceFrameYy, UpdateSourceTrigger=PropertyChanged, Converter={StaticResource FlexibleNumericConverter}}"/></StackPanel>
-                                <StackPanel Margin="2"><TextBlock Text="Yz"/><TextBox Text="{Binding ProjectionWorkspace.SourceFrameYz, UpdateSourceTrigger=PropertyChanged, Converter={StaticResource FlexibleNumericConverter}}"/></StackPanel>
+                                <StackPanel Margin="2"><TextBlock Text="Yx"/><TextBox Text="{Binding ProjectionWorkspace.SourceFrameYx, UpdateSourceTrigger=LostFocus, Converter={StaticResource FlexibleNumericConverter}}"/></StackPanel>
+                                <StackPanel Margin="2"><TextBlock Text="Yy"/><TextBox Text="{Binding ProjectionWorkspace.SourceFrameYy, UpdateSourceTrigger=LostFocus, Converter={StaticResource FlexibleNumericConverter}}"/></StackPanel>
+                                <StackPanel Margin="2"><TextBlock Text="Yz"/><TextBox Text="{Binding ProjectionWorkspace.SourceFrameYz, UpdateSourceTrigger=LostFocus, Converter={StaticResource FlexibleNumericConverter}}"/></StackPanel>
                             </UniformGrid>
                             <Button Content="Run Projection"
                                     Command="{Binding ProjectionWorkspace.RunProjectionCommand}"

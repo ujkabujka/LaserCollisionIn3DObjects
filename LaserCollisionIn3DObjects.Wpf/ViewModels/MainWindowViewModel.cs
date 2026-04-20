@@ -6,6 +6,7 @@ using LaserCollisionIn3DObjects.Domain.Generation;
 using LaserCollisionIn3DObjects.Domain.Geometry;
 using LaserCollisionIn3DObjects.Wpf.Commands;
 using LaserCollisionIn3DObjects.Wpf.Features.Annotations.ViewModels;
+using LaserCollisionIn3DObjects.Wpf.Features.GraphicMaster.ViewModels;
 using LaserCollisionIn3DObjects.Wpf.Features.Projection.ViewModels;
 using LaserCollisionIn3DObjects.Wpf.Infrastructure;
 using LaserCollisionIn3DObjects.Wpf.Services;
@@ -23,6 +24,7 @@ public enum WorkspaceKind
     Collision,
     Annotation,
     Projection,
+    GraphicMaster,
 }
 
 public sealed class MainWindowViewModel : ObservableObject
@@ -66,6 +68,7 @@ public sealed class MainWindowViewModel : ObservableObject
 
         AnnotationWorkspace = new AnnotationWorkspaceViewModel(_sceneCollectionService);
         ProjectionWorkspace = new ProjectionWorkspaceViewModel(_sceneCollectionService, projectionRenderSyncService);
+        GraphicMasterWorkspace = new GraphicMasterViewModel(_sceneCollectionService);
 
         CreateSceneCommand = new RelayCommand(CreateScene);
         DeleteSelectedSceneCommand = new RelayCommand(DeleteSelectedScene, () => SelectedScene is not null);
@@ -92,6 +95,7 @@ public sealed class MainWindowViewModel : ObservableObject
         ShowCollisionWorkspaceCommand = new RelayCommand(() => SelectedWorkspace = WorkspaceKind.Collision);
         ShowAnnotationWorkspaceCommand = new RelayCommand(() => SelectedWorkspace = WorkspaceKind.Annotation);
         ShowProjectionWorkspaceCommand = new RelayCommand(() => SelectedWorkspace = WorkspaceKind.Projection);
+        ShowGraphicMasterWorkspaceCommand = new RelayCommand(() => SelectedWorkspace = WorkspaceKind.GraphicMaster);
 
         CreateScene();
         RefreshViewport(false);
@@ -101,6 +105,7 @@ public sealed class MainWindowViewModel : ObservableObject
 
     public AnnotationWorkspaceViewModel AnnotationWorkspace { get; }
     public ProjectionWorkspaceViewModel ProjectionWorkspace { get; }
+    public GraphicMasterViewModel GraphicMasterWorkspace { get; }
 
     public ObservableCollection<CollisionSceneViewModel> Scenes => _sceneCollectionService.Scenes;
 
@@ -157,6 +162,7 @@ public sealed class MainWindowViewModel : ObservableObject
     public ICommand ShowCollisionWorkspaceCommand { get; }
     public ICommand ShowAnnotationWorkspaceCommand { get; }
     public ICommand ShowProjectionWorkspaceCommand { get; }
+    public ICommand ShowGraphicMasterWorkspaceCommand { get; }
 
     public bool IsNavigationCollapsed
     {
