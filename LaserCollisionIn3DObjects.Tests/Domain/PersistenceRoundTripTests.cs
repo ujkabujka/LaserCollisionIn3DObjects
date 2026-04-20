@@ -32,6 +32,7 @@ public class PersistenceRoundTripTests
                                     Key = "projection.result.1",
                                     Name = "Result 1",
                                     MethodId = "point-source",
+                                    PointSourceOrigin = new Point3(1, 1, 1),
                                     SourceFrame = new PointSourceFrameStateDto
                                     {
                                         Origin = new Point3(0, 0, 0),
@@ -75,6 +76,7 @@ public class PersistenceRoundTripTests
             Assert.Equal("Scene A", roundTrip.Scenes[0].Name);
             Assert.Single(roundTrip.Scenes[0].Projection.Results);
             Assert.Equal("Result 1", roundTrip.Scenes[0].Projection.Results[0].Name);
+            Assert.Equal(new Point3(1, 1, 1), roundTrip.Scenes[0].Projection.Results[0].PointSourceOrigin);
             Assert.False(roundTrip.AnnotationWorkspace.IsFolderResolved);
             Assert.Equal("/missing/path", roundTrip.AnnotationWorkspace.FolderPath);
         }

@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using LaserCollisionIn3DObjects.Domain.Projection;
 
 namespace LaserCollisionIn3DObjects.Domain.Scene;
@@ -8,7 +9,7 @@ public sealed class SceneProjectionState
 
     public string? SelectedResultKey { get; set; }
 
-    public List<NamedProjectionResultState> SavedResults { get; } = new();
+    public ObservableCollection<NamedProjectionResultState> SavedResults { get; } = new();
 
     public ProjectionComputationResult? SelectedResult =>
         SelectedResultKey is null

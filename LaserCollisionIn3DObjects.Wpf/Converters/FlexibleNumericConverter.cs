@@ -55,7 +55,14 @@ public sealed class FlexibleNumericConverter : IValueConverter
     }
 
     private static bool IsIntermediateValue(string text)
-        => text is "-" or "+" or "." or "," or "-." or "-," or "+." or "+,";
+    {
+        if (text is "-" or "+" or "." or "," or "-." or "-," or "+." or "+,")
+        {
+            return true;
+        }
+
+        return text.EndsWith(".", StringComparison.Ordinal) || text.EndsWith(",", StringComparison.Ordinal);
+    }
 
     private static bool TryParseFlexible(string text, out double parsed)
     {
