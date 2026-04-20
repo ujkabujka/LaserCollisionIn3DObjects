@@ -175,6 +175,7 @@ public sealed class ProjectPersistenceCoordinator
             Key = namedResult.Key,
             Name = namedResult.DisplayName,
             MethodId = namedResult.Result.MethodId,
+            PointSourceOrigin = namedResult.Result.PointSourceOrigin,
             SourceFrame = new PointSourceFrameStateDto
             {
                 Origin = namedResult.Result.SourceFrame.Origin,
@@ -267,6 +268,7 @@ public sealed class ProjectPersistenceCoordinator
                 Result = new ProjectionComputationResult
                 {
                     MethodId = result.MethodId,
+                    PointSourceOrigin = result.PointSourceOrigin ?? result.SourceFrame.Origin,
                     SourceFrame = new PointSourceFrameState
                     {
                         Origin = result.SourceFrame.Origin,

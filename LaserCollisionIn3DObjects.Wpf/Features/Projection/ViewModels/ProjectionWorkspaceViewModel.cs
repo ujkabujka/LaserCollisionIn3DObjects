@@ -48,9 +48,13 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
 
     public ICommand RunProjectionCommand { get; }
 
-    public double SourceX { get; set; }
-    public double SourceY { get; set; }
-    public double SourceZ { get; set; }
+    public double PointSourceX { get; set; }
+    public double PointSourceY { get; set; }
+    public double PointSourceZ { get; set; }
+
+    public double BeamOriginX { get; set; }
+    public double BeamOriginY { get; set; }
+    public double BeamOriginZ { get; set; }
 
     public double SourceFrameXx { get; set; } = 1;
     public double SourceFrameXy { get; set; }
@@ -219,7 +223,8 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
         if (method.Metadata.Id == ProjectionMethodIds.PointSource)
         {
             return new PointSourceProjectionParameters(
-                new Point3(SourceX, SourceY, SourceZ),
+                new Point3(PointSourceX, PointSourceY, PointSourceZ),
+                new Point3(BeamOriginX, BeamOriginY, BeamOriginZ),
                 new Vector3D(SourceFrameXx, SourceFrameXy, SourceFrameXz),
                 new Vector3D(SourceFrameYx, SourceFrameYy, SourceFrameYz));
         }

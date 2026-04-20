@@ -36,14 +36,15 @@ public sealed class GraphSourceExtractionService
 
             foreach (var result in scene.ProjectionResults)
             {
-                var axisX = result.Result.SourceFrame.AxisX;
+                var pointLaserSource = result.Result.ToPointLaserSource();
+                var axisX = pointLaserSource.AxisX;
                 sources.Add(new GraphableSourceData
                 {
                     Id = $"{scene.SceneName}::proj::{result.Key}",
                     DisplayName = $"[{scene.SceneName}] Projection Result: {result.DisplayName}",
                     Kind = GraphableSourceKind.ProjectionResult,
                     AxisX = new Vector3((float)axisX.X, (float)axisX.Y, (float)axisX.Z),
-                    Rays = result.Result.Rays.Select(projectionRay => projectionRay.Ray).ToList(),
+                    Rays = pointLaserSource.Rays.Select(projectionRay => projectionRay.Ray).ToList(),
                 });
             }
         }

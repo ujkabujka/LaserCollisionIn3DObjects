@@ -106,6 +106,33 @@ public sealed class GraphingTests
     }
 
     [Fact]
+    public void BarGraphType_RepresentsAngleBinsWithRayCounts()
+    {
+        var type = new AngleBinBarChartGraphType();
+        var result = type.Build(new GraphBuildContext
+        {
+            BinSizeDeg = 30,
+            Sources =
+            [
+                new GraphableSourceData
+                {
+                    Id = "s1",
+                    DisplayName = "S1",
+                    Kind = GraphableSourceKind.CylindricalLightSource,
+                    AxisX = Vector3.UnitX,
+                    Rays = [new Ray3D(Vector3.Zero, Vector3.UnitX), new Ray3D(Vector3.Zero, Vector3.UnitY)],
+                },
+            ],
+        });
+
+        var bins = result.Series[0].Bins;
+        Assert.Equal(0, bins[0].BinStartInclusiveDeg);
+        Assert.Equal(30, bins[0].BinEndDeg);
+        Assert.Equal(1, bins[0].Count);
+        Assert.Equal(1, bins[3].Count);
+    }
+
+    [Fact]
     public void Registry_ResolvesById()
     {
         var registry = new GraphTypeRegistry(new IGraphType[]
@@ -136,6 +163,7 @@ public sealed class GraphingTests
             Result = new ProjectionComputationResult
             {
                 MethodId = ProjectionMethodIds.PointSource,
+                PointSourceOrigin = new Point3(0, 0, 0),
                 SourceFrame = new PointSourceFrameState
                 {
                     Origin = new Point3(0, 0, 0),
@@ -168,5 +196,28 @@ public sealed class GraphingTests
         Assert.Contains(extracted, item => item.Kind == GraphableSourceKind.ProjectionResult && item.DisplayName.Contains("Projection Result"));
         Assert.Contains(extracted, item => item.Kind == GraphableSourceKind.ProjectionResult && item.Rays.Count == 2);
         Assert.Contains(extracted, item => item.Kind == GraphableSourceKind.CylindricalLightSource && item.Rays.Count == 4);
+    }
+
+    [Fact]
+    public void ProjectionResult_ToPointLaserSource_UsesBeamFrameAndRays()
+    {
+        var result = new ProjectionComputationResult
+        {
+            MethodId = ProjectionMethodIds.PointSource,
+            PointSourceOrigin = new Point3(1, 2, 3),
+            SourceFrame = new PointSourceFrameState
+            {
+                Origin = new Point3(7, 8, 9),
+                AxisX = new Vector3D(1, 0, 0),
+                AxisY = new Vector3D(0, 1, 0),
+                AxisZ = new Vector3D(0, 0, 1),
+            },
+            Rays = [new ProjectionRay(new Ray3D(Vector3.Zero, Vector3.UnitX), new Point3(0, 0, 0))],
+        };
+
+        var pointLaser = result.ToPointLaserSource();
+        Assert.Equal(new Point3(7, 8, 9), pointLaser.Origin);
+        Assert.Equal(1, pointLaser.AxisX.X);
+        Assert.Single(pointLaser.Rays);
     }
 }

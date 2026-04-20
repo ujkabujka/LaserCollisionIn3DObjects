@@ -124,27 +124,28 @@ public sealed class GraphicMasterViewModel : ObservableObject
 
         if (result.VisualizationKind == GraphVisualizationKind.GroupedBar)
         {
-            var categoryAxis = new CategoryAxis { Position = AxisPosition.Left, Title = "Angle Bin (deg)" };
-            var valueAxis = new LinearAxis { Position = AxisPosition.Bottom, Title = "Ray Count", Minimum = 0 };
+            plotModel.Axes.Add(new LinearAxis { Position = AxisPosition.Bottom, Title = "Angle (deg)", Minimum = 0, Maximum = 180 });
+            plotModel.Axes.Add(new LinearAxis { Position = AxisPosition.Left, Title = "Ray Count", Minimum = 0 });
 
-            foreach (var bin in result.Series[0].Bins)
+            var seriesCount = result.Series.Count;
+            var binTemplate = result.Series[0].Bins;
+
+            for (var seriesIndex = 0; seriesIndex < result.Series.Count; seriesIndex++)
             {
-                var end = Math.Abs(bin.BinEndDeg - 180d) < 0.0001 ? "]" : ")";
-                categoryAxis.Labels.Add($"[{bin.BinStartInclusiveDeg:0.#},{bin.BinEndDeg:0.#}{end}");
-            }
-
-            plotModel.Axes.Add(categoryAxis);
-            plotModel.Axes.Add(valueAxis);
-
-            foreach (var series in result.Series)
-            {
-                var columnSeries = new BarSeries { Title = series.Name, StrokeThickness = 1 };
-                foreach (var bin in series.Bins)
+                var sourceSeries = result.Series[seriesIndex];
+                var rectangleSeries = new RectangleBarSeries { Title = sourceSeries.Name, StrokeThickness = 1 };
+                for (var binIndex = 0; binIndex < sourceSeries.Bins.Count; binIndex++)
                 {
-                    columnSeries.Items.Add(new BarItem(bin.Count));
+                    var templateBin = binTemplate[binIndex];
+                    var sourceBin = sourceSeries.Bins[binIndex];
+                    var totalWidth = templateBin.BinEndDeg - templateBin.BinStartInclusiveDeg;
+                    var barWidth = totalWidth / seriesCount;
+                    var x0 = templateBin.BinStartInclusiveDeg + (seriesIndex * barWidth);
+                    var x1 = x0 + barWidth;
+                    rectangleSeries.Items.Add(new RectangleBarItem(x0, 0, x1, sourceBin.Count));
                 }
 
-                plotModel.Series.Add(columnSeries);
+                plotModel.Series.Add(rectangleSeries);
             }
 
             return plotModel;
