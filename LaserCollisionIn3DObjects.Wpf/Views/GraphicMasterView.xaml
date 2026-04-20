@@ -28,6 +28,13 @@
                         </StackPanel>
                     </GroupBox>
 
+                    <GroupBox Header="Chart" Margin="0,0,0,8" Padding="8">
+                        <StackPanel>
+                            <TextBlock Text="Chart Name"/>
+                            <TextBox Text="{Binding GraphicMasterWorkspace.ChartName, UpdateSourceTrigger=PropertyChanged}"/>
+                        </StackPanel>
+                    </GroupBox>
+
                     <GroupBox Header="Graph Sources" Margin="0,0,0,8" Padding="8">
                         <StackPanel>
                             <TextBlock TextWrapping="Wrap" Foreground="#555" Margin="0,0,0,6"
@@ -52,6 +59,24 @@
                     <Button Content="Generate Chart"
                             Command="{Binding GraphicMasterWorkspace.GenerateChartCommand}"
                             Height="32"/>
+
+                    <GroupBox Header="Stored Charts (runtime only)" Margin="0,8,0,8" Padding="8">
+                        <DockPanel>
+                            <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Margin="0,8,0,0">
+                                <Button Content="Delete Selected"
+                                        Command="{Binding GraphicMasterWorkspace.DeleteStoredChartCommand}"
+                                        Margin="0,0,8,0"/>
+                                <Button Content="Save Current as PNG"
+                                        Command="{Binding GraphicMasterWorkspace.SaveChartAsPngCommand}"/>
+                            </StackPanel>
+                            <ListBox ItemsSource="{Binding GraphicMasterWorkspace.StoredCharts}"
+                                     SelectedItem="{Binding GraphicMasterWorkspace.SelectedStoredChart}"
+                                     Height="180"
+                                     DisplayMemberPath="DisplayName"
+                                     BorderThickness="1"
+                                     BorderBrush="#D1D5DB"/>
+                        </DockPanel>
+                    </GroupBox>
 
                     <TextBlock Margin="0,8,0,0"
                                Foreground="#374151"
