@@ -6,6 +6,7 @@ using LaserCollisionIn3DObjects.Domain.Generation;
 using LaserCollisionIn3DObjects.Domain.Geometry;
 using LaserCollisionIn3DObjects.Wpf.Commands;
 using LaserCollisionIn3DObjects.Wpf.Features.Annotations.ViewModels;
+using LaserCollisionIn3DObjects.Wpf.Features.GraphicMaster.ViewModels;
 using LaserCollisionIn3DObjects.Wpf.Features.Projection.ViewModels;
 using LaserCollisionIn3DObjects.Wpf.Infrastructure;
 using LaserCollisionIn3DObjects.Wpf.Services;
@@ -16,6 +17,14 @@ public enum CollisionAlgorithmOption
 {
     ClosestHitSequential,
     ClosestHitParallel,
+}
+
+public enum WorkspaceKind
+{
+    Collision,
+    Annotation,
+    Projection,
+    GraphicMaster,
 }
 
 public sealed class MainWindowViewModel : ObservableObject
@@ -42,11 +51,14 @@ public sealed class MainWindowViewModel : ObservableObject
     private float _newLightSourceRadius = 5f;
     private float _newLightSourceHeight = 10f;
     private int _newLightSourceRayCount = 200;
+    private float _newLightSourceTiltWeight = 0.1f;
     private CollisionAlgorithmOption _selectedCollisionAlgorithm = CollisionAlgorithmOption.ClosestHitSequential;
     private string _lastCollisionDurationMs = "N/A";
     private string _lastSequentialCollisionDurationMs = "N/A";
     private string _lastParallelCollisionDurationMs = "N/A";
     private string _statusMessage = "Add objects, then click Run Collision.";
+    private bool _isNavigationCollapsed;
+    private WorkspaceKind _selectedWorkspace = WorkspaceKind.Collision;
 
     public MainWindowViewModel(SceneRenderSyncService renderSyncService, ProjectionRenderSyncService projectionRenderSyncService)
     {
@@ -57,6 +69,7 @@ public sealed class MainWindowViewModel : ObservableObject
 
         AnnotationWorkspace = new AnnotationWorkspaceViewModel(_sceneCollectionService);
         ProjectionWorkspace = new ProjectionWorkspaceViewModel(_sceneCollectionService, projectionRenderSyncService);
+        GraphicMasterWorkspace = new GraphicMasterViewModel(_sceneCollectionService);
 
         CreateSceneCommand = new RelayCommand(CreateScene);
         DeleteSelectedSceneCommand = new RelayCommand(DeleteSelectedScene, () => SelectedScene is not null);
@@ -80,6 +93,10 @@ public sealed class MainWindowViewModel : ObservableObject
         LoadProjectionTabCommand = new RelayCommand(LoadProjectionTabState);
         SaveAnnotationTabCommand = new RelayCommand(SaveAnnotationTabState);
         LoadAnnotationTabCommand = new RelayCommand(LoadAnnotationTabState);
+        ShowCollisionWorkspaceCommand = new RelayCommand(() => SelectedWorkspace = WorkspaceKind.Collision);
+        ShowAnnotationWorkspaceCommand = new RelayCommand(() => SelectedWorkspace = WorkspaceKind.Annotation);
+        ShowProjectionWorkspaceCommand = new RelayCommand(() => SelectedWorkspace = WorkspaceKind.Projection);
+        ShowGraphicMasterWorkspaceCommand = new RelayCommand(() => SelectedWorkspace = WorkspaceKind.GraphicMaster);
 
         CreateScene();
         RefreshViewport(false);
@@ -89,6 +106,7 @@ public sealed class MainWindowViewModel : ObservableObject
 
     public AnnotationWorkspaceViewModel AnnotationWorkspace { get; }
     public ProjectionWorkspaceViewModel ProjectionWorkspace { get; }
+    public GraphicMasterViewModel GraphicMasterWorkspace { get; }
 
     public ObservableCollection<CollisionSceneViewModel> Scenes => _sceneCollectionService.Scenes;
 
@@ -142,6 +160,30 @@ public sealed class MainWindowViewModel : ObservableObject
     public ICommand LoadProjectionTabCommand { get; }
     public ICommand SaveAnnotationTabCommand { get; }
     public ICommand LoadAnnotationTabCommand { get; }
+    public ICommand ShowCollisionWorkspaceCommand { get; }
+    public ICommand ShowAnnotationWorkspaceCommand { get; }
+    public ICommand ShowProjectionWorkspaceCommand { get; }
+    public ICommand ShowGraphicMasterWorkspaceCommand { get; }
+
+    public bool IsNavigationCollapsed
+    {
+        get => _isNavigationCollapsed;
+        set
+        {
+            if (SetProperty(ref _isNavigationCollapsed, value))
+            {
+                RaisePropertyChanged(nameof(NavigationRailWidth));
+            }
+        }
+    }
+
+    public double NavigationRailWidth => IsNavigationCollapsed ? 64 : 220;
+
+    public WorkspaceKind SelectedWorkspace
+    {
+        get => _selectedWorkspace;
+        set => SetProperty(ref _selectedWorkspace, value);
+    }
 
     public string NewSceneName { get => _newSceneName; set => SetProperty(ref _newSceneName, value); }
 
@@ -229,6 +271,7 @@ public sealed class MainWindowViewModel : ObservableObject
     public float NewLightSourceRadius { get => _newLightSourceRadius; set => SetProperty(ref _newLightSourceRadius, value); }
     public float NewLightSourceHeight { get => _newLightSourceHeight; set => SetProperty(ref _newLightSourceHeight, value); }
     public int NewLightSourceRayCount { get => _newLightSourceRayCount; set => SetProperty(ref _newLightSourceRayCount, value); }
+    public float NewLightSourceTiltWeight { get => _newLightSourceTiltWeight; set => SetProperty(ref _newLightSourceTiltWeight, value); }
     public CollisionAlgorithmOption SelectedCollisionAlgorithm
     {
         get => _selectedCollisionAlgorithm;
@@ -377,7 +420,7 @@ public sealed class MainWindowViewModel : ObservableObject
             return;
         }
 
-        if (!ValidateLightSourceInputs(NewLightSourceRadius, NewLightSourceHeight, NewLightSourceRayCount, out var error))
+        if (!ValidateLightSourceInputs(NewLightSourceRadius, NewLightSourceHeight, NewLightSourceRayCount, NewLightSourceTiltWeight, out var error))
         {
             StatusMessage = error;
             return;
@@ -395,6 +438,7 @@ public sealed class MainWindowViewModel : ObservableObject
             Radius = NewLightSourceRadius,
             Height = NewLightSourceHeight,
             RayCount = NewLightSourceRayCount,
+            TiltWeight = NewLightSourceTiltWeight,
             BaseOrientation = Quaternion.Identity,
         });
 
@@ -554,6 +598,7 @@ public sealed class MainWindowViewModel : ObservableObject
             Radius = 4,
             Height = 10,
             RayCount = 120,
+            TiltWeight = 0.1f,
             BaseOrientation = Quaternion.Identity,
         });
 
@@ -668,7 +713,7 @@ public sealed class MainWindowViewModel : ObservableObject
         for (var i = 0; i < LightSources.Count; i++)
         {
             var source = LightSources[i];
-            if (!ValidateLightSourceInputs(source.Radius, source.Height, source.RayCount, out error))
+            if (!ValidateLightSourceInputs(source.Radius, source.Height, source.RayCount, source.TiltWeight, out error))
             {
                 error = $"Light source {i + 1} invalid. {error}";
                 return false;
@@ -720,7 +765,7 @@ public sealed class MainWindowViewModel : ObservableObject
         return true;
     }
 
-    private static bool ValidateLightSourceInputs(float radius, float height, int rayCount, out string error)
+    private static bool ValidateLightSourceInputs(float radius, float height, int rayCount, float tiltWeight, out string error)
     {
         if (radius <= 0 || height <= 0)
         {
@@ -731,6 +776,12 @@ public sealed class MainWindowViewModel : ObservableObject
         if (rayCount <= 0)
         {
             error = "Light source RayCount must be greater than zero.";
+            return false;
+        }
+
+        if (tiltWeight < 0f)
+        {
+            error = "Light source TiltWeight must be greater than or equal to zero.";
             return false;
         }
 

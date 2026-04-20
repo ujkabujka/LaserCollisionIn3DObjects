@@ -42,7 +42,7 @@ public class PointSourceProjectionMethodTests
     [Fact]
     public void Execute_CreatesOneRayPerHole()
     {
-        var request = BuildRequest(new Point3(1, 2, 3), new Point3(2, 2, 3), new Point3(1, 4, 5));
+        var request = BuildRequest(new Point3(1, 2, 3), new Point3(1, 2, 3), new Point3(2, 2, 3), new Point3(1, 4, 5));
         var result = _method.Execute(request);
         Assert.Equal(2, result.Rays.Count);
     }
@@ -51,7 +51,7 @@ public class PointSourceProjectionMethodTests
     public void Execute_UsesSourceOriginAsRayOriginForAllRays()
     {
         var source = new Point3(3, 4, 5);
-        var request = BuildRequest(source, new Point3(5, 4, 5), new Point3(3, 6, 5));
+        var request = BuildRequest(source, new Point3(10, 11, 12), new Point3(5, 4, 5), new Point3(3, 6, 5));
 
         var result = _method.Execute(request);
 
@@ -68,7 +68,7 @@ public class PointSourceProjectionMethodTests
     {
         var source = new Point3(1, 1, 1);
         var holes = new[] { new Point3(3, 1, 1), new Point3(1, 4, 5) };
-        var result = _method.Execute(BuildRequest(source, holes));
+        var result = _method.Execute(BuildRequest(source, new Point3(5, 5, 5), holes));
 
         for (var i = 0; i < result.Rays.Count; i++)
         {
@@ -87,17 +87,28 @@ public class PointSourceProjectionMethodTests
     public void Execute_ThrowsWhenHoleCoincidesWithSource()
     {
         var source = new Point3(2, 2, 2);
-        var request = BuildRequest(source, new Point3(2, 2, 2));
+        var request = BuildRequest(source, new Point3(0, 0, 0), new Point3(2, 2, 2));
         var exception = Assert.Throws<ArgumentException>(() => _method.Execute(request));
         Assert.Contains("coincides", exception.Message);
+    }
+
+    [Fact]
+    public void Execute_StoresPointSourceAndBeamOriginsSeparately()
+    {
+        var pointSource = new Point3(1, 2, 3);
+        var beamOrigin = new Point3(7, 8, 9);
+        var result = _method.Execute(BuildRequest(pointSource, beamOrigin, new Point3(4, 5, 6)));
+
+        Assert.Equal(pointSource, result.PointSourceOrigin);
+        Assert.Equal(beamOrigin, result.SourceFrame.Origin);
     }
 
     [Fact]
     public void SceneProjectionStateUpdater_StoresMultipleNamedResults()
     {
         var state = new SceneProjectionState();
-        var first = _method.Execute(BuildRequest(new Point3(0, 0, 0), new Point3(1, 0, 0)));
-        var second = _method.Execute(BuildRequest(new Point3(0, 0, 0), new Point3(0, 1, 0)));
+        var first = _method.Execute(BuildRequest(new Point3(0, 0, 0), new Point3(0, 0, 1), new Point3(1, 0, 0)));
+        var second = _method.Execute(BuildRequest(new Point3(0, 0, 0), new Point3(0, 0, 1), new Point3(0, 1, 0)));
 
         SceneProjectionStateUpdater.SaveResult(state, "First", first);
         SceneProjectionStateUpdater.SaveResult(state, "Second", second);
@@ -107,12 +118,12 @@ public class PointSourceProjectionMethodTests
         Assert.NotNull(state.SelectedResult);
     }
 
-    private static ProjectionRequest BuildRequest(Point3 source, params Point3[] holes)
+    private static ProjectionRequest BuildRequest(Point3 pointSource, Point3 beamOrigin, params Point3[] holes)
     {
         return new ProjectionRequest
         {
             HolePoints = holes,
-            Parameters = new PointSourceProjectionParameters(source, new Vector3D(1, 0, 0), new Vector3D(0, 1, 0)),
+            Parameters = new PointSourceProjectionParameters(pointSource, beamOrigin, new Vector3D(1, 0, 0), new Vector3D(0, 1, 0)),
         };
     }
 

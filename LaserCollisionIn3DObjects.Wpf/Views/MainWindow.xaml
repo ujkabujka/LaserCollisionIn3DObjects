@@ -3,9 +3,9 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:h="http://helix-toolkit.org/wpf"
-        xmlns:avm="clr-namespace:LaserCollisionIn3DObjects.Wpf.Features.Annotations.ViewModels"
         xmlns:conv="clr-namespace:LaserCollisionIn3DObjects.Wpf.Converters"
+        xmlns:vm="clr-namespace:LaserCollisionIn3DObjects.Wpf.ViewModels"
+        xmlns:v="clr-namespace:LaserCollisionIn3DObjects.Wpf.Views"
         mc:Ignorable="d"
         Title="{Binding Title}"
         Width="1500"
@@ -14,457 +14,238 @@
         MinHeight="760">
     <Window.Resources>
         <conv:FlexibleNumericConverter x:Key="FlexibleNumericConverter"/>
+
+        <Style x:Key="NavigationButtonBaseStyle" TargetType="Button">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Foreground" Value="#1F2937"/>
+            <Setter Property="Padding" Value="10,8"/>
+            <Setter Property="HorizontalContentAlignment" Value="Left"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Root" Background="{TemplateBinding Background}" CornerRadius="8">
+                            <ContentPresenter Margin="2"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Root" Property="Background" Value="#E5E7EB"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Root" Property="Background" Value="#D1D5DB"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="NavigationLabelStyle" TargetType="TextBlock">
+            <Setter Property="Margin" Value="10,0,0,0"/>
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsNavigationCollapsed}" Value="True">
+                    <Setter Property="Visibility" Value="Collapsed"/>
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="HamburgerToggleStyle" TargetType="ToggleButton">
+            <Setter Property="Width" Value="30"/>
+            <Setter Property="Height" Value="30"/>
+            <Setter Property="Margin" Value="8,8,8,6"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderBrush" Value="#D1D5DB"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Foreground" Value="#334155"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ToggleButton">
+                        <Border x:Name="Root"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="6">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Root" Property="Background" Value="#EEF2FF"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Root" Property="Background" Value="#E2E8F0"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </Window.Resources>
-    <TabControl>
-        <TabItem Header="Collision Workspace">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="430" />
-                    <ColumnDefinition Width="*" />
-                </Grid.ColumnDefinitions>
 
-                <Border Grid.Column="0" Padding="12" BorderBrush="#D8D8D8" BorderThickness="0,0,1,0" Background="#FAFAFA">
-                    <ScrollViewer VerticalScrollBarVisibility="Auto">
-                        <StackPanel >
-                            <TextBlock Text="Scene Editor" FontSize="20" FontWeight="SemiBold" Margin="0,0,0,10" />
+    <DockPanel>
+        <Menu DockPanel.Dock="Top">
+            <MenuItem Header="_File">
+                <MenuItem Header="Save Project" Command="{Binding SaveProjectCommand}"/>
+                <MenuItem Header="Load Project" Command="{Binding LoadProjectCommand}"/>
+                <Separator/>
+                <MenuItem Header="Save Collision View State" Command="{Binding SaveCollisionTabCommand}"/>
+                <MenuItem Header="Load Collision View State" Command="{Binding LoadCollisionTabCommand}"/>
+                <MenuItem Header="Save Annotation View State" Command="{Binding SaveAnnotationTabCommand}"/>
+                <MenuItem Header="Load Annotation View State" Command="{Binding LoadAnnotationTabCommand}"/>
+                <MenuItem Header="Save Projection View State" Command="{Binding SaveProjectionTabCommand}"/>
+                <MenuItem Header="Load Projection View State" Command="{Binding LoadProjectionTabCommand}"/>
+                <Separator/>
+                <MenuItem Header="E_xit" Command="ApplicationCommands.Close" CommandTarget="{Binding RelativeSource={RelativeSource AncestorType=Window}}"/>
+            </MenuItem>
+            <MenuItem Header="_View"/>
+            <MenuItem Header="_Tools"/>
+            <MenuItem Header="_Help"/>
+        </Menu>
 
-                            <GroupBox Header="Scenes" Margin="0,0,0,8" Padding="8">
-                                <StackPanel>
-                                    <Grid Margin="0,0,0,6">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="90"/>
-                                            <ColumnDefinition Width="*"/>
-                                        </Grid.ColumnDefinitions>
-                                        <TextBlock Grid.Column="0" Text="Name" VerticalAlignment="Center"/>
-                                        <TextBox Grid.Column="1" Text="{Binding NewSceneName, UpdateSourceTrigger=PropertyChanged}"/>
-                                    </Grid>
-                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
-                                        <Button Content="Create Scene" Command="{Binding CreateSceneCommand}" Width="110" Margin="0,0,8,0"/>
-                                        <Button Content="Delete Selected" Command="{Binding DeleteSelectedSceneCommand}" Width="120"/>
-                                    </StackPanel>
-                                    <ListBox ItemsSource="{Binding Scenes}" SelectedItem="{Binding SelectedScene}" Height="120" DisplayMemberPath="Name"/>
-                                </StackPanel>
-                            </GroupBox>
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
 
-                            <GroupBox Header="Prisms" Margin="0,0,0,8" Padding="8">
-                                <StackPanel>
-                                    <Grid Margin="0,0,0,6"><Grid.ColumnDefinitions><ColumnDefinition Width="90"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><TextBlock Grid.Column="0" Text="Name" VerticalAlignment="Center"/><TextBox Grid.Column="1" Text="{Binding NewPrismName}"/></Grid>
-                                    <UniformGrid Columns="3" Margin="0,0,0,6"><StackPanel Margin="2"><TextBlock Text="Pos X"/><TextBox Text="{Binding NewPrismPosX}"/></StackPanel><StackPanel Margin="2"><TextBlock Text="Pos Y"/><TextBox Text="{Binding NewPrismPosY}"/></StackPanel><StackPanel Margin="2"><TextBlock Text="Pos Z"/><TextBox Text="{Binding NewPrismPosZ}"/></StackPanel></UniformGrid>
-                                    <UniformGrid Columns="3" Margin="0,0,0,6"><StackPanel Margin="2"><TextBlock Text="Rot X"/><TextBox Text="{Binding NewPrismRotX}"/></StackPanel><StackPanel Margin="2"><TextBlock Text="Rot Y"/><TextBox Text="{Binding NewPrismRotY}"/></StackPanel><StackPanel Margin="2"><TextBlock Text="Rot Z"/><TextBox Text="{Binding NewPrismRotZ}"/></StackPanel></UniformGrid>
-                                    <UniformGrid Columns="3" Margin="0,0,0,6"><StackPanel Margin="2"><TextBlock Text="Size X"/><TextBox Text="{Binding NewPrismSizeX}"/></StackPanel><StackPanel Margin="2"><TextBlock Text="Size Y"/><TextBox Text="{Binding NewPrismSizeY}"/></StackPanel><StackPanel Margin="2"><TextBlock Text="Size Z"/><TextBox Text="{Binding NewPrismSizeZ}"/></StackPanel></UniformGrid>
-                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,6"><Button Content="Add Prism" Command="{Binding AddPrismCommand}" Width="100" Margin="0,0,8,0"/><Button Content="Add Array" Command="{Binding AddPrismArrayCommand}" Width="95" Margin="0,0,8,0"/><Button Content="Remove Selected" Command="{Binding RemoveSelectedPrismCommand}" Width="120" Margin="0,0,8,0"/><Button Content="Delete All Prisms" Command="{Binding RemoveAllPrismsCommand}" Width="125"/></StackPanel>
-                                    <Border Margin="0,0,0,6" Padding="6" Background="#F1F4F7" CornerRadius="4">
-                                        <StackPanel>
-                                            <TextBlock FontWeight="SemiBold" Text="Batch Placement" Margin="0,0,0,4" />
-                                            <UniformGrid Columns="3" Margin="0,0,0,6">
-                                                <StackPanel Margin="2"><TextBlock Text="Mode"/><ComboBox ItemsSource="{Binding PrismArrayPlacementModes}" SelectedItem="{Binding SelectedPrismArrayPlacementMode}"/></StackPanel>
-                                                <StackPanel Margin="2"><TextBlock Text="Count"/><TextBox Text="{Binding NewPrismArrayCount}"/></StackPanel>
-                                                <StackPanel Margin="2"><TextBlock Text="Radius"/><TextBox Text="{Binding NewPrismArrayRadius}"/></StackPanel>
-                                            </UniformGrid>
-                                            <UniformGrid Columns="2" Margin="0,0,0,4">
-                                                <StackPanel Margin="2"><TextBlock Text="Length"/><TextBox Text="{Binding NewPrismArrayLength}"/></StackPanel>
-                                                <StackPanel Margin="2"><TextBlock Text="Shared Y"/><TextBox Text="{Binding NewPrismPosY}"/></StackPanel>
-                                            </UniformGrid>
-                                            <TextBlock Foreground="#555" TextWrapping="Wrap" Text="Cylindrical arrays use Radius. Cartesian arrays use Length and create a square perimeter. Arrays are centered on the world origin with the same default XYZ axis as the global frame; Rot X/Y/Z are applied in each prism's own frame." />
-                                        </StackPanel>
-                                    </Border>
-                                    <DataGrid ItemsSource="{Binding Prisms}" SelectedItem="{Binding SelectedPrism}" AutoGenerateColumns="False" CanUserAddRows="False" Height="130">
-                                        <DataGrid.Columns><DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="*"/><DataGridTextColumn Header="Sx" Binding="{Binding SizeX}" Width="45"/><DataGridTextColumn Header="Sy" Binding="{Binding SizeY}" Width="45"/><DataGridTextColumn Header="Sz" Binding="{Binding SizeZ}" Width="45"/></DataGrid.Columns>
-                                    </DataGrid>
-                                </StackPanel>
-                            </GroupBox>
+            <Border Grid.Column="0" Background="#F8FAFC" BorderBrush="#E5E7EB" BorderThickness="0,0,1,0">
+                <Grid Width="{Binding NavigationRailWidth}">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
 
-                            <GroupBox Header="Manual Rays" Margin="0,0,0,8" Padding="8">
-                                <StackPanel>
-                                    <UniformGrid Columns="3" Margin="0,0,0,6"><StackPanel Margin="2"><TextBlock Text="Origin X"/><TextBox Text="{Binding NewRayOriginX}"/></StackPanel><StackPanel Margin="2"><TextBlock Text="Origin Y"/><TextBox Text="{Binding NewRayOriginY}"/></StackPanel><StackPanel Margin="2"><TextBlock Text="Origin Z"/><TextBox Text="{Binding NewRayOriginZ}"/></StackPanel></UniformGrid>
-                                    <UniformGrid Columns="3" Margin="0,0,0,6"><StackPanel Margin="2"><TextBlock Text="Dir X"/><TextBox Text="{Binding NewRayDirectionX}"/></StackPanel><StackPanel Margin="2"><TextBlock Text="Dir Y"/><TextBox Text="{Binding NewRayDirectionY}"/></StackPanel><StackPanel Margin="2"><TextBlock Text="Dir Z"/><TextBox Text="{Binding NewRayDirectionZ}"/></StackPanel></UniformGrid>
-                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,6"><Button Content="Add Ray" Command="{Binding AddRayCommand}" Width="110" Margin="0,0,8,0"/><Button Content="Remove Selected" Command="{Binding RemoveSelectedRayCommand}" Width="130"/><Button Content="Remove All Rays" Command="{Binding RemoveAllRaysCommand}" Width="130"/></StackPanel>
-                                    <DataGrid ItemsSource="{Binding Rays}" SelectedItem="{Binding SelectedRay}" AutoGenerateColumns="False" CanUserAddRows="False" Height="110">
-                                        <DataGrid.Columns><DataGridTextColumn Header="Ox" Binding="{Binding OriginX}" Width="45"/><DataGridTextColumn Header="Oy" Binding="{Binding OriginY}" Width="45"/><DataGridTextColumn Header="Oz" Binding="{Binding OriginZ}" Width="45"/><DataGridTextColumn Header="Dx" Binding="{Binding DirectionX}" Width="45"/><DataGridTextColumn Header="Dy" Binding="{Binding DirectionY}" Width="45"/><DataGridTextColumn Header="Dz" Binding="{Binding DirectionZ}" Width="45"/></DataGrid.Columns>
-                                    </DataGrid>
-                                </StackPanel>
-                            </GroupBox>
+                    <ToggleButton Grid.Row="0"
+                                  Style="{StaticResource HamburgerToggleStyle}"
+                                  Content="☰"
+                                  IsChecked="{Binding IsNavigationCollapsed}"
+                                  ToolTip="Collapse navigation"/>
 
-                            <GroupBox Header="Cylindrical Light Sources" Margin="0,0,0,8" Padding="8">
-                                <StackPanel>
-                                    <Grid Margin="0,0,0,6"><Grid.ColumnDefinitions><ColumnDefinition Width="90"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><TextBlock Grid.Column="0" Text="Name" VerticalAlignment="Center"/><TextBox Grid.Column="1" Text="{Binding NewLightSourceName}"/></Grid>
-                                    <UniformGrid Columns="3" Margin="0,0,0,6"><StackPanel Margin="2"><TextBlock Text="Pos X"/><TextBox Text="{Binding NewLightSourcePosX}"/></StackPanel><StackPanel Margin="2"><TextBlock Text="Pos Y"/><TextBox Text="{Binding NewLightSourcePosY}"/></StackPanel><StackPanel Margin="2"><TextBlock Text="Pos Z"/><TextBox Text="{Binding NewLightSourcePosZ}"/></StackPanel></UniformGrid>
-                                    <UniformGrid Columns="3" Margin="0,0,0,6"><StackPanel Margin="2"><TextBlock Text="Rot X"/><TextBox Text="{Binding NewLightSourceRotX}"/></StackPanel><StackPanel Margin="2"><TextBlock Text="Rot Y"/><TextBox Text="{Binding NewLightSourceRotY}"/></StackPanel><StackPanel Margin="2"><TextBlock Text="Rot Z"/><TextBox Text="{Binding NewLightSourceRotZ}"/></StackPanel></UniformGrid>
-                                    <UniformGrid Columns="3" Margin="0,0,0,6"><StackPanel Margin="2"><TextBlock Text="Radius"/><TextBox Text="{Binding NewLightSourceRadius}"/></StackPanel><StackPanel Margin="2"><TextBlock Text="Height"/><TextBox Text="{Binding NewLightSourceHeight}"/></StackPanel><StackPanel Margin="2"><TextBlock Text="RayCount"/><TextBox Text="{Binding NewLightSourceRayCount}"/></StackPanel></UniformGrid>
-                                    <TextBlock Margin="2,0,2,6" Foreground="#555" TextWrapping="Wrap" Text="Generated rays emit radially outward from the cylindrical surface. Rot X/Y/Z are applied in the light source's own frame." />
-                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
-                                        <Button Content="Add Source" Command="{Binding AddLightSourceCommand}" Width="95" Margin="0,0,8,0"/>
-                                        <Button Content="Remove Selected" Command="{Binding RemoveSelectedLightSourceCommand}" Width="130" Margin="0,0,8,0"/>
-                                        <Button Content="Regenerate Rays" Command="{Binding RegenerateLightSourceRaysCommand}" Width="120"/>
-                                    </StackPanel>
-                                    <DataGrid ItemsSource="{Binding LightSources}" SelectedItem="{Binding SelectedLightSource}" AutoGenerateColumns="False" CanUserAddRows="False" Height="130">
-                                        <DataGrid.Columns><DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="*"/><DataGridTextColumn Header="R" Binding="{Binding Radius}" Width="45"/><DataGridTextColumn Header="H" Binding="{Binding Height}" Width="45"/><DataGridTextColumn Header="#" Binding="{Binding RayCount}" Width="55"/></DataGrid.Columns>
-                                    </DataGrid>
-                                </StackPanel>
-                            </GroupBox>
-
-                            <GroupBox Header="Actions" Margin="0,0,0,8" Padding="8">
-                                <StackPanel>
-                                    <Grid Margin="0,0,0,8">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="120"/>
-                                            <ColumnDefinition Width="*"/>
-                                        </Grid.ColumnDefinitions>
-                                        <TextBlock Grid.Column="0" Text="Algorithm" VerticalAlignment="Center"/>
-                                        <ComboBox Grid.Column="1" ItemsSource="{Binding CollisionAlgorithms}" SelectedItem="{Binding SelectedCollisionAlgorithm}" />
-                                    </Grid>
-                                    <UniformGrid Columns="2" Margin="0,0,0,8">
-                                        <StackPanel Margin="2">
-                                            <TextBlock Text="Last Run (ms)"/>
-                                            <TextBox IsReadOnly="True" Text="{Binding LastCollisionDurationMs, Mode=OneWay}"/>
-                                        </StackPanel>
-                                        <StackPanel Margin="2">
-                                            <TextBlock Text="Sequential (ms)"/>
-                                            <TextBox IsReadOnly="True" Text="{Binding LastSequentialCollisionDurationMs, Mode=OneWay}"/>
-                                        </StackPanel>
-                                    </UniformGrid>
-                                    <Grid Margin="0,0,0,8">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="120"/>
-                                            <ColumnDefinition Width="*"/>
-                                        </Grid.ColumnDefinitions>
-                                        <TextBlock Grid.Column="0" Text="Parallel (ms)" VerticalAlignment="Center"/>
-                                        <TextBox Grid.Column="1" IsReadOnly="True" Text="{Binding LastParallelCollisionDurationMs, Mode=OneWay}"/>
-                                    </Grid>
-                                    <StackPanel Orientation="Horizontal">
-                                        <Button Content="Run Collision" Command="{Binding RunCollisionCommand}" Width="120" Height="30" Margin="0,0,8,0"/>
-                                        <Button Content="Reset Demo Scene" Command="{Binding ResetDemoSceneCommand}" Width="140" Height="30"/>
-                                    </StackPanel>
-                                    <WrapPanel Margin="0,8,0,0">
-                                        <Button Content="Save Project" Command="{Binding SaveProjectCommand}" Width="110" Margin="0,0,6,0"/>
-                                        <Button Content="Load Project" Command="{Binding LoadProjectCommand}" Width="110" Margin="0,0,6,0"/>
-                                        <Button Content="Save Collision Tab" Command="{Binding SaveCollisionTabCommand}" Width="140"/>
-                                        <Button Content="Load Collision Tab" Command="{Binding LoadCollisionTabCommand}" Width="140" Margin="6,0,0,0"/>
-                                    </WrapPanel>
-                                </StackPanel>
-                            </GroupBox>
-
-                            <GroupBox Header="Results" Padding="8">
-                                <StackPanel>
-                                    <DataGrid ItemsSource="{Binding HitResults}" AutoGenerateColumns="False" CanUserAddRows="False" Height="140">
-                                        <DataGrid.Columns><DataGridTextColumn Header="Ray" Binding="{Binding RayLabel}" Width="70"/><DataGridCheckBoxColumn Header="Hit" Binding="{Binding HasHit}" Width="45"/><DataGridTextColumn Header="Distance" Binding="{Binding Distance, StringFormat=F3}" Width="85"/><DataGridTextColumn Header="Prism" Binding="{Binding PrismName}" Width="*"/></DataGrid.Columns>
-                                    </DataGrid>
-                                    <TextBlock Text="{Binding StatusMessage}" TextWrapping="Wrap" Foreground="#444" Margin="0,6,0,0"/>
-                                </StackPanel>
-                            </GroupBox>
-                        </StackPanel>
-                    </ScrollViewer>
-                </Border>
-
-                <Grid Grid.Column="1">
-                    <h:HelixViewport3D x:Name="Viewport" ShowCoordinateSystem="True" ShowViewCube="True" ZoomExtentsWhenLoaded="True">
-                        <h:HelixViewport3D.Camera>
-                            <PerspectiveCamera Position="0,-30,30" LookDirection="0,30,-30" UpDirection="0,0,1" FieldOfView="45" />
-                        </h:HelixViewport3D.Camera>
-                        <h:SunLight />
-                        <h:GridLinesVisual3D Width="120" Length="120" MinorDistance="5" MajorDistance="10" />
-                    </h:HelixViewport3D>
-                </Grid>
-            </Grid>
-        </TabItem>
-
-        <TabItem Header="Annotation Verification">
-            <Grid Margin="10">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="380" />
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="*" />
-                </Grid.ColumnDefinitions>
-
-                <Border Grid.Column="0"  BorderBrush="#D8D8D8" BorderThickness="1" Padding="10" Background="#FAFAFA">
-                    <ScrollViewer VerticalScrollBarVisibility="Auto">
-                    
-                        <StackPanel>
-                            <TextBlock Text="VIA Annotation Workspace" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,8" />
-                            <Button Content="Select Annotation Folder" Command="{Binding AnnotationWorkspace.SelectFolderCommand}" Height="30" />
-                            <Button Content="Restore / Relink Missing Folder" Command="{Binding AnnotationWorkspace.RelinkMissingFolderCommand}" Height="26" Margin="0,6,0,0"/>
-                            <Button Content="Save Annotation Tab State" Command="{Binding SaveAnnotationTabCommand}" Height="26" Margin="0,6,0,0"/>
-                            <Button Content="Load Annotation Tab State" Command="{Binding LoadAnnotationTabCommand}" Height="26" Margin="0,6,0,0"/>
-                            <TextBlock Text="{Binding AnnotationWorkspace.SelectedFolderPath}" TextWrapping="Wrap" Margin="0,8,0,8" Foreground="#444" />
-                            <TextBlock Text="{Binding AnnotationWorkspace.StatusMessage}" TextWrapping="Wrap" Margin="0,0,0,8" Foreground="#1A5276" />
-                            <Border BorderBrush="#D0D7DE" BorderThickness="1" CornerRadius="4" Padding="6" Margin="0,0,0,8" Background="#F7F9FB">
-                                <TextBlock Text="{Binding AnnotationWorkspace.SelectedImageSummary}" TextWrapping="Wrap" />
-                            </Border>
-
-                            <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
-                                <Button Content="◀ Prev" Command="{Binding AnnotationWorkspace.SelectPreviousImageCommand}" Width="85" Margin="0,0,6,0"/>
-                                <Button Content="Next ▶" Command="{Binding AnnotationWorkspace.SelectNextImageCommand}" Width="85" Margin="0,0,6,0"/>
-                                <TextBlock VerticalAlignment="Center" Text="{Binding AnnotationWorkspace.SelectedImageIndex, StringFormat=Index: {0}}" />
+                    <StackPanel Grid.Row="1" Margin="8,4,8,8">
+                        <Button Command="{Binding ShowCollisionWorkspaceCommand}"
+                                Margin="0,0,0,6">
+                            <Button.Style>
+                                <Style TargetType="Button" BasedOn="{StaticResource NavigationButtonBaseStyle}">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding SelectedWorkspace}" Value="{x:Static vm:WorkspaceKind.Collision}">
+                                            <Setter Property="Background" Value="#DBEAFE"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Button.Style>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="⚙" FontSize="14" VerticalAlignment="Center"/>
+                                <TextBlock Text="Collision" Style="{StaticResource NavigationLabelStyle}" VerticalAlignment="Center"/>
                             </StackPanel>
+                        </Button>
 
-                            <Border BorderBrush="#D0D7DE" BorderThickness="1" CornerRadius="4" Padding="6" Margin="0,0,0,8" Background="#F7F9FB">
-                                <StackPanel>
-                                    <TextBlock Text="Panel Dimensions (mm)" FontWeight="SemiBold" Margin="0,0,0,4"/>
-                                    <UniformGrid Columns="3" Margin="0,0,0,6">
-                                        <StackPanel Margin="2">
-                                            <TextBlock Text="Global Width"/>
-                                            <TextBox Text="{Binding AnnotationWorkspace.GlobalPanelWidthMm, UpdateSourceTrigger=PropertyChanged, Converter={StaticResource FlexibleNumericConverter}}"/>
-                                        </StackPanel>
-                                        <StackPanel Margin="2">
-                                            <TextBlock Text="Global Height"/>
-                                            <TextBox Text="{Binding AnnotationWorkspace.GlobalPanelHeightMm, UpdateSourceTrigger=PropertyChanged, Converter={StaticResource FlexibleNumericConverter}}"/>
-                                        </StackPanel>
-                                        <StackPanel Margin="2">
-                                            <TextBlock Text="Global Thickness"/>
-                                            <TextBox Text="{Binding AnnotationWorkspace.GlobalPanelThicknessMm, UpdateSourceTrigger=PropertyChanged, Converter={StaticResource FlexibleNumericConverter}}"/>
-                                        </StackPanel>
-                                    </UniformGrid>
-                                    <Button Content="Apply To All Images"
-                                            Command="{Binding AnnotationWorkspace.ApplyGlobalPanelDimensionsCommand}"
-                                            Height="26"
-                                            Margin="0,0,0,6"/>
-                                    <UniformGrid Columns="3" Margin="0,0,0,6">
-                                        <StackPanel Margin="2">
-                                            <TextBlock Text="Selected Width"/>
-                                            <TextBox Text="{Binding AnnotationWorkspace.SelectedImage.PanelWidthMm, UpdateSourceTrigger=PropertyChanged, TargetNullValue='', Converter={StaticResource FlexibleNumericConverter}}"/>
-                                        </StackPanel>
-                                        <StackPanel Margin="2">
-                                            <TextBlock Text="Selected Height"/>
-                                            <TextBox Text="{Binding AnnotationWorkspace.SelectedImage.PanelHeightMm, UpdateSourceTrigger=PropertyChanged, TargetNullValue='', Converter={StaticResource FlexibleNumericConverter}}"/>
-                                        </StackPanel>
-                                        <StackPanel Margin="2">
-                                            <TextBlock Text="Selected Thickness"/>
-                                            <TextBox Text="{Binding AnnotationWorkspace.SelectedImage.PanelThicknessMm, UpdateSourceTrigger=PropertyChanged, TargetNullValue='', Converter={StaticResource FlexibleNumericConverter}}"/>
-                                        </StackPanel>
-                                    </UniformGrid>
-                                    <Button Content="Generate Scene"
-                                            Command="{Binding AnnotationWorkspace.GenerateSceneCommand}"
-                                            Height="28"/>
-                                </StackPanel>
-                            </Border>
+                        <Button Command="{Binding ShowAnnotationWorkspaceCommand}"
+                                Margin="0,0,0,6">
+                            <Button.Style>
+                                <Style TargetType="Button" BasedOn="{StaticResource NavigationButtonBaseStyle}">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding SelectedWorkspace}" Value="{x:Static vm:WorkspaceKind.Annotation}">
+                                            <Setter Property="Background" Value="#DBEAFE"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Button.Style>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="🖼" FontSize="14" VerticalAlignment="Center"/>
+                                <TextBlock Text="Annotation" Style="{StaticResource NavigationLabelStyle}" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Button>
 
-                            <GroupBox Header="Corner Measurements" Margin="0,0,0,8" Padding="6">
-                                <ScrollViewer VerticalScrollBarVisibility="Auto" Height="300">
-                                    <ItemsControl ItemsSource="{Binding AnnotationWorkspace.SelectedImage.CornerMeasurements, TargetNullValue={x:Null}}">
-                                        <ItemsControl.ItemTemplate>
-                                            <DataTemplate>
-                                                <Border BorderBrush="#D0D7DE" BorderThickness="1" CornerRadius="4" Padding="6" Margin="0,0,0,6" Background="#FFFFFF">
-                                                    <StackPanel>
-                                                        <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" Margin="0,0,0,4"/>
-                                                        <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
-                                                            <TextBlock Text="Input Mode" Width="75" VerticalAlignment="Center"/>
-                                                            <ComboBox Width="220"
-                                                                    ItemsSource="{Binding DataContext.AnnotationWorkspace.CornerMeasurementModes, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                                    SelectedItem="{Binding SelectedMode, UpdateSourceTrigger=PropertyChanged}"/>
-                                                        </StackPanel>
+                        <Button Command="{Binding ShowProjectionWorkspaceCommand}">
+                            <Button.Style>
+                                <Style TargetType="Button" BasedOn="{StaticResource NavigationButtonBaseStyle}">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding SelectedWorkspace}" Value="{x:Static vm:WorkspaceKind.Projection}">
+                                            <Setter Property="Background" Value="#DBEAFE"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Button.Style>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="📐" FontSize="14" VerticalAlignment="Center"/>
+                                <TextBlock Text="Projection" Style="{StaticResource NavigationLabelStyle}" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Button>
 
-                                                        <StackPanel Margin="0,0,0,6">
-                                                            <StackPanel.Style>
-                                                                <Style TargetType="StackPanel">
-                                                                    <Setter Property="Visibility" Value="Collapsed"/>
-                                                                    <Style.Triggers>
-                                                                        <DataTrigger Binding="{Binding SelectedMode}" Value="{x:Static avm:CornerMeasurementMode.ManualMeasurement}">
-                                                                            <Setter Property="Visibility" Value="Visible"/>
-                                                                        </DataTrigger>
-                                                                    </Style.Triggers>
-                                                                </Style>
-                                                            </StackPanel.Style>
-                                                            <TextBlock Text="Manual Measurement" FontWeight="SemiBold" Foreground="#2E4053"/>
-                                                            <UniformGrid Columns="3">
-                                                                <StackPanel Margin="2"><TextBlock Text="Azimuth (deg)"/><TextBox Text="{Binding ManualAzimuthDeg, UpdateSourceTrigger=PropertyChanged, TargetNullValue='', Converter={StaticResource FlexibleNumericConverter}}"/></StackPanel>
-                                                                <StackPanel Margin="2"><TextBlock Text="Elevation (deg)"/><TextBox Text="{Binding ManualElevationDeg, UpdateSourceTrigger=PropertyChanged, TargetNullValue='', Converter={StaticResource FlexibleNumericConverter}}"/></StackPanel>
-                                                                <StackPanel Margin="2"><TextBlock Text="Distance (m)"/><TextBox Text="{Binding ManualDistanceMeters, UpdateSourceTrigger=PropertyChanged, TargetNullValue='', Converter={StaticResource FlexibleNumericConverter}}"/></StackPanel>
-                                                            </UniformGrid>
-                                                        </StackPanel>
-
-                                                        <StackPanel>
-                                                            <StackPanel.Style>
-                                                                <Style TargetType="StackPanel">
-                                                                    <Setter Property="Visibility" Value="Collapsed"/>
-                                                                    <Style.Triggers>
-                                                                        <DataTrigger Binding="{Binding SelectedMode}" Value="{x:Static avm:CornerMeasurementMode.DirectCoordinateTheodolite}">
-                                                                            <Setter Property="Visibility" Value="Visible"/>
-                                                                        </DataTrigger>
-                                                                    </Style.Triggers>
-                                                                </Style>
-                                                            </StackPanel.Style>
-                                                            <TextBlock Text="Direct Coordinate (Theodolite)" FontWeight="SemiBold" Foreground="#2E4053"/>
-                                                            <UniformGrid Columns="3">
-                                                                <StackPanel Margin="2"><TextBlock Text="X (m)"/><TextBox Text="{Binding DirectX, UpdateSourceTrigger=PropertyChanged, TargetNullValue='', Converter={StaticResource FlexibleNumericConverter}}"/></StackPanel>
-                                                                <StackPanel Margin="2"><TextBlock Text="Y (m)"/><TextBox Text="{Binding DirectY, UpdateSourceTrigger=PropertyChanged, TargetNullValue='', Converter={StaticResource FlexibleNumericConverter}}"/></StackPanel>
-                                                                <StackPanel Margin="2"><TextBlock Text="Z (m)"/><TextBox Text="{Binding DirectZ, UpdateSourceTrigger=PropertyChanged, TargetNullValue='', Converter={StaticResource FlexibleNumericConverter}}"/></StackPanel>
-                                                            </UniformGrid>
-                                                        </StackPanel>
-                                                    </StackPanel>
-                                                </Border>
-                                            </DataTemplate>
-                                        </ItemsControl.ItemTemplate>
-                                    </ItemsControl>
-                                </ScrollViewer>
-                            </GroupBox>
-
-                            <TextBlock Text="Images" FontWeight="SemiBold" />
-                            <ListBox ItemsSource="{Binding AnnotationWorkspace.Images}" SelectedItem="{Binding AnnotationWorkspace.SelectedImage}" Height="220" DisplayMemberPath="DisplayName" Margin="0,4,0,8" />
-                            <TextBlock Text="Fitted Panel Corners" FontWeight="SemiBold" />
-                            <TextBlock Text="{Binding AnnotationWorkspace.SelectedImage.PanelCornersText, TargetNullValue=N/A}" TextWrapping="Wrap" Margin="0,4,0,8" />
-                            <DataGrid ItemsSource="{Binding AnnotationWorkspace.SelectedImage.Holes}" AutoGenerateColumns="False" CanUserAddRows="False" Height="250" HeadersVisibility="Column">
-                                <DataGrid.Columns>
-                                    <DataGridTextColumn Header="#" Binding="{Binding Index}" Width="35"/>
-                                    <DataGridTextColumn Header="Source Shape" Binding="{Binding ShapeType}" Width="90"/>
-                                    <DataGridTextColumn Header="Original Center" Binding="{Binding OriginalCenter}" Width="110"/>
-                                    <DataGridTextColumn Header="Warped Center" Binding="{Binding WarpedCenter}" Width="110"/>
-                                    <DataGridTextColumn Header="Warped Center (mm)" Binding="{Binding WarpedCenterMm}" Width="120"/>
-                                    <DataGridTextColumn Header="Area (px²)" Binding="{Binding PixelArea}" Width="80"/>
-                                </DataGrid.Columns>
-                            </DataGrid>
-                            <TextBlock Text="{Binding AnnotationWorkspace.StatusMessage}" TextWrapping="Wrap" Margin="0,8,0,0" Foreground="#1A5276" />
-                        </StackPanel>
-                    </ScrollViewer>
-                </Border>
-
-                <GroupBox Grid.Column="1"  Header="Original Image + Overlay" Margin="10,0,0,10">
-                    <ScrollViewer x:Name="OriginalScrollViewer"
-                                  HorizontalScrollBarVisibility="Auto"
-                                  VerticalScrollBarVisibility="Auto"
-                                  PreviewMouseWheel="OnAnnotationViewerPreviewMouseWheel"
-                                  SizeChanged="OnOriginalScrollViewerSizeChanged">
-                        <Grid Background="#222" MinHeight="280" MinWidth="450" ClipToBounds="True">
-                            <Canvas x:Name="OriginalCanvas" HorizontalAlignment="Left" VerticalAlignment="Top">
-                                <Canvas.RenderTransform>
-                                    <ScaleTransform x:Name="OriginalScaleTransform"/>
-                                </Canvas.RenderTransform>
-                                <Image x:Name="OriginalBaseImage"
-                                       Source="{Binding AnnotationWorkspace.SelectedImage.OriginalImage}"
-                                       Stretch="None"
-                                       SizeChanged="OnOriginalBaseImageSizeChanged"/>
-                                <Image Source="{Binding AnnotationWorkspace.SelectedImage.OriginalOverlay}"
-                                       Stretch="None"
-                                       IsHitTestVisible="False"
-                                       Panel.ZIndex="1"/>
-                            </Canvas>
-                        </Grid>
-                    </ScrollViewer>
-                </GroupBox>
-
-                <GroupBox Grid.Column="2"  Header="Rectified Panel + Warped Hole Centers" Margin="10,0,0,0">
-                    <ScrollViewer x:Name="WarpedScrollViewer"
-                                  HorizontalScrollBarVisibility="Auto"
-                                  VerticalScrollBarVisibility="Auto"
-                                  PreviewMouseWheel="OnAnnotationViewerPreviewMouseWheel"
-                                  SizeChanged="OnWarpedScrollViewerSizeChanged">
-                        <Grid Background="#222" MinHeight="280" MinWidth="450" ClipToBounds="True">
-                            <Canvas x:Name="WarpedCanvas" HorizontalAlignment="Left" VerticalAlignment="Top">
-                                <Canvas.RenderTransform>
-                                    <ScaleTransform x:Name="WarpedScaleTransform"/>
-                                </Canvas.RenderTransform>
-                                <Image x:Name="WarpedBaseImage"
-                                       Source="{Binding AnnotationWorkspace.SelectedImage.WarpedImage}"
-                                       Stretch="None"
-                                       SizeChanged="OnWarpedBaseImageSizeChanged"/>
-                                <Image Source="{Binding AnnotationWorkspace.SelectedImage.WarpedOverlay}"
-                                       Stretch="None"
-                                       IsHitTestVisible="False"
-                                       Panel.ZIndex="1"/>
-                            </Canvas>
-                        </Grid>
-                    </ScrollViewer>
-                </GroupBox>
-            </Grid>
-        </TabItem>
-
-        <TabItem Header="Projection Workspace">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="430" />
-                    <ColumnDefinition Width="*" />
-                </Grid.ColumnDefinitions>
-
-                <Border Grid.Column="0" Padding="12" BorderBrush="#D8D8D8" BorderThickness="0,0,1,0" Background="#FAFAFA">
-                    <ScrollViewer VerticalScrollBarVisibility="Auto">
-                        <StackPanel>
-                            <TextBlock Text="Projection Workspace" FontSize="20" FontWeight="SemiBold" Margin="0,0,0,10" />
-
-                            <GroupBox Header="Scene Selection" Margin="0,0,0,8" Padding="8">
-                                <StackPanel>
-                                    <TextBlock Margin="0,0,0,6" Foreground="#555" TextWrapping="Wrap"
-                                               Text="Only scenes that contain 3D hole points are listed here." />
-                                    <ListBox ItemsSource="{Binding ProjectionWorkspace.AvailableScenes}"
-                                             SelectedItem="{Binding ProjectionWorkspace.SelectedScene}"
-                                             DisplayMemberPath="Name"
-                                             Height="140" />
-                                </StackPanel>
-                            </GroupBox>
-
-                            <GroupBox Header="Methodology" Margin="0,0,0,8" Padding="8">
-                                <StackPanel>
-                                    <ComboBox ItemsSource="{Binding ProjectionWorkspace.ProjectionMethods}"
-                                              SelectedItem="{Binding ProjectionWorkspace.SelectedMethod}"
-                                              DisplayMemberPath="DisplayName"
-                                              Margin="0,0,0,6" />
-                                    <TextBlock Text="{Binding ProjectionWorkspace.SelectedMethod.Description}"
-                                               Foreground="#555"
-                                               TextWrapping="Wrap" />
-                                </StackPanel>
-                            </GroupBox>
-
-                            <GroupBox Header="Projection Result" Margin="0,0,0,8" Padding="8">
-                                <StackPanel>
-                                    <TextBlock Text="Result Name"/>
-                                    <TextBox Text="{Binding ProjectionWorkspace.NewResultName, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,6"/>
-                                    <TextBlock Text="Saved Results"/>
-                                    <ListBox ItemsSource="{Binding ProjectionWorkspace.SavedResults}"
-                                             SelectedItem="{Binding ProjectionWorkspace.SelectedResult}"
-                                             DisplayMemberPath="DisplayName"
-                                             Height="90" />
-                                </StackPanel>
-                            </GroupBox>
-
-                            <GroupBox Header="Point Source Parameters" Margin="0,0,0,8" Padding="8">
-                                <StackPanel>
-                                    <UniformGrid Columns="3" Margin="0,0,0,6">
-                                        <StackPanel Margin="2"><TextBlock Text="Source X"/><TextBox Text="{Binding ProjectionWorkspace.SourceX, UpdateSourceTrigger=PropertyChanged, Converter={StaticResource FlexibleNumericConverter}}"/></StackPanel>
-                                        <StackPanel Margin="2"><TextBlock Text="Source Y"/><TextBox Text="{Binding ProjectionWorkspace.SourceY, UpdateSourceTrigger=PropertyChanged, Converter={StaticResource FlexibleNumericConverter}}"/></StackPanel>
-                                        <StackPanel Margin="2"><TextBlock Text="Source Z"/><TextBox Text="{Binding ProjectionWorkspace.SourceZ, UpdateSourceTrigger=PropertyChanged, Converter={StaticResource FlexibleNumericConverter}}"/></StackPanel>
-                                    </UniformGrid>
-                                    <TextBlock Text="Source Frame X Direction"/>
-                                    <UniformGrid Columns="3" Margin="0,0,0,6">
-                                        <StackPanel Margin="2"><TextBlock Text="Xx"/><TextBox Text="{Binding ProjectionWorkspace.SourceFrameXx, UpdateSourceTrigger=PropertyChanged, Converter={StaticResource FlexibleNumericConverter}}"/></StackPanel>
-                                        <StackPanel Margin="2"><TextBlock Text="Xy"/><TextBox Text="{Binding ProjectionWorkspace.SourceFrameXy, UpdateSourceTrigger=PropertyChanged, Converter={StaticResource FlexibleNumericConverter}}"/></StackPanel>
-                                        <StackPanel Margin="2"><TextBlock Text="Xz"/><TextBox Text="{Binding ProjectionWorkspace.SourceFrameXz, UpdateSourceTrigger=PropertyChanged, Converter={StaticResource FlexibleNumericConverter}}"/></StackPanel>
-                                    </UniformGrid>
-                                    <TextBlock Text="Source Frame Y Direction"/>
-                                    <UniformGrid Columns="3" Margin="0,0,0,6">
-                                        <StackPanel Margin="2"><TextBlock Text="Yx"/><TextBox Text="{Binding ProjectionWorkspace.SourceFrameYx, UpdateSourceTrigger=PropertyChanged, Converter={StaticResource FlexibleNumericConverter}}"/></StackPanel>
-                                        <StackPanel Margin="2"><TextBlock Text="Yy"/><TextBox Text="{Binding ProjectionWorkspace.SourceFrameYy, UpdateSourceTrigger=PropertyChanged, Converter={StaticResource FlexibleNumericConverter}}"/></StackPanel>
-                                        <StackPanel Margin="2"><TextBlock Text="Yz"/><TextBox Text="{Binding ProjectionWorkspace.SourceFrameYz, UpdateSourceTrigger=PropertyChanged, Converter={StaticResource FlexibleNumericConverter}}"/></StackPanel>
-                                    </UniformGrid>
-                                    <Button Content="Run Projection"
-                                            Command="{Binding ProjectionWorkspace.RunProjectionCommand}"
-                                            Width="130"
-                                            Height="30" />
-                                </StackPanel>
-                            </GroupBox>
-
-                            <TextBlock Text="{Binding ProjectionWorkspace.StatusMessage}" TextWrapping="Wrap" Foreground="#444" />
-                            <Button Content="Save Projection Tab State"
-                                    Command="{Binding SaveProjectionTabCommand}"
-                                    Width="180"
-                                    Height="28"
-                                    Margin="0,8,0,0" />
-                            <Button Content="Load Projection Tab State"
-                                    Command="{Binding LoadProjectionTabCommand}"
-                                    Width="180"
-                                    Height="28"
-                                    Margin="0,6,0,0" />
-                        </StackPanel>
-                    </ScrollViewer>
-                </Border>
-
-                <Grid Grid.Column="1">
-                    <h:HelixViewport3D x:Name="ProjectionViewport" ShowCoordinateSystem="True" ShowViewCube="True" ZoomExtentsWhenLoaded="True">
-                        <h:HelixViewport3D.Camera>
-                            <PerspectiveCamera Position="0,-30,30" LookDirection="0,30,-30" UpDirection="0,0,1" FieldOfView="45" />
-                        </h:HelixViewport3D.Camera>
-                        <h:SunLight />
-                        <h:GridLinesVisual3D Width="120" Length="120" MinorDistance="5" MajorDistance="10" />
-                    </h:HelixViewport3D>
+                        <Button Command="{Binding ShowGraphicMasterWorkspaceCommand}"
+                                Margin="0,6,0,0">
+                            <Button.Style>
+                                <Style TargetType="Button" BasedOn="{StaticResource NavigationButtonBaseStyle}">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding SelectedWorkspace}" Value="{x:Static vm:WorkspaceKind.GraphicMaster}">
+                                            <Setter Property="Background" Value="#DBEAFE"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Button.Style>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="📊" FontSize="14" VerticalAlignment="Center"/>
+                                <TextBlock Text="Graphic Master" Style="{StaticResource NavigationLabelStyle}" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
                 </Grid>
+            </Border>
+
+            <Grid Grid.Column="1">
+                <v:CollisionWorkspaceView x:Name="CollisionWorkspaceView" DataContext="{Binding}">
+                    <v:CollisionWorkspaceView.Style>
+                        <Style TargetType="v:CollisionWorkspaceView">
+                            <Setter Property="Visibility" Value="Collapsed"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding SelectedWorkspace}" Value="{x:Static vm:WorkspaceKind.Collision}">
+                                    <Setter Property="Visibility" Value="Visible"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </v:CollisionWorkspaceView.Style>
+                </v:CollisionWorkspaceView>
+
+                <v:AnnotationWorkspaceView DataContext="{Binding}">
+                    <v:AnnotationWorkspaceView.Style>
+                        <Style TargetType="v:AnnotationWorkspaceView">
+                            <Setter Property="Visibility" Value="Collapsed"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding SelectedWorkspace}" Value="{x:Static vm:WorkspaceKind.Annotation}">
+                                    <Setter Property="Visibility" Value="Visible"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </v:AnnotationWorkspaceView.Style>
+                </v:AnnotationWorkspaceView>
+
+                <v:ProjectionWorkspaceView x:Name="ProjectionWorkspaceView" DataContext="{Binding}">
+                    <v:ProjectionWorkspaceView.Style>
+                        <Style TargetType="v:ProjectionWorkspaceView">
+                            <Setter Property="Visibility" Value="Collapsed"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding SelectedWorkspace}" Value="{x:Static vm:WorkspaceKind.Projection}">
+                                    <Setter Property="Visibility" Value="Visible"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </v:ProjectionWorkspaceView.Style>
+                </v:ProjectionWorkspaceView>
+
+                <v:GraphicMasterView DataContext="{Binding}">
+                    <v:GraphicMasterView.Style>
+                        <Style TargetType="v:GraphicMasterView">
+                            <Setter Property="Visibility" Value="Collapsed"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding SelectedWorkspace}" Value="{x:Static vm:WorkspaceKind.GraphicMaster}">
+                                    <Setter Property="Visibility" Value="Visible"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </v:GraphicMasterView.Style>
+                </v:GraphicMasterView>
             </Grid>
-        </TabItem>
-    </TabControl>
+        </Grid>
+    </DockPanel>
 </Window>

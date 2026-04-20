@@ -76,6 +76,7 @@ public sealed class CylindricalLightSourceState
     public float Radius { get; set; }
     public float Height { get; set; }
     public int RayCount { get; set; }
+    public float TiltWeight { get; set; } = 0.1f;
 }
 
 public sealed class SceneProjectionStateDto
@@ -90,6 +91,7 @@ public sealed class ProjectionResultStateDto
     public string Key { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
     public string MethodId { get; set; } = string.Empty;
+    public Point3? PointSourceOrigin { get; set; }
     public PointSourceFrameStateDto SourceFrame { get; set; } = new();
     public List<ProjectionRayStateDto> Rays { get; set; } = new();
 }
