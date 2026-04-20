@@ -1,3 +1,5 @@
+using System.Numerics;
+
 namespace LaserCollisionIn3DObjects.Domain.Graphing;
 
 public sealed class GraphBuildContext
@@ -63,7 +65,11 @@ public sealed class AngleBinBarChartGraphType : IGraphType
         ArgumentNullException.ThrowIfNull(context);
 
         return context.Sources
-            .Select(source => new GraphSeriesData(source.DisplayName, _histogramService.CreateHistogram(source.Rays, source.AxisX, context.BinSizeDeg)))
+            .Select(source => new GraphSeriesData
+            {
+                Name = source.DisplayName,
+                Bins = _histogramService.CreateHistogram(source.Rays, source.AxisX, context.BinSizeDeg),
+            })
             .ToList();
     }
 }
@@ -85,7 +91,11 @@ public sealed class AngleBinXyChartGraphType : IGraphType
         ArgumentNullException.ThrowIfNull(context);
 
         var series = context.Sources
-            .Select(source => new GraphSeriesData(source.DisplayName, _histogramService.CreateHistogram(source.Rays, source.AxisX, context.BinSizeDeg)))
+            .Select(source => new GraphSeriesData
+            {
+                Name = source.DisplayName,
+                Bins = _histogramService.CreateHistogram(source.Rays, source.AxisX, context.BinSizeDeg),
+            })
             .ToList();
 
         return new GraphResult
@@ -93,5 +103,60 @@ public sealed class AngleBinXyChartGraphType : IGraphType
             VisualizationKind = GraphVisualizationKind.Xy,
             Series = series,
         };
+    }
+}
+
+public sealed class CylindricalNormalizedAxialAngleXyGraphType : IGraphType
+{
+    public string Id => "graph.cylindrical-normalized-axial-angle-xy";
+    public string DisplayName => "Cylindrical normalized axial-angle XY";
+
+    public GraphResult Build(GraphBuildContext context)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+
+        var compatibleSources = context.Sources
+            .Where(source => source.Kind == GraphableSourceKind.CylindricalLightSource
+                             && source.SourceLength is > 0d
+                             && source.FrameOrigin is not null)
+            .ToList();
+
+        var series = compatibleSources
+            .Select(source => new GraphSeriesData
+            {
+                Name = source.DisplayName,
+                Points = source.Rays
+                    .Select(ray => BuildPoint(source, ray))
+                    .ToList(),
+            })
+            .ToList();
+
+        return new GraphResult
+        {
+            VisualizationKind = GraphVisualizationKind.Xy,
+            Series = series,
+        };
+    }
+
+    private static ScatterPointData BuildPoint(GraphableSourceData source, Geometry.Ray3D ray)
+    {
+        var axis = NormalizeOrThrow(source.AxisX, nameof(source.AxisX));
+        var length = source.SourceLength ?? throw new InvalidOperationException("Source length is required.");
+        var frameOrigin = source.FrameOrigin ?? throw new InvalidOperationException("Source frame origin is required.");
+
+        var localX = Vector3.Dot(ray.Origin - frameOrigin, axis);
+        var normalizedX = localX / length;
+        var angle = AngleHistogramService.CalculateAngleDegrees(axis, ray.Direction);
+        return new ScatterPointData(normalizedX, angle);
+    }
+
+    private static Vector3 NormalizeOrThrow(Vector3 value, string parameterName)
+    {
+        if (value.LengthSquared() <= 0f)
+        {
+            throw new ArgumentException("Vector must be non-zero.", parameterName);
+        }
+
+        return Vector3.Normalize(value);
     }
 }

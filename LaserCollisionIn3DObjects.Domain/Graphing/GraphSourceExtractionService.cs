@@ -30,6 +30,8 @@ public sealed class GraphSourceExtractionService
                     DisplayName = $"[{scene.SceneName}] Cylindrical Source: {source.Name}",
                     Kind = GraphableSourceKind.CylindricalLightSource,
                     AxisX = source.Frame.TransformDirectionToWorld(Vector3.UnitX),
+                    FrameOrigin = source.Frame.Position,
+                    SourceLength = source.Height,
                     Rays = rays,
                 });
             }
@@ -44,6 +46,8 @@ public sealed class GraphSourceExtractionService
                     DisplayName = $"[{scene.SceneName}] Projection Result: {result.DisplayName}",
                     Kind = GraphableSourceKind.ProjectionResult,
                     AxisX = new Vector3((float)axisX.X, (float)axisX.Y, (float)axisX.Z),
+                    FrameOrigin = new Vector3((float)pointLaserSource.Origin.X, (float)pointLaserSource.Origin.Y, (float)pointLaserSource.Origin.Z),
+                    SourceLength = null,
                     Rays = pointLaserSource.Rays.Select(projectionRay => projectionRay.Ray).ToList(),
                 });
             }
