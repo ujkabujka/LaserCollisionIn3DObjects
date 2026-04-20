@@ -88,8 +88,7 @@
 
         <Border Grid.Column="1" Padding="12" Background="White">
             <oxy:PlotView x:Name="ChartPlotView"
-                          Model="{Binding GraphicMasterWorkspace.PlotModel}"
-                          SizeChanged="OnChartPlotViewSizeChanged" />
+                          Model="{Binding GraphicMasterWorkspace.PlotModel}" />
         </Border>
     </Grid>
 </UserControl>

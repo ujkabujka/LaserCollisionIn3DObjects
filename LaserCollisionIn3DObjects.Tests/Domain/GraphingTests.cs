@@ -98,7 +98,7 @@ public sealed class GraphingTests
             ],
         });
 
-        Assert.Equal(GraphVisualizationKind.Xy, result.VisualizationKind);
+        Assert.Equal(GraphVisualizationKind.AngleBinXyLine, result.VisualizationKind);
         Assert.Single(result.Series);
         Assert.Equal(4, result.Series[0].Bins.Count);
         Assert.Equal(1, result.Series[0].Bins[0].Count);
@@ -168,7 +168,7 @@ public sealed class GraphingTests
             ],
         });
 
-        Assert.Equal(GraphVisualizationKind.Xy, result.VisualizationKind);
+        Assert.Equal(GraphVisualizationKind.NormalizedAxialAngleXyLine, result.VisualizationKind);
         Assert.Empty(result.Series);
     }
 

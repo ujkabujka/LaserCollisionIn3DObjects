@@ -42,7 +42,8 @@ public sealed class GraphSeriesData
 public enum GraphVisualizationKind
 {
     GroupedBar,
-    Xy,
+    AngleBinXyLine,
+    NormalizedAxialAngleXyLine,
 }
 
 public sealed class GraphResult

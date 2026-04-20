@@ -1,6 +1,8 @@
 using Microsoft.Win32;
-using OxyPlot;
 using OxyPlot.Wpf;
+using System.IO;
+using System.Windows.Media;
+using System.Windows.Media.Imaging;
 
 namespace LaserCollisionIn3DObjects.Wpf.Features.GraphicMaster.Services;
 
@@ -11,7 +13,7 @@ public interface IGraphicMasterSaveFileDialogService
 
 public interface IGraphicMasterPngExportService
 {
-    void Export(PlotModel plotModel, string filePath, int width, int height);
+    void ExportVisiblePlot(PlotView plotView, string filePath);
 }
 
 public sealed class GraphicMasterSaveFileDialogService : IGraphicMasterSaveFileDialogService
@@ -33,18 +35,23 @@ public sealed class GraphicMasterSaveFileDialogService : IGraphicMasterSaveFileD
 
 public sealed class GraphicMasterPngExportService : IGraphicMasterPngExportService
 {
-    public void Export(PlotModel plotModel, string filePath, int width, int height)
+    public void ExportVisiblePlot(PlotView plotView, string filePath)
     {
-        ArgumentNullException.ThrowIfNull(plotModel);
+        ArgumentNullException.ThrowIfNull(plotView);
         ArgumentException.ThrowIfNullOrWhiteSpace(filePath);
 
-        var exporter = new PngExporter
-        {
-            Width = Math.Max(1, width),
-            Height = Math.Max(1, height),
-            Resolution = 96,
-        };
+        plotView.UpdateLayout();
 
-        exporter.ExportToFile(plotModel, filePath);
+        var width = Math.Max(1, (int)Math.Ceiling(plotView.ActualWidth));
+        var height = Math.Max(1, (int)Math.Ceiling(plotView.ActualHeight));
+
+        var render = new RenderTargetBitmap(width, height, 96d, 96d, PixelFormats.Pbgra32);
+        render.Render(plotView);
+
+        var encoder = new PngBitmapEncoder();
+        encoder.Frames.Add(BitmapFrame.Create(render));
+
+        using var stream = File.Create(filePath);
+        encoder.Save(stream);
     }
 }

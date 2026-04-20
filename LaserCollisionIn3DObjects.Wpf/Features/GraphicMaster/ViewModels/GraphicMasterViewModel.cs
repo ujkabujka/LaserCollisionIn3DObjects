@@ -9,6 +9,7 @@ using LaserCollisionIn3DObjects.Wpf.ViewModels;
 using OxyPlot;
 using OxyPlot.Axes;
 using OxyPlot.Series;
+using OxyPlot.Wpf;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.Numerics;
@@ -35,8 +36,7 @@ public sealed class GraphicMasterViewModel : ObservableObject
     private PlotModel _plotModel = CreateEmptyPlotModel();
     private string _statusMessage = "Select graph type and data sources, then generate chart.";
     private string _chartName = "Chart 1";
-    private int _plotExportWidth = 1600;
-    private int _plotExportHeight = 1000;
+    private PlotView? _chartPlotView;
 
     public GraphicMasterViewModel(
         SceneCollectionService sceneCollectionService,
@@ -237,21 +237,19 @@ public sealed class GraphicMasterViewModel : ObservableObject
             return;
         }
 
-        _pngExportService.Export(PlotModel, path, _plotExportWidth, _plotExportHeight);
+        if (_chartPlotView is null)
+        {
+            StatusMessage = "Chart view is not ready for export yet.";
+            return;
+        }
+
+        _pngExportService.ExportVisiblePlot(_chartPlotView, path);
         StatusMessage = $"Saved chart to '{path}'.";
     }
 
-    public void UpdateExportSize(double width, double height)
+    public void AttachPlotView(PlotView plotView)
     {
-        if (width > 1)
-        {
-            _plotExportWidth = Math.Max(1, (int)Math.Round(width));
-        }
-
-        if (height > 1)
-        {
-            _plotExportHeight = Math.Max(1, (int)Math.Round(height));
-        }
+        _chartPlotView = plotView ?? throw new ArgumentNullException(nameof(plotView));
     }
 
     private (bool Success, int SourceCount) RenderFromConfiguration(string graphTypeId, double binSizeDeg, IReadOnlyList<string> sourceIds, string? chartNameOverride = null)
@@ -320,9 +318,7 @@ public sealed class GraphicMasterViewModel : ObservableObject
             return plotModel;
         }
 
-        var usesPointSeries = result.Series.Any(series => series.Points.Count > 0);
-
-        if (usesPointSeries)
+        if (result.VisualizationKind == GraphVisualizationKind.NormalizedAxialAngleXyLine)
         {
             plotModel.Axes.Add(new LinearAxis { Position = AxisPosition.Bottom, Title = "Normalized axial position (x/L)" });
             plotModel.Axes.Add(new LinearAxis { Position = AxisPosition.Left, Title = "Angle to source X axis (deg)", Minimum = 0, Maximum = 180 });
@@ -339,6 +335,11 @@ public sealed class GraphicMasterViewModel : ObservableObject
             }
 
             return plotModel;
+        }
+
+        if (result.VisualizationKind != GraphVisualizationKind.AngleBinXyLine)
+        {
+            throw new InvalidOperationException($"Unsupported graph visualization kind: {result.VisualizationKind}");
         }
 
         plotModel.Axes.Add(new LinearAxis { Position = AxisPosition.Bottom, Title = "Angle Bin Center (deg)", Minimum = 0, Maximum = 180 });
