@@ -6,6 +6,7 @@ using LaserCollisionIn3DObjects.Domain.Generation;
 using LaserCollisionIn3DObjects.Domain.Geometry;
 using LaserCollisionIn3DObjects.Wpf.Commands;
 using LaserCollisionIn3DObjects.Wpf.Features.Annotations.ViewModels;
+using LaserCollisionIn3DObjects.Wpf.Features.GraphicMaster.ViewModels;
 using LaserCollisionIn3DObjects.Wpf.Features.Projection.ViewModels;
 using LaserCollisionIn3DObjects.Wpf.Infrastructure;
 using LaserCollisionIn3DObjects.Wpf.Services;
@@ -16,6 +17,14 @@ public enum CollisionAlgorithmOption
 {
     ClosestHitSequential,
     ClosestHitParallel,
+}
+
+public enum WorkspaceKind
+{
+    Collision,
+    Annotation,
+    Projection,
+    GraphicMaster,
 }
 
 public sealed class MainWindowViewModel : ObservableObject
@@ -47,6 +56,8 @@ public sealed class MainWindowViewModel : ObservableObject
     private string _lastSequentialCollisionDurationMs = "N/A";
     private string _lastParallelCollisionDurationMs = "N/A";
     private string _statusMessage = "Add objects, then click Run Collision.";
+    private bool _isNavigationCollapsed;
+    private WorkspaceKind _selectedWorkspace = WorkspaceKind.Collision;
 
     public MainWindowViewModel(SceneRenderSyncService renderSyncService, ProjectionRenderSyncService projectionRenderSyncService)
     {
@@ -57,6 +68,7 @@ public sealed class MainWindowViewModel : ObservableObject
 
         AnnotationWorkspace = new AnnotationWorkspaceViewModel(_sceneCollectionService);
         ProjectionWorkspace = new ProjectionWorkspaceViewModel(_sceneCollectionService, projectionRenderSyncService);
+        GraphicMasterWorkspace = new GraphicMasterViewModel(_sceneCollectionService);
 
         CreateSceneCommand = new RelayCommand(CreateScene);
         DeleteSelectedSceneCommand = new RelayCommand(DeleteSelectedScene, () => SelectedScene is not null);
@@ -80,6 +92,10 @@ public sealed class MainWindowViewModel : ObservableObject
         LoadProjectionTabCommand = new RelayCommand(LoadProjectionTabState);
         SaveAnnotationTabCommand = new RelayCommand(SaveAnnotationTabState);
         LoadAnnotationTabCommand = new RelayCommand(LoadAnnotationTabState);
+        ShowCollisionWorkspaceCommand = new RelayCommand(() => SelectedWorkspace = WorkspaceKind.Collision);
+        ShowAnnotationWorkspaceCommand = new RelayCommand(() => SelectedWorkspace = WorkspaceKind.Annotation);
+        ShowProjectionWorkspaceCommand = new RelayCommand(() => SelectedWorkspace = WorkspaceKind.Projection);
+        ShowGraphicMasterWorkspaceCommand = new RelayCommand(() => SelectedWorkspace = WorkspaceKind.GraphicMaster);
 
         CreateScene();
         RefreshViewport(false);
@@ -89,6 +105,7 @@ public sealed class MainWindowViewModel : ObservableObject
 
     public AnnotationWorkspaceViewModel AnnotationWorkspace { get; }
     public ProjectionWorkspaceViewModel ProjectionWorkspace { get; }
+    public GraphicMasterViewModel GraphicMasterWorkspace { get; }
 
     public ObservableCollection<CollisionSceneViewModel> Scenes => _sceneCollectionService.Scenes;
 
@@ -142,6 +159,30 @@ public sealed class MainWindowViewModel : ObservableObject
     public ICommand LoadProjectionTabCommand { get; }
     public ICommand SaveAnnotationTabCommand { get; }
     public ICommand LoadAnnotationTabCommand { get; }
+    public ICommand ShowCollisionWorkspaceCommand { get; }
+    public ICommand ShowAnnotationWorkspaceCommand { get; }
+    public ICommand ShowProjectionWorkspaceCommand { get; }
+    public ICommand ShowGraphicMasterWorkspaceCommand { get; }
+
+    public bool IsNavigationCollapsed
+    {
+        get => _isNavigationCollapsed;
+        set
+        {
+            if (SetProperty(ref _isNavigationCollapsed, value))
+            {
+                RaisePropertyChanged(nameof(NavigationRailWidth));
+            }
+        }
+    }
+
+    public double NavigationRailWidth => IsNavigationCollapsed ? 64 : 220;
+
+    public WorkspaceKind SelectedWorkspace
+    {
+        get => _selectedWorkspace;
+        set => SetProperty(ref _selectedWorkspace, value);
+    }
 
     public string NewSceneName { get => _newSceneName; set => SetProperty(ref _newSceneName, value); }
 
