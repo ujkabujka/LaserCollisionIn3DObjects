@@ -26,17 +26,22 @@ public sealed class GraphicMasterViewModel : ObservableObject
         new AngleBinBarChartGraphType(),
         new AngleBinXyChartGraphType(),
         new CylindricalNormalizedAxialAngleXyGraphType(),
+        new AzimuthBinBarChartGraphType(),
+        new AzimuthPolarHeatmapGraphType(),
     });
     private readonly IGraphicMasterSaveFileDialogService _saveFileDialogService;
     private readonly IGraphicMasterPngExportService _pngExportService;
 
     private GraphTypeOptionViewModel? _selectedGraphType;
     private StoredGraphChartViewModel? _selectedStoredChart;
-    private double _binSizeDeg = 10;
+    private double _angleBinSizeDeg = 10;
+    private double _azimuthBinSizeDeg = 15;
+    private double _polarBinSizeDeg = 10;
     private PlotModel _plotModel = CreateEmptyPlotModel();
     private string _statusMessage = "Select graph type and data sources, then generate chart.";
     private string _chartName = "Chart 1";
     private PlotView? _chartPlotView;
+    private GraphResult? _lastResult;
 
     public GraphicMasterViewModel(
         SceneCollectionService sceneCollectionService,
@@ -57,6 +62,7 @@ public sealed class GraphicMasterViewModel : ObservableObject
         GenerateChartCommand = new RelayCommand(GenerateChart);
         DeleteStoredChartCommand = new RelayCommand(DeleteStoredChart, () => SelectedStoredChart is not null);
         SaveChartAsPngCommand = new RelayCommand(SaveChartAsPng);
+        FocusYCommand = new RelayCommand(FocusYAxis, () => CanFocusY);
 
         _sceneCollectionService.Scenes.CollectionChanged += OnScenesCollectionChanged;
         foreach (var scene in _sceneCollectionService.Scenes)
@@ -73,11 +79,22 @@ public sealed class GraphicMasterViewModel : ObservableObject
     public ICommand GenerateChartCommand { get; }
     public ICommand DeleteStoredChartCommand { get; }
     public ICommand SaveChartAsPngCommand { get; }
+    public ICommand FocusYCommand { get; }
 
     public GraphTypeOptionViewModel? SelectedGraphType
     {
         get => _selectedGraphType;
-        set => SetProperty(ref _selectedGraphType, value);
+        set
+        {
+            if (!SetProperty(ref _selectedGraphType, value))
+            {
+                return;
+            }
+
+            RaisePropertyChanged(nameof(ShowsAngleBinSize));
+            RaisePropertyChanged(nameof(ShowsAzimuthBinSize));
+            RaisePropertyChanged(nameof(ShowsPolarBinSize));
+        }
     }
 
     public StoredGraphChartViewModel? SelectedStoredChart
@@ -108,10 +125,22 @@ public sealed class GraphicMasterViewModel : ObservableObject
         set => SetProperty(ref _chartName, value);
     }
 
-    public double BinSizeDeg
+    public double AngleBinSizeDeg
     {
-        get => _binSizeDeg;
-        set => SetProperty(ref _binSizeDeg, value);
+        get => _angleBinSizeDeg;
+        set => SetProperty(ref _angleBinSizeDeg, value);
+    }
+
+    public double AzimuthBinSizeDeg
+    {
+        get => _azimuthBinSizeDeg;
+        set => SetProperty(ref _azimuthBinSizeDeg, value);
+    }
+
+    public double PolarBinSizeDeg
+    {
+        get => _polarBinSizeDeg;
+        set => SetProperty(ref _polarBinSizeDeg, value);
     }
 
     public PlotModel PlotModel
@@ -126,6 +155,11 @@ public sealed class GraphicMasterViewModel : ObservableObject
         private set => SetProperty(ref _statusMessage, value);
     }
 
+    public bool ShowsAngleBinSize => SelectedGraphType?.GraphType.Id is "graph.angle-bin-bar" or "graph.angle-bin-xy";
+    public bool ShowsAzimuthBinSize => SelectedGraphType?.GraphType.Id is "graph.azimuth-bin-bar" or "graph.azimuth-polar-heatmap";
+    public bool ShowsPolarBinSize => SelectedGraphType?.GraphType.Id == "graph.azimuth-polar-heatmap";
+    public bool CanFocusY => _lastResult?.VisualizationKind is GraphVisualizationKind.AngleBinXyLine or GraphVisualizationKind.NormalizedAxialAngleXyLine;
+
     private void GenerateChart()
     {
         RefreshSources();
@@ -137,9 +171,21 @@ public sealed class GraphicMasterViewModel : ObservableObject
             return;
         }
 
-        if (BinSizeDeg <= 0 || BinSizeDeg > 180)
+        if (AngleBinSizeDeg <= 0 || AngleBinSizeDeg > 180)
         {
-            StatusMessage = "Bin size must be in the range (0, 180].";
+            StatusMessage = "Angle bin size must be in the range (0, 180].";
+            return;
+        }
+
+        if (AzimuthBinSizeDeg <= 0 || AzimuthBinSizeDeg > 360)
+        {
+            StatusMessage = "Azimuth bin size must be in the range (0, 360].";
+            return;
+        }
+
+        if (PolarBinSizeDeg <= 0 || PolarBinSizeDeg > 180)
+        {
+            StatusMessage = "Polar bin size must be in the range (0, 180].";
             return;
         }
 
@@ -150,7 +196,7 @@ public sealed class GraphicMasterViewModel : ObservableObject
             return;
         }
 
-        var chartResult = RenderFromConfiguration(selectedGraphType.Id, BinSizeDeg, selectedSourceIds, chartNameOverride: ChartName);
+        var chartResult = RenderFromConfiguration(selectedGraphType.Id, AngleBinSizeDeg, AzimuthBinSizeDeg, PolarBinSizeDeg, selectedSourceIds, chartNameOverride: ChartName);
         if (!chartResult.Success)
         {
             return;
@@ -165,7 +211,9 @@ public sealed class GraphicMasterViewModel : ObservableObject
             Id = Guid.NewGuid().ToString("N"),
             DisplayName = normalizedChartName,
             GraphTypeId = selectedGraphType.Id,
-            BinSizeDeg = BinSizeDeg,
+            AngleBinSizeDeg = AngleBinSizeDeg,
+            AzimuthBinSizeDeg = AzimuthBinSizeDeg,
+            PolarBinSizeDeg = PolarBinSizeDeg,
             SelectedSourceIds = selectedSourceIds,
         };
 
@@ -185,7 +233,9 @@ public sealed class GraphicMasterViewModel : ObservableObject
 
         SelectedGraphType = graphType;
         ChartName = storedChart.DisplayName;
-        BinSizeDeg = storedChart.BinSizeDeg;
+        AngleBinSizeDeg = storedChart.AngleBinSizeDeg;
+        AzimuthBinSizeDeg = storedChart.AzimuthBinSizeDeg;
+        PolarBinSizeDeg = storedChart.PolarBinSizeDeg;
 
         RefreshSources();
         var selectedIds = storedChart.SelectedSourceIds.ToHashSet(StringComparer.Ordinal);
@@ -194,7 +244,13 @@ public sealed class GraphicMasterViewModel : ObservableObject
             source.IsSelected = selectedIds.Contains(source.SourceData.Id);
         }
 
-        _ = RenderFromConfiguration(storedChart.GraphTypeId, storedChart.BinSizeDeg, storedChart.SelectedSourceIds, chartNameOverride: storedChart.DisplayName);
+        _ = RenderFromConfiguration(
+            storedChart.GraphTypeId,
+            storedChart.AngleBinSizeDeg,
+            storedChart.AzimuthBinSizeDeg,
+            storedChart.PolarBinSizeDeg,
+            storedChart.SelectedSourceIds,
+            chartNameOverride: storedChart.DisplayName);
     }
 
     private void DeleteStoredChart()
@@ -261,7 +317,13 @@ public sealed class GraphicMasterViewModel : ObservableObject
         _ = height;
     }
 
-    private (bool Success, int SourceCount) RenderFromConfiguration(string graphTypeId, double binSizeDeg, IReadOnlyList<string> sourceIds, string? chartNameOverride = null)
+    private (bool Success, int SourceCount) RenderFromConfiguration(
+        string graphTypeId,
+        double angleBinSizeDeg,
+        double azimuthBinSizeDeg,
+        double polarBinSizeDeg,
+        IReadOnlyList<string> sourceIds,
+        string? chartNameOverride = null)
     {
         var selectedGraphType = _graphTypeRegistry.Resolve(graphTypeId);
         var selectedSourceSet = sourceIds.ToHashSet(StringComparer.Ordinal);
@@ -270,15 +332,28 @@ public sealed class GraphicMasterViewModel : ObservableObject
             .Select(source => source.SourceData)
             .ToList();
 
-        var result = selectedGraphType.Build(new GraphBuildContext
+        GraphResult result;
+        try
         {
-            Sources = selectedSources,
-            BinSizeDeg = binSizeDeg,
-        });
+            result = selectedGraphType.Build(new GraphBuildContext
+            {
+                Sources = selectedSources,
+                AngleBinSizeDeg = angleBinSizeDeg,
+                AzimuthBinSizeDeg = azimuthBinSizeDeg,
+                PolarBinSizeDeg = polarBinSizeDeg,
+            });
+        }
+        catch (InvalidOperationException ex)
+        {
+            StatusMessage = ex.Message;
+            return (false, selectedSources.Count);
+        }
 
-        if (result.Series.Count == 0)
+        if (result.Series.Count == 0 && result.Heatmap is null)
         {
             PlotModel = CreateEmptyPlotModel();
+            _lastResult = null;
+            RaisePropertyChanged(nameof(CanFocusY));
             StatusMessage = selectedGraphType is CylindricalNormalizedAxialAngleXyGraphType
                 ? "No compatible cylindrical sources selected for normalized axial-angle XY graph."
                 : "No chart data was produced for the selected sources.";
@@ -286,6 +361,18 @@ public sealed class GraphicMasterViewModel : ObservableObject
         }
 
         PlotModel = BuildPlotModel(result, chartNameOverride ?? selectedGraphType.DisplayName);
+        _lastResult = result;
+        RaisePropertyChanged(nameof(CanFocusY));
+        if (FocusYCommand is RelayCommand focusYCommand)
+        {
+            focusYCommand.RaiseCanExecuteChanged();
+        }
+
+        if (CanFocusY)
+        {
+            FocusYAxis();
+        }
+
         return (true, selectedSources.Count);
     }
 
@@ -298,9 +385,10 @@ public sealed class GraphicMasterViewModel : ObservableObject
             return plotModel;
         }
 
-        if (result.VisualizationKind == GraphVisualizationKind.GroupedBar)
+        if (result.VisualizationKind is GraphVisualizationKind.AngleGroupedBar or GraphVisualizationKind.AzimuthGroupedBar)
         {
-            plotModel.Axes.Add(new LinearAxis { Position = AxisPosition.Bottom, Title = "Angle (deg)", Minimum = 0, Maximum = 180 });
+            var isAzimuth = result.VisualizationKind == GraphVisualizationKind.AzimuthGroupedBar;
+            plotModel.Axes.Add(new LinearAxis { Position = AxisPosition.Bottom, Title = isAzimuth ? "Azimuth (deg)" : "Angle (deg)", Minimum = 0, Maximum = isAzimuth ? 360 : 180 });
             plotModel.Axes.Add(new LinearAxis { Position = AxisPosition.Left, Title = "Ray Count", Minimum = 0 });
 
             var seriesCount = result.Series.Count;
@@ -324,6 +412,25 @@ public sealed class GraphicMasterViewModel : ObservableObject
                 plotModel.Series.Add(rectangleSeries);
             }
 
+            return plotModel;
+        }
+
+        if (result.VisualizationKind == GraphVisualizationKind.AzimuthPolarHeatmap)
+        {
+            var heatmap = result.Heatmap ?? throw new InvalidOperationException("Heatmap visualization requires heatmap data.");
+            plotModel.Axes.Add(new LinearAxis { Position = AxisPosition.Bottom, Title = "Azimuth (deg)", Minimum = heatmap.XMin, Maximum = heatmap.XMax });
+            plotModel.Axes.Add(new LinearAxis { Position = AxisPosition.Left, Title = "Polar (deg)", Minimum = heatmap.YMin, Maximum = heatmap.YMax });
+            plotModel.Axes.Add(new LinearColorAxis { Position = AxisPosition.Right, Title = "Ray Count", Palette = OxyPalettes.Hot(200) });
+            plotModel.Series.Add(new HeatMapSeries
+            {
+                X0 = heatmap.XMin,
+                X1 = heatmap.XMax,
+                Y0 = heatmap.YMin,
+                Y1 = heatmap.YMax,
+                Data = heatmap.Values,
+                Interpolate = false,
+                RenderMethod = HeatMapRenderMethod.Rectangles,
+            });
             return plotModel;
         }
 
@@ -368,6 +475,29 @@ public sealed class GraphicMasterViewModel : ObservableObject
         return plotModel;
     }
 
+    private void FocusYAxis()
+    {
+        if (!CanFocusY)
+        {
+            return;
+        }
+
+        var bounds = LineGraphYAxisFocusService.TryComputeBounds(_lastResult!.Series);
+        if (bounds is null)
+        {
+            return;
+        }
+
+        var yAxis = PlotModel.Axes.FirstOrDefault(axis => axis.Position == AxisPosition.Left && axis is LinearAxis);
+        if (yAxis is not LinearAxis linearAxis)
+        {
+            return;
+        }
+
+        linearAxis.Zoom(bounds.Value.Min, bounds.Value.Max);
+        PlotModel.InvalidatePlot(false);
+    }
+
     private void RefreshSources()
     {
         var selectedIds = Sources.Where(source => source.IsSelected).Select(source => source.SourceData.Id).ToHashSet(StringComparer.Ordinal);
@@ -396,7 +526,13 @@ public sealed class GraphicMasterViewModel : ObservableObject
         if (Sources.Count == 0)
         {
             PlotModel = CreateEmptyPlotModel();
+            _lastResult = null;
+            RaisePropertyChanged(nameof(CanFocusY));
             StatusMessage = "No graphable sources were found. Add cylindrical light sources or projection results.";
+            if (FocusYCommand is RelayCommand focusYCommand)
+            {
+                focusYCommand.RaiseCanExecuteChanged();
+            }
         }
     }
 
