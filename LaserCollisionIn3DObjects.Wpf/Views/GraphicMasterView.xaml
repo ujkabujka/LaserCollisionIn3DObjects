@@ -8,6 +8,7 @@
              mc:Ignorable="d">
     <UserControl.Resources>
         <conv:FlexibleNumericConverter x:Key="FlexibleNumericConverter"/>
+        <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
     </UserControl.Resources>
     <Grid>
         <Grid.ColumnDefinitions>
@@ -51,14 +52,28 @@
 
                     <GroupBox Header="Parameters" Margin="0,0,0,8" Padding="8">
                         <StackPanel>
-                            <TextBlock Text="Angle Bin Size (deg)"/>
-                            <TextBox Text="{Binding GraphicMasterWorkspace.BinSizeDeg, Converter={StaticResource FlexibleNumericConverter}, UpdateSourceTrigger=LostFocus}"/>
+                            <StackPanel Visibility="{Binding GraphicMasterWorkspace.ShowsAngleBinSize, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                <TextBlock Text="Angle Bin Size (deg)"/>
+                                <TextBox Text="{Binding GraphicMasterWorkspace.AngleBinSizeDeg, Converter={StaticResource FlexibleNumericConverter}, UpdateSourceTrigger=LostFocus}"/>
+                            </StackPanel>
+                            <StackPanel Visibility="{Binding GraphicMasterWorkspace.ShowsAzimuthBinSize, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                <TextBlock Text="Azimuth Bin Size (deg)" Margin="0,6,0,0"/>
+                                <TextBox Text="{Binding GraphicMasterWorkspace.AzimuthBinSizeDeg, Converter={StaticResource FlexibleNumericConverter}, UpdateSourceTrigger=LostFocus}"/>
+                            </StackPanel>
+                            <StackPanel Visibility="{Binding GraphicMasterWorkspace.ShowsPolarBinSize, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                <TextBlock Text="Polar Bin Size (deg)" Margin="0,6,0,0"/>
+                                <TextBox Text="{Binding GraphicMasterWorkspace.PolarBinSizeDeg, Converter={StaticResource FlexibleNumericConverter}, UpdateSourceTrigger=LostFocus}"/>
+                            </StackPanel>
                         </StackPanel>
                     </GroupBox>
 
                     <Button Content="Generate Chart"
                             Command="{Binding GraphicMasterWorkspace.GenerateChartCommand}"
                             Height="32"/>
+                    <Button Content="Focus Y"
+                            Command="{Binding GraphicMasterWorkspace.FocusYCommand}"
+                            Margin="0,6,0,0"
+                            Visibility="{Binding GraphicMasterWorkspace.CanFocusY, Converter={StaticResource BooleanToVisibilityConverter}}"/>
 
                     <GroupBox Header="Stored Charts (runtime only)" Margin="0,8,0,8" Padding="8">
                         <DockPanel>

@@ -5,7 +5,9 @@ public sealed class StoredGraphChart
     public required string Id { get; init; }
     public required string DisplayName { get; init; }
     public required string GraphTypeId { get; init; }
-    public required double BinSizeDeg { get; init; }
+    public required double AngleBinSizeDeg { get; init; }
+    public double? AzimuthBinSizeDeg { get; init; }
+    public double? PolarBinSizeDeg { get; init; }
     public required IReadOnlyList<string> SelectedSourceIds { get; init; }
 }
 

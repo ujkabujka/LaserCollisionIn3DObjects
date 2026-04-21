@@ -5,7 +5,9 @@ namespace LaserCollisionIn3DObjects.Domain.Graphing;
 public sealed class GraphBuildContext
 {
     public required IReadOnlyList<GraphableSourceData> Sources { get; init; }
-    public required double BinSizeDeg { get; init; }
+    public double AngleBinSizeDeg { get; init; } = 10;
+    public double AzimuthBinSizeDeg { get; init; } = 15;
+    public double PolarBinSizeDeg { get; init; } = 10;
 }
 
 public interface IGraphType
@@ -55,7 +57,7 @@ public sealed class AngleBinBarChartGraphType : IGraphType
         var series = BuildSeries(context);
         return new GraphResult
         {
-            VisualizationKind = GraphVisualizationKind.GroupedBar,
+            VisualizationKind = GraphVisualizationKind.AngleGroupedBar,
             Series = series,
         };
     }
@@ -68,7 +70,7 @@ public sealed class AngleBinBarChartGraphType : IGraphType
             .Select(source => new GraphSeriesData
             {
                 Name = source.DisplayName,
-                Bins = _histogramService.CreateHistogram(source.Rays, source.AxisX, context.BinSizeDeg),
+                Bins = _histogramService.CreateHistogram(source.Rays, source.AxisX, context.AngleBinSizeDeg),
             })
             .ToList();
     }
@@ -94,7 +96,7 @@ public sealed class AngleBinXyChartGraphType : IGraphType
             .Select(source => new GraphSeriesData
             {
                 Name = source.DisplayName,
-                Bins = _histogramService.CreateHistogram(source.Rays, source.AxisX, context.BinSizeDeg),
+                Bins = _histogramService.CreateHistogram(source.Rays, source.AxisX, context.AngleBinSizeDeg),
             })
             .ToList();
 
@@ -125,6 +127,77 @@ public sealed class AngleBinXyChartGraphType : IGraphType
         }
 
         return Vector3.Normalize(value);
+    }
+}
+
+public sealed class AzimuthBinBarChartGraphType : IGraphType
+{
+    private readonly AzimuthHistogramService _histogramService;
+
+    public AzimuthBinBarChartGraphType(AzimuthHistogramService? histogramService = null)
+    {
+        _histogramService = histogramService ?? new AzimuthHistogramService();
+    }
+
+    public string Id => "graph.azimuth-bin-bar";
+    public string DisplayName => "Azimuth angle vs ray count";
+
+    public GraphResult Build(GraphBuildContext context)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+
+        var series = context.Sources
+            .Select(source => new GraphSeriesData
+            {
+                Name = source.DisplayName,
+                Bins = _histogramService.CreateHistogram(source.Rays, source.AxisX, source.AxisY, source.AxisZ, context.AzimuthBinSizeDeg),
+            })
+            .ToList();
+
+        return new GraphResult
+        {
+            VisualizationKind = GraphVisualizationKind.AzimuthGroupedBar,
+            Series = series,
+        };
+    }
+}
+
+public sealed class AzimuthPolarHeatmapGraphType : IGraphType
+{
+    private readonly AzimuthPolarHeatmapService _heatmapService;
+
+    public AzimuthPolarHeatmapGraphType(AzimuthPolarHeatmapService? heatmapService = null)
+    {
+        _heatmapService = heatmapService ?? new AzimuthPolarHeatmapService();
+    }
+
+    public string Id => "graph.azimuth-polar-heatmap";
+    public string DisplayName => "Azimuth vs polar heatmap";
+
+    public GraphResult Build(GraphBuildContext context)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+        if (context.Sources.Count != 1)
+        {
+            throw new InvalidOperationException("Azimuth-vs-polar heatmap requires exactly one selected source.");
+        }
+
+        var source = context.Sources[0];
+        var heatmap = _heatmapService.Create(
+            source.DisplayName,
+            source.Rays,
+            source.AxisX,
+            source.AxisY,
+            source.AxisZ,
+            context.AzimuthBinSizeDeg,
+            context.PolarBinSizeDeg);
+
+        return new GraphResult
+        {
+            VisualizationKind = GraphVisualizationKind.AzimuthPolarHeatmap,
+            Series = [],
+            Heatmap = heatmap,
+        };
     }
 }
 

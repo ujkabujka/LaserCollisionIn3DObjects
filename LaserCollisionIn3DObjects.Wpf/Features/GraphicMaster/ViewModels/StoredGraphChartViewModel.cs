@@ -8,7 +8,9 @@ public sealed class StoredGraphChartViewModel : ObservableObject
 
     public required string Id { get; init; }
     public required string GraphTypeId { get; init; }
-    public required double BinSizeDeg { get; init; }
+    public required double AngleBinSizeDeg { get; init; }
+    public required double AzimuthBinSizeDeg { get; init; }
+    public required double PolarBinSizeDeg { get; init; }
     public required IReadOnlyList<string> SelectedSourceIds { get; init; }
 
     public string DisplayName
