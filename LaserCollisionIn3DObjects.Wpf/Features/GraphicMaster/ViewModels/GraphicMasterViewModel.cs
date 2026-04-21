@@ -252,6 +252,15 @@ public sealed class GraphicMasterViewModel : ObservableObject
         _chartPlotView = plotView ?? throw new ArgumentNullException(nameof(plotView));
     }
 
+    // Backward-compatibility no-op:
+    // Some branch variants still call UpdateExportSize from the view code-behind.
+    // Export now uses the attached PlotView visual directly, so explicit size caching is unnecessary.
+    public void UpdateExportSize(double width, double height)
+    {
+        _ = width;
+        _ = height;
+    }
+
     private (bool Success, int SourceCount) RenderFromConfiguration(string graphTypeId, double binSizeDeg, IReadOnlyList<string> sourceIds, string? chartNameOverride = null)
     {
         var selectedGraphType = _graphTypeRegistry.Resolve(graphTypeId);

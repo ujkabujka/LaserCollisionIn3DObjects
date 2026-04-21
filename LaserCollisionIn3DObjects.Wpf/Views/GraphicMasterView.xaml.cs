@@ -30,12 +30,4 @@ public partial class GraphicMasterView : UserControl
             workspace.AttachPlotView(ChartPlotView);
         }
     }
-
-    private void OnChartPlotViewSizeChanged(object sender, System.Windows.SizeChangedEventArgs e)
-    {
-        if (DataContext is MainWindowViewModel { GraphicMasterWorkspace: GraphicMasterViewModel workspace })
-        {
-            workspace.UpdateExportSize(e.NewSize.Width, e.NewSize.Height);
-        }
-    }
 }
