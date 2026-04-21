@@ -1,5 +1,6 @@
 using LaserCollisionIn3DObjects.Domain.Geometry;
 using LaserCollisionIn3DObjects.Domain.Persistence;
+using System.Text.Json;
 
 namespace LaserCollisionIn3DObjects.Tests.Domain;
 
@@ -144,5 +145,15 @@ public class PersistenceRoundTripTests
         };
 
         Assert.False(AnnotationStateResolver.IsFolderResolved(state));
+    }
+
+    [Fact]
+    public void ProjectState_DoesNotContainGraphicMasterStoredCharts()
+    {
+        var state = new ProjectState();
+        var json = JsonSerializer.Serialize(state);
+
+        Assert.DoesNotContain("storedCharts", json, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("graphicMaster", json, StringComparison.OrdinalIgnoreCase);
     }
 }
