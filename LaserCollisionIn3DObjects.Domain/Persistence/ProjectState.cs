@@ -52,6 +52,10 @@ public sealed class PrismState
     public float SizeX { get; set; }
     public float SizeY { get; set; }
     public float SizeZ { get; set; }
+    public float? BaseOrientationX { get; set; }
+    public float? BaseOrientationY { get; set; }
+    public float? BaseOrientationZ { get; set; }
+    public float? BaseOrientationW { get; set; }
 }
 
 public sealed class RayState
@@ -77,6 +81,10 @@ public sealed class CylindricalLightSourceState
     public float Height { get; set; }
     public int RayCount { get; set; }
     public float TiltWeight { get; set; } = 0.1f;
+    public float? BaseOrientationX { get; set; }
+    public float? BaseOrientationY { get; set; }
+    public float? BaseOrientationZ { get; set; }
+    public float? BaseOrientationW { get; set; }
 }
 
 public sealed class SceneProjectionStateDto

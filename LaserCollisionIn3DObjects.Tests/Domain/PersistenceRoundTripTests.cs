@@ -1,5 +1,7 @@
+using LaserCollisionIn3DObjects.Domain.Generation;
 using LaserCollisionIn3DObjects.Domain.Geometry;
 using LaserCollisionIn3DObjects.Domain.Persistence;
+using System.Numerics;
 using System.Text.Json;
 
 namespace LaserCollisionIn3DObjects.Tests.Domain;
@@ -155,5 +157,107 @@ public class PersistenceRoundTripTests
 
         Assert.DoesNotContain("storedCharts", json, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("graphicMaster", json, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void PrismState_BaseOrientation_RoundTrip_PreservesQuaternion()
+    {
+        var orientation = Quaternion.Normalize(Quaternion.CreateFromYawPitchRoll(0.3f, 0.5f, -0.2f));
+        var state = new ProjectState
+        {
+            Scenes =
+            [
+                new SceneState
+                {
+                    Name = "Scene",
+                    Prisms =
+                    [
+                        new PrismState
+                        {
+                            Name = "P1",
+                            BaseOrientationX = orientation.X,
+                            BaseOrientationY = orientation.Y,
+                            BaseOrientationZ = orientation.Z,
+                            BaseOrientationW = orientation.W,
+                        },
+                    ],
+                },
+            ],
+        };
+
+        var json = JsonSerializer.Serialize(state);
+        var loaded = JsonSerializer.Deserialize<ProjectState>(json)!;
+        var prism = loaded.Scenes[0].Prisms[0];
+        var roundTrip = BaseOrientationPersistence.FromComponents(prism.BaseOrientationX, prism.BaseOrientationY, prism.BaseOrientationZ, prism.BaseOrientationW);
+        Assert.True(Quaternion.Dot(orientation, roundTrip) > 0.9999f);
+    }
+
+    [Fact]
+    public void CylindricalSource_BaseOrientation_RoundTrip_PreservesQuaternionAndFinalOrientation()
+    {
+        var baseOrientation = Quaternion.Normalize(Quaternion.CreateFromAxisAngle(Vector3.UnitY, 0.7f));
+        const float rx = 10f;
+        const float ry = 20f;
+        const float rz = -5f;
+
+        var sourceState = new CylindricalLightSourceState
+        {
+            Name = "S1",
+            RotationX = rx,
+            RotationY = ry,
+            RotationZ = rz,
+            BaseOrientationX = baseOrientation.X,
+            BaseOrientationY = baseOrientation.Y,
+            BaseOrientationZ = baseOrientation.Z,
+            BaseOrientationW = baseOrientation.W,
+        };
+
+        var restoredBase = BaseOrientationPersistence.FromComponents(
+            sourceState.BaseOrientationX,
+            sourceState.BaseOrientationY,
+            sourceState.BaseOrientationZ,
+            sourceState.BaseOrientationW);
+
+        var before = FrameOrientationBuilder.ApplyLocalEulerDegrees(baseOrientation, rx, ry, rz);
+        var after = FrameOrientationBuilder.ApplyLocalEulerDegrees(restoredBase, rx, ry, rz);
+        Assert.True(Quaternion.Dot(before, after) > 0.9999f);
+    }
+
+    [Fact]
+    public void MissingBaseOrientationFields_FallbacksToIdentity()
+    {
+        var prism = new PrismState { Name = "Legacy Prism" };
+        var source = new CylindricalLightSourceState { Name = "Legacy Source" };
+        Assert.Equal(Quaternion.Identity, BaseOrientationPersistence.FromComponents(prism.BaseOrientationX, prism.BaseOrientationY, prism.BaseOrientationZ, prism.BaseOrientationW));
+        Assert.Equal(Quaternion.Identity, BaseOrientationPersistence.FromComponents(source.BaseOrientationX, source.BaseOrientationY, source.BaseOrientationZ, source.BaseOrientationW));
+    }
+
+    [Fact]
+    public void ArrayPlacementOrientations_RoundTrip_StayFacingOrigin()
+    {
+        var placements = PrismPlacementGenerator.CreateCylindricalPlacements(radius: 10f, count: 6);
+
+        var states = placements.Select((placement, i) => new PrismState
+        {
+            Name = $"P{i}",
+            BaseOrientationX = placement.Orientation.X,
+            BaseOrientationY = placement.Orientation.Y,
+            BaseOrientationZ = placement.Orientation.Z,
+            BaseOrientationW = placement.Orientation.W,
+        }).ToList();
+
+        var json = JsonSerializer.Serialize(states);
+        var restored = JsonSerializer.Deserialize<List<PrismState>>(json)!;
+
+        for (var i = 0; i < placements.Count; i++)
+        {
+            var expected = placements[i].Orientation;
+            var actual = BaseOrientationPersistence.FromComponents(
+                restored[i].BaseOrientationX,
+                restored[i].BaseOrientationY,
+                restored[i].BaseOrientationZ,
+                restored[i].BaseOrientationW);
+            Assert.True(Quaternion.Dot(expected, actual) > 0.9999f);
+        }
     }
 }

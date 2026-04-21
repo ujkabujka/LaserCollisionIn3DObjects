@@ -23,6 +23,8 @@ public sealed class GraphableSourceData
     public required string DisplayName { get; init; }
     public required GraphableSourceKind Kind { get; init; }
     public required Vector3 AxisX { get; init; }
+    public required Vector3 AxisY { get; init; }
+    public required Vector3 AxisZ { get; init; }
     public required IReadOnlyList<Ray3D> Rays { get; init; }
     public Vector3? FrameOrigin { get; init; }
     public double? SourceLength { get; init; }
@@ -39,15 +41,28 @@ public sealed class GraphSeriesData
     public IReadOnlyList<ScatterPointData> Points { get; init; } = [];
 }
 
+public sealed class HeatmapGridData
+{
+    public required string Name { get; init; }
+    public required double XMin { get; init; }
+    public required double XMax { get; init; }
+    public required double YMin { get; init; }
+    public required double YMax { get; init; }
+    public required double[,] Values { get; init; }
+}
+
 public enum GraphVisualizationKind
 {
-    GroupedBar,
+    AngleGroupedBar,
+    AzimuthGroupedBar,
     AngleBinXyLine,
     NormalizedAxialAngleXyLine,
+    AzimuthPolarHeatmap,
 }
 
 public sealed class GraphResult
 {
     public required GraphVisualizationKind VisualizationKind { get; init; }
     public required IReadOnlyList<GraphSeriesData> Series { get; init; }
+    public HeatmapGridData? Heatmap { get; init; }
 }
