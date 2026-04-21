@@ -135,6 +135,10 @@ public sealed class ProjectPersistenceCoordinator
                 SizeX = prism.SizeX,
                 SizeY = prism.SizeY,
                 SizeZ = prism.SizeZ,
+                BaseOrientationX = prism.BaseOrientation.X,
+                BaseOrientationY = prism.BaseOrientation.Y,
+                BaseOrientationZ = prism.BaseOrientation.Z,
+                BaseOrientationW = prism.BaseOrientation.W,
             }).ToList(),
             ManualRays = scene.Rays.Select(ray => new RayState
             {
@@ -158,6 +162,10 @@ public sealed class ProjectPersistenceCoordinator
                 Height = source.Height,
                 RayCount = source.RayCount,
                 TiltWeight = source.TiltWeight,
+                BaseOrientationX = source.BaseOrientation.X,
+                BaseOrientationY = source.BaseOrientation.Y,
+                BaseOrientationZ = source.BaseOrientation.Z,
+                BaseOrientationW = source.BaseOrientation.W,
             }).ToList(),
             HolePoints = scene.HolePoints.ToList(),
             Projection = new SceneProjectionStateDto
@@ -218,7 +226,11 @@ public sealed class ProjectPersistenceCoordinator
                 SizeX = prism.SizeX,
                 SizeY = prism.SizeY,
                 SizeZ = prism.SizeZ,
-                BaseOrientation = Quaternion.Identity,
+                BaseOrientation = BaseOrientationPersistence.FromComponents(
+                    prism.BaseOrientationX,
+                    prism.BaseOrientationY,
+                    prism.BaseOrientationZ,
+                    prism.BaseOrientationW),
             });
         }
 
@@ -250,7 +262,11 @@ public sealed class ProjectPersistenceCoordinator
                 Height = source.Height,
                 RayCount = source.RayCount,
                 TiltWeight = source.TiltWeight,
-                BaseOrientation = Quaternion.Identity,
+                BaseOrientation = BaseOrientationPersistence.FromComponents(
+                    source.BaseOrientationX,
+                    source.BaseOrientationY,
+                    source.BaseOrientationZ,
+                    source.BaseOrientationW),
             });
         }
 
