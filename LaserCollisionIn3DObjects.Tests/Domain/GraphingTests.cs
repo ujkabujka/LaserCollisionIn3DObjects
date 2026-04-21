@@ -71,6 +71,25 @@ public sealed class GraphingTests
     }
 
     [Fact]
+    public void AzimuthPolarHeatmapGraphType_ReturnsHeatmapResult()
+    {
+        var graphType = new AzimuthPolarHeatmapGraphType();
+        var result = graphType.Build(new GraphBuildContext
+        {
+            AzimuthBinSizeDeg = 90,
+            PolarBinSizeDeg = 90,
+            Sources =
+            [
+                BuildSource("s1", GraphableSourceKind.CylindricalLightSource, [new Ray3D(Vector3.Zero, Vector3.UnitY)]),
+            ],
+        });
+
+        Assert.Equal(GraphVisualizationKind.AzimuthPolarHeatmap, result.VisualizationKind);
+        Assert.NotNull(result.Heatmap);
+        Assert.True(result.Heatmap!.Values.Cast<double>().Any(value => value > 0));
+    }
+
+    [Fact]
     public void AzimuthPolarHeatmapGraphType_RequiresExactlyOneSource()
     {
         var graphType = new AzimuthPolarHeatmapGraphType();

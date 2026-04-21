@@ -349,6 +349,16 @@ public sealed class GraphicMasterViewModel : ObservableObject
             return (false, selectedSources.Count);
         }
 
+        if (result.VisualizationKind == GraphVisualizationKind.AzimuthPolarHeatmap
+            && (result.Heatmap is null || !HasAnyHeatmapSignal(result.Heatmap)))
+        {
+            PlotModel = CreateEmptyPlotModel();
+            _lastResult = null;
+            RaisePropertyChanged(nameof(CanFocusY));
+            StatusMessage = "Heatmap has no ray counts for the selected source and bin sizes.";
+            return (false, selectedSources.Count);
+        }
+
         if (result.Series.Count == 0 && result.Heatmap is null)
         {
             PlotModel = CreateEmptyPlotModel();
@@ -380,13 +390,13 @@ public sealed class GraphicMasterViewModel : ObservableObject
     {
         var plotModel = new PlotModel { Title = title, Background = OxyColors.White };
 
-        if (result.Series.Count == 0)
-        {
-            return plotModel;
-        }
-
         if (result.VisualizationKind is GraphVisualizationKind.AngleGroupedBar or GraphVisualizationKind.AzimuthGroupedBar)
         {
+            if (result.Series.Count == 0)
+            {
+                return plotModel;
+            }
+
             var isAzimuth = result.VisualizationKind == GraphVisualizationKind.AzimuthGroupedBar;
             plotModel.Axes.Add(new LinearAxis { Position = AxisPosition.Bottom, Title = isAzimuth ? "Azimuth (deg)" : "Angle (deg)", Minimum = 0, Maximum = isAzimuth ? 360 : 180 });
             plotModel.Axes.Add(new LinearAxis { Position = AxisPosition.Left, Title = "Ray Count", Minimum = 0 });
@@ -436,6 +446,11 @@ public sealed class GraphicMasterViewModel : ObservableObject
 
         if (result.VisualizationKind == GraphVisualizationKind.NormalizedAxialAngleXyLine)
         {
+            if (result.Series.Count == 0)
+            {
+                return plotModel;
+            }
+
             plotModel.Axes.Add(new LinearAxis { Position = AxisPosition.Bottom, Title = "Normalized axial position (x/L)" });
             plotModel.Axes.Add(new LinearAxis { Position = AxisPosition.Left, Title = "Angle to source X axis (deg)", Minimum = 0, Maximum = 180 });
 
@@ -458,6 +473,11 @@ public sealed class GraphicMasterViewModel : ObservableObject
             throw new InvalidOperationException($"Unsupported graph visualization kind: {result.VisualizationKind}");
         }
 
+        if (result.Series.Count == 0)
+        {
+            return plotModel;
+        }
+
         plotModel.Axes.Add(new LinearAxis { Position = AxisPosition.Bottom, Title = "Angle Bin Center (deg)", Minimum = 0, Maximum = 180 });
         plotModel.Axes.Add(new LinearAxis { Position = AxisPosition.Left, Title = "Ray Count", Minimum = 0 });
 
@@ -473,6 +493,25 @@ public sealed class GraphicMasterViewModel : ObservableObject
         }
 
         return plotModel;
+    }
+
+    private static bool HasAnyHeatmapSignal(HeatmapGridData heatmap)
+    {
+        ArgumentNullException.ThrowIfNull(heatmap);
+
+        var values = heatmap.Values;
+        for (var x = 0; x < values.GetLength(0); x++)
+        {
+            for (var y = 0; y < values.GetLength(1); y++)
+            {
+                if (values[x, y] > 0d)
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     private void FocusYAxis()
