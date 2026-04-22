@@ -201,6 +201,11 @@ public sealed class MainWindowViewModel : ObservableObject
             }
 
             SelectedScene.SelectedPrism = value;
+            if (value is not null)
+            {
+                LoadPrismIntoEditor(value);
+            }
+
             RaiseCanExecuteChanges();
             RaisePropertyChanged();
         }
@@ -233,6 +238,11 @@ public sealed class MainWindowViewModel : ObservableObject
             }
 
             SelectedScene.SelectedLightSource = value;
+            if (value is not null)
+            {
+                LoadLightSourceIntoEditor(value);
+            }
+
             RaiseCanExecuteChanges();
             RaisePropertyChanged();
         }
@@ -969,6 +979,16 @@ public sealed class MainWindowViewModel : ObservableObject
 
     private void RefreshSceneBindingsAndViewport()
     {
+        if (SelectedScene?.SelectedPrism is not null)
+        {
+            LoadPrismIntoEditor(SelectedScene.SelectedPrism);
+        }
+
+        if (SelectedScene?.SelectedLightSource is not null)
+        {
+            LoadLightSourceIntoEditor(SelectedScene.SelectedLightSource);
+        }
+
         RaisePropertyChanged(nameof(SelectedScene));
         RaisePropertyChanged(nameof(Prisms));
         RaisePropertyChanged(nameof(Rays));
@@ -979,6 +999,52 @@ public sealed class MainWindowViewModel : ObservableObject
         RaisePropertyChanged(nameof(SelectedLightSource));
         RaiseCanExecuteChanges();
         RefreshViewport(false);
+    }
+
+    private void LoadPrismIntoEditor(PrismItemViewModel prism)
+    {
+        NewPrismName = prism.Name;
+        NewPrismPosX = prism.PositionX;
+        NewPrismPosY = prism.PositionY;
+        NewPrismPosZ = prism.PositionZ;
+        NewPrismRotX = prism.RotationX;
+        NewPrismRotY = prism.RotationY;
+        NewPrismRotZ = prism.RotationZ;
+        NewPrismSizeX = prism.SizeX;
+        NewPrismSizeY = prism.SizeY;
+        NewPrismSizeZ = prism.SizeZ;
+
+        RaisePropertyChanged(nameof(NewPrismPosX));
+        RaisePropertyChanged(nameof(NewPrismPosY));
+        RaisePropertyChanged(nameof(NewPrismPosZ));
+        RaisePropertyChanged(nameof(NewPrismRotX));
+        RaisePropertyChanged(nameof(NewPrismRotY));
+        RaisePropertyChanged(nameof(NewPrismRotZ));
+    }
+
+    private void LoadLightSourceIntoEditor(CylindricalLightSourceItemViewModel source)
+    {
+        NewLightSourceName = source.Name;
+        NewLightSourcePosX = source.PositionX;
+        NewLightSourcePosY = source.PositionY;
+        NewLightSourcePosZ = source.PositionZ;
+        NewLightSourceRotX = source.RotationX;
+        NewLightSourceRotY = source.RotationY;
+        NewLightSourceRotZ = source.RotationZ;
+        NewLightSourceRadius = source.Radius;
+        NewLightSourceHeight = source.Height;
+        NewLightSourceRayCount = source.RayCount;
+        NewLightSourceTiltWeight = source.TiltWeight;
+        NewLightSourceTiltPointX = source.TiltPointX;
+        NewLightSourceTiltPointY = source.TiltPointY;
+        NewLightSourceTiltPointZ = source.TiltPointZ;
+
+        RaisePropertyChanged(nameof(NewLightSourcePosX));
+        RaisePropertyChanged(nameof(NewLightSourcePosY));
+        RaisePropertyChanged(nameof(NewLightSourcePosZ));
+        RaisePropertyChanged(nameof(NewLightSourceRotX));
+        RaisePropertyChanged(nameof(NewLightSourceRotY));
+        RaisePropertyChanged(nameof(NewLightSourceRotZ));
     }
 
     private void RaiseCanExecuteChanges()
