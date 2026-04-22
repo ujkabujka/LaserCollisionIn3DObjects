@@ -52,6 +52,9 @@ public sealed class MainWindowViewModel : ObservableObject
     private float _newLightSourceHeight = 10f;
     private int _newLightSourceRayCount = 200;
     private float _newLightSourceTiltWeight = 0.1f;
+    private float _newLightSourceTiltPointX;
+    private float _newLightSourceTiltPointY;
+    private float _newLightSourceTiltPointZ;
     private CollisionAlgorithmOption _selectedCollisionAlgorithm = CollisionAlgorithmOption.ClosestHitSequential;
     private string _lastCollisionDurationMs = "N/A";
     private string _lastSequentialCollisionDurationMs = "N/A";
@@ -198,6 +201,11 @@ public sealed class MainWindowViewModel : ObservableObject
             }
 
             SelectedScene.SelectedPrism = value;
+            if (value is not null)
+            {
+                LoadPrismIntoEditor(value);
+            }
+
             RaiseCanExecuteChanges();
             RaisePropertyChanged();
         }
@@ -230,6 +238,11 @@ public sealed class MainWindowViewModel : ObservableObject
             }
 
             SelectedScene.SelectedLightSource = value;
+            if (value is not null)
+            {
+                LoadLightSourceIntoEditor(value);
+            }
+
             RaiseCanExecuteChanges();
             RaisePropertyChanged();
         }
@@ -272,6 +285,9 @@ public sealed class MainWindowViewModel : ObservableObject
     public float NewLightSourceHeight { get => _newLightSourceHeight; set => SetProperty(ref _newLightSourceHeight, value); }
     public int NewLightSourceRayCount { get => _newLightSourceRayCount; set => SetProperty(ref _newLightSourceRayCount, value); }
     public float NewLightSourceTiltWeight { get => _newLightSourceTiltWeight; set => SetProperty(ref _newLightSourceTiltWeight, value); }
+    public float NewLightSourceTiltPointX { get => _newLightSourceTiltPointX; set => SetProperty(ref _newLightSourceTiltPointX, value); }
+    public float NewLightSourceTiltPointY { get => _newLightSourceTiltPointY; set => SetProperty(ref _newLightSourceTiltPointY, value); }
+    public float NewLightSourceTiltPointZ { get => _newLightSourceTiltPointZ; set => SetProperty(ref _newLightSourceTiltPointZ, value); }
     public CollisionAlgorithmOption SelectedCollisionAlgorithm
     {
         get => _selectedCollisionAlgorithm;
@@ -439,6 +455,9 @@ public sealed class MainWindowViewModel : ObservableObject
             Height = NewLightSourceHeight,
             RayCount = NewLightSourceRayCount,
             TiltWeight = NewLightSourceTiltWeight,
+            TiltPointX = NewLightSourceTiltPointX,
+            TiltPointY = NewLightSourceTiltPointY,
+            TiltPointZ = NewLightSourceTiltPointZ,
             BaseOrientation = Quaternion.Identity,
         });
 
@@ -599,6 +618,9 @@ public sealed class MainWindowViewModel : ObservableObject
             Height = 10,
             RayCount = 120,
             TiltWeight = 0.1f,
+            TiltPointX = 0f,
+            TiltPointY = 0f,
+            TiltPointZ = 0f,
             BaseOrientation = Quaternion.Identity,
         });
 
@@ -957,6 +979,16 @@ public sealed class MainWindowViewModel : ObservableObject
 
     private void RefreshSceneBindingsAndViewport()
     {
+        if (SelectedScene?.SelectedPrism is not null)
+        {
+            LoadPrismIntoEditor(SelectedScene.SelectedPrism);
+        }
+
+        if (SelectedScene?.SelectedLightSource is not null)
+        {
+            LoadLightSourceIntoEditor(SelectedScene.SelectedLightSource);
+        }
+
         RaisePropertyChanged(nameof(SelectedScene));
         RaisePropertyChanged(nameof(Prisms));
         RaisePropertyChanged(nameof(Rays));
@@ -967,6 +999,66 @@ public sealed class MainWindowViewModel : ObservableObject
         RaisePropertyChanged(nameof(SelectedLightSource));
         RaiseCanExecuteChanges();
         RefreshViewport(false);
+    }
+
+    private void LoadPrismIntoEditor(PrismItemViewModel prism)
+    {
+        var effectiveOrientation = FrameOrientationBuilder.ApplyLocalEulerDegrees(
+            prism.BaseOrientation,
+            prism.RotationX,
+            prism.RotationY,
+            prism.RotationZ);
+        var (effectiveRotX, effectiveRotY, effectiveRotZ) = FrameOrientationBuilder.ToLocalEulerDegrees(effectiveOrientation);
+
+        NewPrismName = prism.Name;
+        NewPrismPosX = prism.PositionX;
+        NewPrismPosY = prism.PositionY;
+        NewPrismPosZ = prism.PositionZ;
+        NewPrismRotX = effectiveRotX;
+        NewPrismRotY = effectiveRotY;
+        NewPrismRotZ = effectiveRotZ;
+        NewPrismSizeX = prism.SizeX;
+        NewPrismSizeY = prism.SizeY;
+        NewPrismSizeZ = prism.SizeZ;
+
+        RaisePropertyChanged(nameof(NewPrismPosX));
+        RaisePropertyChanged(nameof(NewPrismPosY));
+        RaisePropertyChanged(nameof(NewPrismPosZ));
+        RaisePropertyChanged(nameof(NewPrismRotX));
+        RaisePropertyChanged(nameof(NewPrismRotY));
+        RaisePropertyChanged(nameof(NewPrismRotZ));
+    }
+
+    private void LoadLightSourceIntoEditor(CylindricalLightSourceItemViewModel source)
+    {
+        var effectiveOrientation = FrameOrientationBuilder.ApplyLocalEulerDegrees(
+            source.BaseOrientation,
+            source.RotationX,
+            source.RotationY,
+            source.RotationZ);
+        var (effectiveRotX, effectiveRotY, effectiveRotZ) = FrameOrientationBuilder.ToLocalEulerDegrees(effectiveOrientation);
+
+        NewLightSourceName = source.Name;
+        NewLightSourcePosX = source.PositionX;
+        NewLightSourcePosY = source.PositionY;
+        NewLightSourcePosZ = source.PositionZ;
+        NewLightSourceRotX = effectiveRotX;
+        NewLightSourceRotY = effectiveRotY;
+        NewLightSourceRotZ = effectiveRotZ;
+        NewLightSourceRadius = source.Radius;
+        NewLightSourceHeight = source.Height;
+        NewLightSourceRayCount = source.RayCount;
+        NewLightSourceTiltWeight = source.TiltWeight;
+        NewLightSourceTiltPointX = source.TiltPointX;
+        NewLightSourceTiltPointY = source.TiltPointY;
+        NewLightSourceTiltPointZ = source.TiltPointZ;
+
+        RaisePropertyChanged(nameof(NewLightSourcePosX));
+        RaisePropertyChanged(nameof(NewLightSourcePosY));
+        RaisePropertyChanged(nameof(NewLightSourcePosZ));
+        RaisePropertyChanged(nameof(NewLightSourceRotX));
+        RaisePropertyChanged(nameof(NewLightSourceRotY));
+        RaisePropertyChanged(nameof(NewLightSourceRotZ));
     }
 
     private void RaiseCanExecuteChanges()

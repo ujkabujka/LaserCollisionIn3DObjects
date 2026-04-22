@@ -103,7 +103,8 @@ public sealed class SceneRenderSyncService
                 lightSource.Radius,
                 lightSource.Height,
                 lightSource.RayCount,
-                lightSource.TiltWeight);
+                lightSource.TiltWeight,
+                new Vector3(lightSource.TiltPointX, lightSource.TiltPointY, lightSource.TiltPointZ));
 
             scene.CylindricalLightSources.Add(domainSource);
             var generatedRays = _rayGenerator.Generate(domainSource);
