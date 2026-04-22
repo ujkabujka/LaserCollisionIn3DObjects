@@ -32,6 +32,9 @@ public class PersistenceRoundTripTests
                                 Height = 5,
                                 RayCount = 10,
                                 TiltWeight = 0.25f,
+                                TiltPointX = 4f,
+                                TiltPointY = -1.5f,
+                                TiltPointZ = 2f,
                             },
                         ],
                         HolePoints = [new Point3(1, 2, 3)],
@@ -93,6 +96,9 @@ public class PersistenceRoundTripTests
             Assert.Equal(new Point3(1, 1, 1), roundTrip.Scenes[0].Projection.Results[0].PointSourceOrigin);
             Assert.Single(roundTrip.Scenes[0].CylindricalLightSources);
             Assert.Equal(0.25f, roundTrip.Scenes[0].CylindricalLightSources[0].TiltWeight, 3);
+            Assert.Equal(4f, roundTrip.Scenes[0].CylindricalLightSources[0].TiltPointX, 3);
+            Assert.Equal(-1.5f, roundTrip.Scenes[0].CylindricalLightSources[0].TiltPointY, 3);
+            Assert.Equal(2f, roundTrip.Scenes[0].CylindricalLightSources[0].TiltPointZ, 3);
             Assert.False(roundTrip.AnnotationWorkspace.IsFolderResolved);
             Assert.Equal("/missing/path", roundTrip.AnnotationWorkspace.FolderPath);
         }
@@ -230,6 +236,9 @@ public class PersistenceRoundTripTests
         var source = new CylindricalLightSourceState { Name = "Legacy Source" };
         Assert.Equal(Quaternion.Identity, BaseOrientationPersistence.FromComponents(prism.BaseOrientationX, prism.BaseOrientationY, prism.BaseOrientationZ, prism.BaseOrientationW));
         Assert.Equal(Quaternion.Identity, BaseOrientationPersistence.FromComponents(source.BaseOrientationX, source.BaseOrientationY, source.BaseOrientationZ, source.BaseOrientationW));
+        Assert.Equal(0f, source.TiltPointX);
+        Assert.Equal(0f, source.TiltPointY);
+        Assert.Equal(0f, source.TiltPointZ);
     }
 
     [Fact]
@@ -259,5 +268,36 @@ public class PersistenceRoundTripTests
                 restored[i].BaseOrientationW);
             Assert.True(Quaternion.Dot(expected, actual) > 0.9999f);
         }
+    }
+
+    [Fact]
+    public void CylindricalSource_MissingTiltPointFields_DefaultsToOrigin()
+    {
+        const string legacyJson = """
+                                  {
+                                    "schemaVersion": 1,
+                                    "scenes": [
+                                      {
+                                        "Name": "Legacy",
+                                        "CylindricalLightSources": [
+                                          {
+                                            "Name": "L1",
+                                            "Radius": 2,
+                                            "Height": 4,
+                                            "RayCount": 12,
+                                            "TiltWeight": 0.1
+                                          }
+                                        ]
+                                      }
+                                    ]
+                                  }
+                                  """;
+
+        var restored = JsonSerializer.Deserialize<ProjectState>(legacyJson)!;
+        var source = restored.Scenes[0].CylindricalLightSources[0];
+
+        Assert.Equal(0f, source.TiltPointX);
+        Assert.Equal(0f, source.TiltPointY);
+        Assert.Equal(0f, source.TiltPointZ);
     }
 }

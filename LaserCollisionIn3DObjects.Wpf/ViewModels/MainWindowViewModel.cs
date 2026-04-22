@@ -52,6 +52,9 @@ public sealed class MainWindowViewModel : ObservableObject
     private float _newLightSourceHeight = 10f;
     private int _newLightSourceRayCount = 200;
     private float _newLightSourceTiltWeight = 0.1f;
+    private float _newLightSourceTiltPointX;
+    private float _newLightSourceTiltPointY;
+    private float _newLightSourceTiltPointZ;
     private CollisionAlgorithmOption _selectedCollisionAlgorithm = CollisionAlgorithmOption.ClosestHitSequential;
     private string _lastCollisionDurationMs = "N/A";
     private string _lastSequentialCollisionDurationMs = "N/A";
@@ -272,6 +275,9 @@ public sealed class MainWindowViewModel : ObservableObject
     public float NewLightSourceHeight { get => _newLightSourceHeight; set => SetProperty(ref _newLightSourceHeight, value); }
     public int NewLightSourceRayCount { get => _newLightSourceRayCount; set => SetProperty(ref _newLightSourceRayCount, value); }
     public float NewLightSourceTiltWeight { get => _newLightSourceTiltWeight; set => SetProperty(ref _newLightSourceTiltWeight, value); }
+    public float NewLightSourceTiltPointX { get => _newLightSourceTiltPointX; set => SetProperty(ref _newLightSourceTiltPointX, value); }
+    public float NewLightSourceTiltPointY { get => _newLightSourceTiltPointY; set => SetProperty(ref _newLightSourceTiltPointY, value); }
+    public float NewLightSourceTiltPointZ { get => _newLightSourceTiltPointZ; set => SetProperty(ref _newLightSourceTiltPointZ, value); }
     public CollisionAlgorithmOption SelectedCollisionAlgorithm
     {
         get => _selectedCollisionAlgorithm;
@@ -439,6 +445,9 @@ public sealed class MainWindowViewModel : ObservableObject
             Height = NewLightSourceHeight,
             RayCount = NewLightSourceRayCount,
             TiltWeight = NewLightSourceTiltWeight,
+            TiltPointX = NewLightSourceTiltPointX,
+            TiltPointY = NewLightSourceTiltPointY,
+            TiltPointZ = NewLightSourceTiltPointZ,
             BaseOrientation = Quaternion.Identity,
         });
 
@@ -599,6 +608,9 @@ public sealed class MainWindowViewModel : ObservableObject
             Height = 10,
             RayCount = 120,
             TiltWeight = 0.1f,
+            TiltPointX = 0f,
+            TiltPointY = 0f,
+            TiltPointZ = 0f,
             BaseOrientation = Quaternion.Identity,
         });
 
