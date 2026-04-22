@@ -1003,13 +1003,20 @@ public sealed class MainWindowViewModel : ObservableObject
 
     private void LoadPrismIntoEditor(PrismItemViewModel prism)
     {
+        var effectiveOrientation = FrameOrientationBuilder.ApplyLocalEulerDegrees(
+            prism.BaseOrientation,
+            prism.RotationX,
+            prism.RotationY,
+            prism.RotationZ);
+        var (effectiveRotX, effectiveRotY, effectiveRotZ) = FrameOrientationBuilder.ToLocalEulerDegrees(effectiveOrientation);
+
         NewPrismName = prism.Name;
         NewPrismPosX = prism.PositionX;
         NewPrismPosY = prism.PositionY;
         NewPrismPosZ = prism.PositionZ;
-        NewPrismRotX = prism.RotationX;
-        NewPrismRotY = prism.RotationY;
-        NewPrismRotZ = prism.RotationZ;
+        NewPrismRotX = effectiveRotX;
+        NewPrismRotY = effectiveRotY;
+        NewPrismRotZ = effectiveRotZ;
         NewPrismSizeX = prism.SizeX;
         NewPrismSizeY = prism.SizeY;
         NewPrismSizeZ = prism.SizeZ;
@@ -1024,13 +1031,20 @@ public sealed class MainWindowViewModel : ObservableObject
 
     private void LoadLightSourceIntoEditor(CylindricalLightSourceItemViewModel source)
     {
+        var effectiveOrientation = FrameOrientationBuilder.ApplyLocalEulerDegrees(
+            source.BaseOrientation,
+            source.RotationX,
+            source.RotationY,
+            source.RotationZ);
+        var (effectiveRotX, effectiveRotY, effectiveRotZ) = FrameOrientationBuilder.ToLocalEulerDegrees(effectiveOrientation);
+
         NewLightSourceName = source.Name;
         NewLightSourcePosX = source.PositionX;
         NewLightSourcePosY = source.PositionY;
         NewLightSourcePosZ = source.PositionZ;
-        NewLightSourceRotX = source.RotationX;
-        NewLightSourceRotY = source.RotationY;
-        NewLightSourceRotZ = source.RotationZ;
+        NewLightSourceRotX = effectiveRotX;
+        NewLightSourceRotY = effectiveRotY;
+        NewLightSourceRotZ = effectiveRotZ;
         NewLightSourceRadius = source.Radius;
         NewLightSourceHeight = source.Height;
         NewLightSourceRayCount = source.RayCount;
