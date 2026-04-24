@@ -33,6 +33,7 @@ public sealed class ProjectState
 public sealed class SceneState
 {
     public string Name { get; set; } = string.Empty;
+    public bool IsProjectionOnly { get; set; }
     public List<PrismState> Prisms { get; set; } = new();
     public List<RayState> ManualRays { get; set; } = new();
     public List<CylindricalLightSourceState> CylindricalLightSources { get; set; } = new();

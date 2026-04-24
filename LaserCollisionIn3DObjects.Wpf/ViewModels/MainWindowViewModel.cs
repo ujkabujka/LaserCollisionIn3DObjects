@@ -1,6 +1,8 @@
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Numerics;
 using System.Windows.Input;
+using System.Windows.Data;
 using LaserCollisionIn3DObjects.Domain.Export;
 using Microsoft.Win32;
 using LaserCollisionIn3DObjects.Domain.Generation;
@@ -76,6 +78,8 @@ public sealed class MainWindowViewModel : ObservableObject
         AnnotationWorkspace = new AnnotationWorkspaceViewModel(_sceneCollectionService);
         ProjectionWorkspace = new ProjectionWorkspaceViewModel(_sceneCollectionService, projectionRenderSyncService);
         GraphicMasterWorkspace = new GraphicMasterViewModel(_sceneCollectionService);
+        CollisionScenes = CollectionViewSource.GetDefaultView(_sceneCollectionService.Scenes);
+        CollisionScenes.Filter = item => item is CollisionSceneViewModel scene && !scene.IsProjectionOnly;
 
         CreateSceneCommand = new RelayCommand(CreateScene);
         DeleteSelectedSceneCommand = new RelayCommand(DeleteSelectedScene, () => SelectedScene is not null);
@@ -114,6 +118,7 @@ public sealed class MainWindowViewModel : ObservableObject
     public AnnotationWorkspaceViewModel AnnotationWorkspace { get; }
     public ProjectionWorkspaceViewModel ProjectionWorkspace { get; }
     public GraphicMasterViewModel GraphicMasterWorkspace { get; }
+    public ICollectionView CollisionScenes { get; }
 
     public ObservableCollection<CollisionSceneViewModel> Scenes => _sceneCollectionService.Scenes;
 
@@ -1012,6 +1017,7 @@ public sealed class MainWindowViewModel : ObservableObject
 
     private void RefreshSceneBindingsAndViewport()
     {
+        CollisionScenes.Refresh();
         if (SelectedScene?.SelectedPrism is not null)
         {
             LoadPrismIntoEditor(SelectedScene.SelectedPrism);

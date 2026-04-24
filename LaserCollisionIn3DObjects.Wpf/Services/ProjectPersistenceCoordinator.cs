@@ -123,6 +123,7 @@ public sealed class ProjectPersistenceCoordinator
         return new SceneState
         {
             Name = scene.Name,
+            IsProjectionOnly = scene.IsProjectionOnly,
             Prisms = scene.Prisms.Select(prism => new PrismState
             {
                 Name = prism.Name,
@@ -214,6 +215,7 @@ public sealed class ProjectPersistenceCoordinator
     private static CollisionSceneViewModel MapScene(SceneState sceneState)
     {
         var scene = new CollisionSceneViewModel(sceneState.Name);
+        scene.IsProjectionOnly = sceneState.IsProjectionOnly;
 
         foreach (var prism in sceneState.Prisms)
         {

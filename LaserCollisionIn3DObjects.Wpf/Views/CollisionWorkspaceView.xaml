@@ -30,7 +30,7 @@
                                 <Button Content="Create Scene" Command="{Binding CreateSceneCommand}" Width="110" Margin="0,0,8,0"/>
                                 <Button Content="Delete Selected" Command="{Binding DeleteSelectedSceneCommand}" Width="120"/>
                             </StackPanel>
-                            <ListBox ItemsSource="{Binding Scenes}" SelectedItem="{Binding SelectedScene}" Height="120" DisplayMemberPath="Name"/>
+                            <ListBox ItemsSource="{Binding CollisionScenes}" SelectedItem="{Binding SelectedScene}" Height="120" DisplayMemberPath="Name"/>
                         </StackPanel>
                     </GroupBox>
 

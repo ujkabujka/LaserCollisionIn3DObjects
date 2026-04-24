@@ -300,4 +300,27 @@ public class PersistenceRoundTripTests
         Assert.Equal(0f, source.TiltPointY);
         Assert.Equal(0f, source.TiltPointZ);
     }
+
+    [Fact]
+    public void SceneState_ProjectionOnlyFlag_RoundTrips()
+    {
+        var state = new ProjectState
+        {
+            Scenes =
+            [
+                new SceneState
+                {
+                    Name = "Imported Holes",
+                    IsProjectionOnly = true,
+                    HolePoints = [new Point3(1, 2, 3)],
+                },
+            ],
+        };
+
+        var json = JsonSerializer.Serialize(state);
+        var restored = JsonSerializer.Deserialize<ProjectState>(json)!;
+
+        Assert.Single(restored.Scenes);
+        Assert.True(restored.Scenes[0].IsProjectionOnly);
+    }
 }
