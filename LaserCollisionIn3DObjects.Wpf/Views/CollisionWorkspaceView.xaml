@@ -122,6 +122,7 @@
                             </Grid>
                             <StackPanel Orientation="Horizontal">
                                 <Button Content="Run Collision" Command="{Binding RunCollisionCommand}" Width="120" Height="30" Margin="0,0,8,0"/>
+                                <Button Content="Export Hit Points CSV" Command="{Binding ExportHitPointsCsvCommand}" Width="160" Height="30" Margin="0,0,8,0"/>
                                 <Button Content="Reset Demo Scene" Command="{Binding ResetDemoSceneCommand}" Width="140" Height="30"/>
                             </StackPanel>
                         </StackPanel>

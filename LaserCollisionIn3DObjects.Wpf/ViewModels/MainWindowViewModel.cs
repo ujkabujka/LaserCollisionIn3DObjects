@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Numerics;
 using System.Windows.Input;
+using LaserCollisionIn3DObjects.Domain.Export;
 using Microsoft.Win32;
 using LaserCollisionIn3DObjects.Domain.Generation;
 using LaserCollisionIn3DObjects.Domain.Geometry;
@@ -35,8 +36,10 @@ public sealed class MainWindowViewModel : ObservableObject
     private static readonly ObservableCollection<HitResultItemViewModel> EmptyHitResults = new();
     private static readonly ObservableCollection<Point3> EmptyHoles = new();
     private readonly SceneRenderSyncService _renderSyncService;
+    private readonly CollisionHitPointCsvExportService _collisionHitPointCsvExportService = new();
     private readonly SceneCollectionService _sceneCollectionService;
     private readonly ProjectPersistenceCoordinator _projectPersistenceCoordinator = new();
+    private IReadOnlyList<CollisionHitPointRecord> _lastCollisionHitPointRecords = Array.Empty<CollisionHitPointRecord>();
     private string _newSceneName = "Scene 1";
     private string _newPrismName = "Prism 1";
     private float _newPrismSizeX = 0.002f;
@@ -86,6 +89,7 @@ public sealed class MainWindowViewModel : ObservableObject
         RemoveAllRaysCommand = new RelayCommand(RemoveAllRays, () => Rays.Count > 0);
         RemoveSelectedLightSourceCommand = new RelayCommand(RemoveSelectedLightSource, () => SelectedLightSource is not null);
         RunCollisionCommand = new RelayCommand(RunCollision, () => SelectedScene is not null);
+        ExportHitPointsCsvCommand = new RelayCommand(ExportHitPointsCsv);
         RegenerateLightSourceRaysCommand = new RelayCommand(RegenerateLightSourceRays, () => SelectedScene is not null);
         ResetDemoSceneCommand = new RelayCommand(ResetDemoScene, () => SelectedScene is not null);
         SaveProjectCommand = new RelayCommand(SaveProject);
@@ -153,6 +157,7 @@ public sealed class MainWindowViewModel : ObservableObject
     public ICommand RemoveAllRaysCommand { get; }
     public ICommand RemoveSelectedLightSourceCommand { get; }
     public ICommand RunCollisionCommand { get; }
+    public ICommand ExportHitPointsCsvCommand { get; }
     public ICommand RegenerateLightSourceRaysCommand { get; }
     public ICommand ResetDemoSceneCommand { get; }
     public ICommand SaveProjectCommand { get; }
@@ -667,8 +672,9 @@ public sealed class MainWindowViewModel : ObservableObject
             var rays = scene?.Rays ?? EmptyRays;
             var holes = scene?.HolePoints ?? EmptyHoles;
             var projectionResult = scene?.ProjectionState.SelectedResult;
+            var sceneName = scene?.Name ?? "Scene";
 
-            var sceneSyncResult = _renderSyncService.SyncScene(prisms, lightSources, rays, holes, projectionResult, runCollision, SelectedCollisionAlgorithm);
+            var sceneSyncResult = _renderSyncService.SyncScene(prisms, lightSources, rays, holes, projectionResult, sceneName, runCollision, SelectedCollisionAlgorithm);
             var rows = sceneSyncResult.HitRows;
 
             if (scene is not null)
@@ -684,6 +690,7 @@ public sealed class MainWindowViewModel : ObservableObject
 
             if (runCollision)
             {
+                _lastCollisionHitPointRecords = sceneSyncResult.HitPointRecords;
                 var elapsedMs = sceneSyncResult.CollisionDuration.TotalMilliseconds;
                 LastCollisionDurationMs = $"{elapsedMs:F3}";
 
@@ -710,6 +717,32 @@ public sealed class MainWindowViewModel : ObservableObject
             StatusMessage = $"Please check values: {ex.Message}";
             SelectedScene?.HitResults.Clear();
         }
+    }
+
+    private void ExportHitPointsCsv()
+    {
+        if (_lastCollisionHitPointRecords.Count == 0)
+        {
+            StatusMessage = "Run collision first to export hit points.";
+            return;
+        }
+
+        var cylindricalHitPoints = CollisionHitPointExportSelector.ForCylindricalGeneratedHits(_lastCollisionHitPointRecords);
+        var dialog = new SaveFileDialog
+        {
+            Filter = "CSV Files (*.csv)|*.csv|All Files (*.*)|*.*",
+            DefaultExt = ".csv",
+            FileName = "collision-hit-points.csv",
+        };
+
+        if (dialog.ShowDialog() != true)
+        {
+            StatusMessage = "Export canceled.";
+            return;
+        }
+
+        _collisionHitPointCsvExportService.Export(dialog.FileName, cylindricalHitPoints);
+        StatusMessage = $"Exported {cylindricalHitPoints.Count} cylindrical hit points to '{dialog.FileName}'.";
     }
 
     private bool ValidateAllSceneItems(out string error)
