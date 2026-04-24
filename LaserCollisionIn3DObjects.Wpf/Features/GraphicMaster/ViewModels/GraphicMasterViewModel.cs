@@ -589,7 +589,8 @@ public sealed class GraphicMasterViewModel : ObservableObject
             source.Radius,
             source.Height,
             source.RayCount,
-            source.TiltWeight);
+            source.TiltWeight,
+            new Vector3(source.TiltPointX, source.TiltPointY, source.TiltPointZ));
     }
 
     private void OnScenesCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)

@@ -18,7 +18,8 @@ public sealed class CylindricalLightSource
         float radius,
         float height,
         int rayCount,
-        float tiltWeight = 0.1f)
+        float tiltWeight = 0.1f,
+        Vector3? tiltPointLocal = null)
     {
         Name = string.IsNullOrWhiteSpace(name) ? throw new ArgumentException("Name is required.", nameof(name)) : name;
         Frame = frame ?? throw new ArgumentNullException(nameof(frame));
@@ -26,6 +27,7 @@ public sealed class CylindricalLightSource
         Height = height;
         RayCount = rayCount;
         TiltWeight = tiltWeight;
+        TiltPointLocal = tiltPointLocal ?? Vector3.Zero;
     }
 
     public string Name { get; }
@@ -55,6 +57,8 @@ public sealed class CylindricalLightSource
         get => _tiltWeight;
         set => _tiltWeight = EnsureNonNegative(value, nameof(TiltWeight));
     }
+
+    public Vector3 TiltPointLocal { get; set; }
 
     private static float EnsurePositive(float value, string paramName)
     {

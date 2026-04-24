@@ -60,4 +60,36 @@ public static class FrameOrientationBuilder
     {
         return degrees * (MathF.PI / 180.0);
     }
+
+    /// <summary>
+    /// Converts an orientation quaternion to local Euler angles in degrees using the same local-axis order
+    /// as <see cref="ApplyLocalEulerDegrees(Quaternion, float, float, float)"/>: X then Y then Z.
+    /// </summary>
+    public static (float RotationXDegrees, float RotationYDegrees, float RotationZDegrees) ToLocalEulerDegrees(Quaternion orientation)
+    {
+        var matrix = Matrix4x4.CreateFromQuaternion(Quaternion.Normalize(orientation));
+        var sinY = Math.Clamp(matrix.M31, -1f, 1f);
+        var rotationY = MathF.Asin(sinY);
+        var cosY = MathF.Cos(rotationY);
+
+        float rotationX;
+        float rotationZ;
+
+        if (MathF.Abs(cosY) > AngleEpsilon)
+        {
+            rotationX = MathF.Atan2(-matrix.M32, matrix.M33);
+            rotationZ = MathF.Atan2(-matrix.M21, matrix.M11);
+        }
+        else
+        {
+            // Gimbal-lock fallback: keep X at zero and solve Z from the remaining stable terms.
+            rotationX = 0f;
+            rotationZ = MathF.Atan2(matrix.M12, matrix.M22);
+        }
+
+        return (
+            RadiansToDegrees(rotationX),
+            RadiansToDegrees(rotationY),
+            RadiansToDegrees(rotationZ));
+    }
 }
