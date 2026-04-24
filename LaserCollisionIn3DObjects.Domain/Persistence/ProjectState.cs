@@ -33,6 +33,7 @@ public sealed class ProjectState
 public sealed class SceneState
 {
     public string Name { get; set; } = string.Empty;
+    public bool IsProjectionOnly { get; set; }
     public List<PrismState> Prisms { get; set; } = new();
     public List<RayState> ManualRays { get; set; } = new();
     public List<CylindricalLightSourceState> CylindricalLightSources { get; set; } = new();
@@ -81,6 +82,9 @@ public sealed class CylindricalLightSourceState
     public float Height { get; set; }
     public int RayCount { get; set; }
     public float TiltWeight { get; set; } = 0.1f;
+    public float TiltPointX { get; set; }
+    public float TiltPointY { get; set; }
+    public float TiltPointZ { get; set; }
     public float? BaseOrientationX { get; set; }
     public float? BaseOrientationY { get; set; }
     public float? BaseOrientationZ { get; set; }

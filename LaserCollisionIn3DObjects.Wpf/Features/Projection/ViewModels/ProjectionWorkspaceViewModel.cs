@@ -1,9 +1,11 @@
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.Windows.Input;
+using LaserCollisionIn3DObjects.Domain.Export;
 using LaserCollisionIn3DObjects.Domain.Geometry;
 using LaserCollisionIn3DObjects.Domain.Persistence;
 using LaserCollisionIn3DObjects.Domain.Projection;
+using Microsoft.Win32;
 using LaserCollisionIn3DObjects.Wpf.Commands;
 using LaserCollisionIn3DObjects.Wpf.Infrastructure;
 using LaserCollisionIn3DObjects.Wpf.Services;
@@ -16,6 +18,7 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
     private readonly SceneCollectionService _sceneCollectionService;
     private readonly ProjectionRenderSyncService _projectionRenderSyncService;
     private readonly ProjectionMethodRegistry _methodRegistry;
+    private readonly ProjectionHitPointCsvImportService _projectionHitPointCsvImportService = new();
     private ProjectionMethodOptionViewModel? _selectedMethod;
     private CollisionSceneViewModel? _selectedScene;
     private string _statusMessage = "Select a scene with holes to begin projection.";
@@ -37,6 +40,7 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
             ?? ProjectionMethods.FirstOrDefault();
 
         RunProjectionCommand = new RelayCommand(RunProjection, CanRunProjection);
+        ImportHitPointsCsvCommand = new RelayCommand(ImportHitPointsCsv);
         DeleteSelectedResultCommand = new RelayCommand(DeleteSelectedResult, () => SelectedResult is not null);
 
         _sceneCollectionService.Scenes.CollectionChanged += OnScenesCollectionChanged;
@@ -48,6 +52,7 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
     public ObservableCollection<CollisionSceneViewModel> AvailableScenes { get; } = new();
 
     public ICommand RunProjectionCommand { get; }
+    public ICommand ImportHitPointsCsvCommand { get; }
     public ICommand DeleteSelectedResultCommand { get; }
 
     public double PointSourceX { get; set; }
@@ -189,6 +194,56 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
     private bool CanRunProjection() =>
         SelectedScene is not null && SelectedScene.HolePoints.Count > 0 && SelectedMethod is not null;
 
+    private void ImportHitPointsCsv()
+    {
+        var dialog = new OpenFileDialog
+        {
+            Filter = "CSV Files (*.csv)|*.csv|All Files (*.*)|*.*",
+            DefaultExt = ".csv",
+        };
+
+        if (dialog.ShowDialog() != true)
+        {
+            StatusMessage = "CSV import canceled.";
+            return;
+        }
+
+        ProjectionHitPointCsvImportResult importResult;
+        try
+        {
+            importResult = _projectionHitPointCsvImportService.Import(dialog.FileName);
+        }
+        catch (ArgumentException ex)
+        {
+            StatusMessage = ex.Message;
+            return;
+        }
+
+        if (importResult.HolePoints.Count == 0)
+        {
+            StatusMessage = "No valid hit-point rows were found in the selected CSV.";
+            return;
+        }
+
+        var baseName = string.IsNullOrWhiteSpace(importResult.SceneName) ? "Imported Hit Points" : importResult.SceneName;
+        var sceneName = ResolveImportedSceneName(baseName);
+        var scene = new CollisionSceneViewModel(sceneName)
+        {
+            IsProjectionOnly = true,
+        };
+
+        foreach (var point in importResult.HolePoints)
+        {
+            scene.HolePoints.Add(point);
+        }
+
+        _sceneCollectionService.AddScene(scene, selectScene: false);
+        RefreshAvailableScenes();
+        SelectedScene = scene;
+
+        StatusMessage = $"Imported {importResult.HolePoints.Count} hole points into projection scene '{sceneName}'. Skipped {importResult.SkippedRowCount} invalid rows.";
+    }
+
     private void RunProjection()
     {
         var scene = SelectedScene;
@@ -295,6 +350,26 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
             : AvailableScenes.FirstOrDefault();
 
         RaiseCanExecuteChanged();
+    }
+
+    private string ResolveImportedSceneName(string baseName)
+    {
+        if (_sceneCollectionService.Scenes.All(scene => !string.Equals(scene.Name, baseName, StringComparison.OrdinalIgnoreCase)))
+        {
+            return baseName;
+        }
+
+        var suffix = 2;
+        while (true)
+        {
+            var candidate = $"{baseName} (Imported {suffix})";
+            if (_sceneCollectionService.Scenes.All(scene => !string.Equals(scene.Name, candidate, StringComparison.OrdinalIgnoreCase)))
+            {
+                return candidate;
+            }
+
+            suffix++;
+        }
     }
 
     private void RaiseCanExecuteChanged()

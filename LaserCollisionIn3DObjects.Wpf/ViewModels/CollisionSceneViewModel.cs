@@ -15,6 +15,7 @@ public sealed class CollisionSceneViewModel : ObservableObject
     private PrismItemViewModel? _selectedPrism;
     private RayItemViewModel? _selectedRay;
     private CylindricalLightSourceItemViewModel? _selectedLightSource;
+    private bool _isProjectionOnly;
     public CollisionSceneViewModel(string name)
     {
         _name = name;
@@ -33,6 +34,11 @@ public sealed class CollisionSceneViewModel : ObservableObject
     public ObservableCollection<Point3> HolePoints { get; } = new();
     public SceneProjectionState ProjectionState { get; } = new();
     public bool HasHolePoints => HolePoints.Count > 0;
+    public bool IsProjectionOnly
+    {
+        get => _isProjectionOnly;
+        set => SetProperty(ref _isProjectionOnly, value);
+    }
 
     public PrismItemViewModel? SelectedPrism
     {

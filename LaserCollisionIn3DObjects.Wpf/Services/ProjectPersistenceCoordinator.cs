@@ -123,6 +123,7 @@ public sealed class ProjectPersistenceCoordinator
         return new SceneState
         {
             Name = scene.Name,
+            IsProjectionOnly = scene.IsProjectionOnly,
             Prisms = scene.Prisms.Select(prism => new PrismState
             {
                 Name = prism.Name,
@@ -162,6 +163,9 @@ public sealed class ProjectPersistenceCoordinator
                 Height = source.Height,
                 RayCount = source.RayCount,
                 TiltWeight = source.TiltWeight,
+                TiltPointX = source.TiltPointX,
+                TiltPointY = source.TiltPointY,
+                TiltPointZ = source.TiltPointZ,
                 BaseOrientationX = source.BaseOrientation.X,
                 BaseOrientationY = source.BaseOrientation.Y,
                 BaseOrientationZ = source.BaseOrientation.Z,
@@ -211,6 +215,7 @@ public sealed class ProjectPersistenceCoordinator
     private static CollisionSceneViewModel MapScene(SceneState sceneState)
     {
         var scene = new CollisionSceneViewModel(sceneState.Name);
+        scene.IsProjectionOnly = sceneState.IsProjectionOnly;
 
         foreach (var prism in sceneState.Prisms)
         {
@@ -262,6 +267,9 @@ public sealed class ProjectPersistenceCoordinator
                 Height = source.Height,
                 RayCount = source.RayCount,
                 TiltWeight = source.TiltWeight,
+                TiltPointX = source.TiltPointX,
+                TiltPointY = source.TiltPointY,
+                TiltPointZ = source.TiltPointZ,
                 BaseOrientation = BaseOrientationPersistence.FromComponents(
                     source.BaseOrientationX,
                     source.BaseOrientationY,
