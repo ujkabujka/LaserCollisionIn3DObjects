@@ -209,6 +209,25 @@ public sealed class ProjectPersistenceCoordinator
                 },
                 TargetHolePoint = ray.TargetHolePoint,
             }).ToList(),
+            CylindricalSource = namedResult.Result.CylindricalSource is null ? null : new CylindricalProjectionStateDto
+            {
+                SourceFrame = new PointSourceFrameStateDto
+                {
+                    Origin = namedResult.Result.CylindricalSource.SourceFrame.Origin,
+                    AxisX = namedResult.Result.CylindricalSource.SourceFrame.AxisX,
+                    AxisY = namedResult.Result.CylindricalSource.SourceFrame.AxisY,
+                    AxisZ = namedResult.Result.CylindricalSource.SourceFrame.AxisZ,
+                },
+                Radius = namedResult.Result.CylindricalSource.Radius,
+                Length = namedResult.Result.CylindricalSource.Length,
+                Points = namedResult.Result.CylindricalSource.Points.Select(point => new CylindricalProjectionPointStateDto
+                {
+                    HolePoint = point.HolePoint,
+                    SourceSurfacePoint = point.SourceSurfacePoint,
+                    RayOrigin = point.RayOrigin,
+                    RayDirection = point.RayDirection,
+                }).ToList(),
+            },
         };
     }
 
@@ -294,7 +313,7 @@ public sealed class ProjectPersistenceCoordinator
                 Result = new ProjectionComputationResult
                 {
                     MethodId = result.MethodId,
-                    PointSourceOrigin = result.PointSourceOrigin ?? result.SourceFrame.Origin,
+                    PointSourceOrigin = result.PointSourceOrigin ?? (string.Equals(result.MethodId, ProjectionMethodIds.PointSource, StringComparison.OrdinalIgnoreCase) ? result.SourceFrame.Origin : null),
                     SourceFrame = new PointSourceFrameState
                     {
                         Origin = result.SourceFrame.Origin,
@@ -307,6 +326,23 @@ public sealed class ProjectPersistenceCoordinator
                             new Vector3(ray.Ray.OriginX, ray.Ray.OriginY, ray.Ray.OriginZ),
                             new Vector3(ray.Ray.DirectionX, ray.Ray.DirectionY, ray.Ray.DirectionZ)),
                         ray.TargetHolePoint)).ToList(),
+                    CylindricalSource = result.CylindricalSource is null ? null : new CylindricalProjectionState
+                    {
+                        SourceFrame = new PointSourceFrameState
+                        {
+                            Origin = result.CylindricalSource.SourceFrame.Origin,
+                            AxisX = result.CylindricalSource.SourceFrame.AxisX,
+                            AxisY = result.CylindricalSource.SourceFrame.AxisY,
+                            AxisZ = result.CylindricalSource.SourceFrame.AxisZ,
+                        },
+                        Radius = result.CylindricalSource.Radius,
+                        Length = result.CylindricalSource.Length,
+                        Points = result.CylindricalSource.Points.Select(point => new CylindricalProjectionPoint(
+                            point.HolePoint,
+                            point.SourceSurfacePoint,
+                            point.RayDirection,
+                            point.RayOrigin)).ToList(),
+                    },
                 },
             });
         }

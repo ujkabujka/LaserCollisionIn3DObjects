@@ -242,6 +242,64 @@ public sealed class GraphingTests
         Assert.All(extracted, s => Assert.True(s.AxisY.LengthSquared() > 0 && s.AxisZ.LengthSquared() > 0));
     }
 
+
+    [Fact]
+    public void Extraction_UsesCylindricalProjectionMetadataForSourceLengthAndRays()
+    {
+        var service = new GraphSourceExtractionService(new CylindricalRayGenerator());
+        var result = new NamedProjectionResultState
+        {
+            Key = "proj-cyl",
+            DisplayName = "Cyl Projection",
+            Result = new ProjectionComputationResult
+            {
+                MethodId = ProjectionMethodIds.CylindricalSource,
+                SourceFrame = new PointSourceFrameState
+                {
+                    Origin = new Point3(0, 0, 0),
+                    AxisX = new Vector3D(1, 0, 0),
+                    AxisY = new Vector3D(0, 1, 0),
+                    AxisZ = new Vector3D(0, 0, 1),
+                },
+                Rays = Array.Empty<ProjectionRay>(),
+                CylindricalSource = new CylindricalProjectionState
+                {
+                    SourceFrame = new PointSourceFrameState
+                    {
+                        Origin = new Point3(0, 0, 0),
+                        AxisX = new Vector3D(1, 0, 0),
+                        AxisY = new Vector3D(0, 1, 0),
+                        AxisZ = new Vector3D(0, 0, 1),
+                    },
+                    Radius = 2,
+                    Length = 9,
+                    Points =
+                    [
+                        new CylindricalProjectionPoint(
+                            new Point3(2, 4, 0),
+                            new Point3(0, 2, 0),
+                            new Vector3D(1, 0, 0),
+                            new Point3(0, 2, 0)),
+                    ],
+                },
+            },
+        };
+
+        var extracted = service.Extract(
+        [
+            new GraphSceneData
+            {
+                SceneName = "Scene C",
+                CylindricalSources = [],
+                ProjectionResults = [result],
+            },
+        ]);
+
+        var projection = Assert.Single(extracted);
+        Assert.Equal(9d, projection.SourceLength);
+        Assert.Single(projection.Rays);
+    }
+
     private static GraphableSourceData BuildSource(string id, GraphableSourceKind kind, IReadOnlyList<Ray3D> rays)
     {
         return new GraphableSourceData

@@ -1,6 +1,7 @@
 using LaserCollisionIn3DObjects.Domain.Generation;
 using LaserCollisionIn3DObjects.Domain.Geometry;
 using LaserCollisionIn3DObjects.Domain.Persistence;
+using LaserCollisionIn3DObjects.Domain.Projection;
 using System.Numerics;
 using System.Text.Json;
 
@@ -299,6 +300,74 @@ public class PersistenceRoundTripTests
         Assert.Equal(0f, source.TiltPointX);
         Assert.Equal(0f, source.TiltPointY);
         Assert.Equal(0f, source.TiltPointZ);
+    }
+
+
+    [Fact]
+    public void ProjectionState_CylindricalResult_RoundTrips()
+    {
+        var state = new ProjectState
+        {
+            Scenes =
+            [
+                new SceneState
+                {
+                    Name = "Projection Scene",
+                    Projection = new SceneProjectionStateDto
+                    {
+                        SelectedMethodId = ProjectionMethodIds.CylindricalSource,
+                        Results =
+                        [
+                            new ProjectionResultStateDto
+                            {
+                                Key = "proj-1",
+                                Name = "Cyl",
+                                MethodId = ProjectionMethodIds.CylindricalSource,
+                                SourceFrame = new PointSourceFrameStateDto
+                                {
+                                    Origin = new Point3(1, 2, 3),
+                                    AxisX = new Vector3D(1, 0, 0),
+                                    AxisY = new Vector3D(0, 1, 0),
+                                    AxisZ = new Vector3D(0, 0, 1),
+                                },
+                                CylindricalSource = new CylindricalProjectionStateDto
+                                {
+                                    SourceFrame = new PointSourceFrameStateDto
+                                    {
+                                        Origin = new Point3(1, 2, 3),
+                                        AxisX = new Vector3D(1, 0, 0),
+                                        AxisY = new Vector3D(0, 1, 0),
+                                        AxisZ = new Vector3D(0, 0, 1),
+                                    },
+                                    Radius = 4,
+                                    Length = 12,
+                                    Points =
+                                    [
+                                        new CylindricalProjectionPointStateDto
+                                        {
+                                            HolePoint = new Point3(4, 0, 0),
+                                            SourceSurfacePoint = new Point3(0, 4, 0),
+                                            RayOrigin = new Point3(0, 4, 0),
+                                            RayDirection = new Vector3D(1, 0, 0),
+                                        },
+                                    ],
+                                },
+                            },
+                        ],
+                    },
+                },
+            ],
+        };
+
+        var json = JsonSerializer.Serialize(state);
+        var restored = JsonSerializer.Deserialize<ProjectState>(json)!;
+        var result = restored.Scenes[0].Projection.Results[0];
+
+        Assert.NotNull(result.CylindricalSource);
+        Assert.Equal(4d, result.CylindricalSource!.Radius, 6);
+        Assert.Equal(12d, result.CylindricalSource.Length, 6);
+        Assert.Single(result.CylindricalSource.Points);
+        Assert.Equal(new Point3(0, 4, 0), result.CylindricalSource.Points[0].SourceSurfacePoint);
     }
 
     [Fact]

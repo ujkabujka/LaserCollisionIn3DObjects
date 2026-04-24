@@ -8,6 +8,7 @@
              mc:Ignorable="d">
     <UserControl.Resources>
         <conv:FlexibleNumericConverter x:Key="FlexibleNumericConverter"/>
+        <BooleanToVisibilityConverter x:Key="BoolToVisibility"/>
     </UserControl.Resources>
     <Grid>
         <Grid.ColumnDefinitions>
@@ -63,7 +64,8 @@
                         </StackPanel>
                     </GroupBox>
 
-                    <GroupBox Header="Point Source Parameters" Margin="0,0,0,8" Padding="8">
+                    <GroupBox Header="Point Source Parameters" Margin="0,0,0,8" Padding="8"
+                              Visibility="{Binding ProjectionWorkspace.IsPointSourceMethodSelected, Converter={StaticResource BoolToVisibility}}">
                         <StackPanel>
                             <TextBlock Text="Point Source Origin"/>
                             <UniformGrid Columns="3" Margin="0,0,0,6">
@@ -89,12 +91,42 @@
                                 <StackPanel Margin="2"><TextBlock Text="Yy"/><TextBox Text="{Binding ProjectionWorkspace.SourceFrameYy, UpdateSourceTrigger=LostFocus, Converter={StaticResource FlexibleNumericConverter}}"/></StackPanel>
                                 <StackPanel Margin="2"><TextBlock Text="Yz"/><TextBox Text="{Binding ProjectionWorkspace.SourceFrameYz, UpdateSourceTrigger=LostFocus, Converter={StaticResource FlexibleNumericConverter}}"/></StackPanel>
                             </UniformGrid>
-                            <Button Content="Run Projection"
-                                    Command="{Binding ProjectionWorkspace.RunProjectionCommand}"
-                                    Width="130"
-                                    Height="30" />
                         </StackPanel>
                     </GroupBox>
+
+                    <GroupBox Header="Cylindrical Source Parameters" Margin="0,0,0,8" Padding="8"
+                              Visibility="{Binding ProjectionWorkspace.IsCylindricalMethodSelected, Converter={StaticResource BoolToVisibility}}">
+                        <StackPanel>
+                            <TextBlock Text="Source Frame Origin"/>
+                            <UniformGrid Columns="3" Margin="0,0,0,6">
+                                <StackPanel Margin="2"><TextBlock Text="Origin X"/><TextBox Text="{Binding ProjectionWorkspace.BeamOriginX, UpdateSourceTrigger=LostFocus, Converter={StaticResource FlexibleNumericConverter}}"/></StackPanel>
+                                <StackPanel Margin="2"><TextBlock Text="Origin Y"/><TextBox Text="{Binding ProjectionWorkspace.BeamOriginY, UpdateSourceTrigger=LostFocus, Converter={StaticResource FlexibleNumericConverter}}"/></StackPanel>
+                                <StackPanel Margin="2"><TextBlock Text="Origin Z"/><TextBox Text="{Binding ProjectionWorkspace.BeamOriginZ, UpdateSourceTrigger=LostFocus, Converter={StaticResource FlexibleNumericConverter}}"/></StackPanel>
+                            </UniformGrid>
+                            <TextBlock Text="Source Frame X Direction"/>
+                            <UniformGrid Columns="3" Margin="0,0,0,6">
+                                <StackPanel Margin="2"><TextBlock Text="Xx"/><TextBox Text="{Binding ProjectionWorkspace.SourceFrameXx, UpdateSourceTrigger=LostFocus, Converter={StaticResource FlexibleNumericConverter}}"/></StackPanel>
+                                <StackPanel Margin="2"><TextBlock Text="Xy"/><TextBox Text="{Binding ProjectionWorkspace.SourceFrameXy, UpdateSourceTrigger=LostFocus, Converter={StaticResource FlexibleNumericConverter}}"/></StackPanel>
+                                <StackPanel Margin="2"><TextBlock Text="Xz"/><TextBox Text="{Binding ProjectionWorkspace.SourceFrameXz, UpdateSourceTrigger=LostFocus, Converter={StaticResource FlexibleNumericConverter}}"/></StackPanel>
+                            </UniformGrid>
+                            <TextBlock Text="Source Frame Y Direction"/>
+                            <UniformGrid Columns="3" Margin="0,0,0,6">
+                                <StackPanel Margin="2"><TextBlock Text="Yx"/><TextBox Text="{Binding ProjectionWorkspace.SourceFrameYx, UpdateSourceTrigger=LostFocus, Converter={StaticResource FlexibleNumericConverter}}"/></StackPanel>
+                                <StackPanel Margin="2"><TextBlock Text="Yy"/><TextBox Text="{Binding ProjectionWorkspace.SourceFrameYy, UpdateSourceTrigger=LostFocus, Converter={StaticResource FlexibleNumericConverter}}"/></StackPanel>
+                                <StackPanel Margin="2"><TextBlock Text="Yz"/><TextBox Text="{Binding ProjectionWorkspace.SourceFrameYz, UpdateSourceTrigger=LostFocus, Converter={StaticResource FlexibleNumericConverter}}"/></StackPanel>
+                            </UniformGrid>
+                            <UniformGrid Columns="2" Margin="0,0,0,6">
+                                <StackPanel Margin="2"><TextBlock Text="Radius"/><TextBox Text="{Binding ProjectionWorkspace.CylindricalRadius, UpdateSourceTrigger=LostFocus, Converter={StaticResource FlexibleNumericConverter}}"/></StackPanel>
+                                <StackPanel Margin="2"><TextBlock Text="Length"/><TextBox Text="{Binding ProjectionWorkspace.CylindricalLength, UpdateSourceTrigger=LostFocus, Converter={StaticResource FlexibleNumericConverter}}"/></StackPanel>
+                            </UniformGrid>
+                        </StackPanel>
+                    </GroupBox>
+
+                    <Button Content="Run Projection"
+                            Command="{Binding ProjectionWorkspace.RunProjectionCommand}"
+                            Width="130"
+                            Height="30"
+                            Margin="0,0,0,8"/>
 
                     <TextBlock Text="{Binding ProjectionWorkspace.StatusMessage}" TextWrapping="Wrap" Foreground="#444" />
                 </StackPanel>

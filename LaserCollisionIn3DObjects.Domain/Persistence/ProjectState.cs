@@ -106,6 +106,23 @@ public sealed class ProjectionResultStateDto
     public Point3? PointSourceOrigin { get; set; }
     public PointSourceFrameStateDto SourceFrame { get; set; } = new();
     public List<ProjectionRayStateDto> Rays { get; set; } = new();
+    public CylindricalProjectionStateDto? CylindricalSource { get; set; }
+}
+
+public sealed class CylindricalProjectionStateDto
+{
+    public PointSourceFrameStateDto SourceFrame { get; set; } = new();
+    public double Radius { get; set; }
+    public double Length { get; set; }
+    public List<CylindricalProjectionPointStateDto> Points { get; set; } = new();
+}
+
+public sealed class CylindricalProjectionPointStateDto
+{
+    public Point3 HolePoint { get; set; }
+    public Point3 SourceSurfacePoint { get; set; }
+    public Point3 RayOrigin { get; set; }
+    public Vector3D RayDirection { get; set; }
 }
 
 public sealed class PointSourceFrameStateDto

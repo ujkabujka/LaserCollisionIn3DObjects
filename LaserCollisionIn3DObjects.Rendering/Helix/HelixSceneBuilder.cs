@@ -113,25 +113,48 @@ public sealed class HelixSceneBuilder
             visuals.AddRange(_frameVisualizer.CreateFrameVisualsBatch(new[] { (ToFrame3D(sourceFrame), 1.5f) }));
         }
 
-        if (projectionResult is not null)
+        if (projectionResult?.CylindricalSource is { } cylindrical)
         {
-            visuals.Add(_rayVisualizer.CreatePoints(new[] { projectionResult.PointSourceOrigin }, Colors.OrangeRed, size: 5));
-        }
-
-        if (projectionResult is not null && projectionResult.Rays.Count > 0)
-        {
-            var segments = projectionResult.Rays
-                .Select(projectionRay =>
+            var cylindricalFrame = ToFrame3D(cylindrical.SourceFrame);
+            visuals.Add(_meshFactory.CreateCylindricalLightSourceBatch(
+                new[]
                 {
-                    var dx = projectionRay.TargetHolePoint.X - projectionRay.Ray.Origin.X;
-                    var dy = projectionRay.TargetHolePoint.Y - projectionRay.Ray.Origin.Y;
-                    var dz = projectionRay.TargetHolePoint.Z - projectionRay.Ray.Origin.Z;
-                    var length = (float)Math.Sqrt((dx * dx) + (dy * dy) + (dz * dz));
-                    return (projectionRay.Ray, length);
-                })
-                .ToList();
+                    new CylindricalLightSource(
+                        "Projected Cylindrical Source",
+                        cylindricalFrame,
+                        (float)cylindrical.Radius,
+                        (float)cylindrical.Length,
+                        rayCount: 1)
+                },
+                Colors.Goldenrod));
 
-            visuals.Add(_rayVisualizer.CreateRayLines(segments, color: Colors.Orange));
+            if (cylindrical.Points.Count > 0)
+            {
+                visuals.Add(_rayVisualizer.CreatePoints(cylindrical.Points.Select(point => point.SourceSurfacePoint).ToList(), Colors.MediumPurple, size: 4));
+            }
+        }
+        else
+        {
+            if (projectionResult?.PointSourceOrigin is { } pointSourceOrigin)
+            {
+                visuals.Add(_rayVisualizer.CreatePoints(new[] { pointSourceOrigin }, Colors.OrangeRed, size: 5));
+            }
+
+            if (projectionResult is not null && projectionResult.Rays.Count > 0)
+            {
+                var segments = projectionResult.Rays
+                    .Select(projectionRay =>
+                    {
+                        var dx = projectionRay.TargetHolePoint.X - projectionRay.Ray.Origin.X;
+                        var dy = projectionRay.TargetHolePoint.Y - projectionRay.Ray.Origin.Y;
+                        var dz = projectionRay.TargetHolePoint.Z - projectionRay.Ray.Origin.Z;
+                        var length = (float)Math.Sqrt((dx * dx) + (dy * dy) + (dz * dz));
+                        return (projectionRay.Ray, length);
+                    })
+                    .ToList();
+
+                visuals.Add(_rayVisualizer.CreateRayLines(segments, color: Colors.Orange));
+            }
         }
 
         return visuals;

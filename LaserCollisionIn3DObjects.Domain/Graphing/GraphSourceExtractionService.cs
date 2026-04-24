@@ -51,7 +51,7 @@ public sealed class GraphSourceExtractionService
                     AxisY = new Vector3((float)pointLaserSource.AxisY.X, (float)pointLaserSource.AxisY.Y, (float)pointLaserSource.AxisY.Z),
                     AxisZ = new Vector3((float)pointLaserSource.AxisZ.X, (float)pointLaserSource.AxisZ.Y, (float)pointLaserSource.AxisZ.Z),
                     FrameOrigin = new Vector3((float)pointLaserSource.Origin.X, (float)pointLaserSource.Origin.Y, (float)pointLaserSource.Origin.Z),
-                    SourceLength = null,
+                    SourceLength = result.Result.CylindricalSource?.Length,
                     Rays = pointLaserSource.Rays.Select(projectionRay => projectionRay.Ray).ToList(),
                 });
             }
