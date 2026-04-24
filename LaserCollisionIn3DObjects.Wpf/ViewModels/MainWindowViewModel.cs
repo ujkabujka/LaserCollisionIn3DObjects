@@ -1,6 +1,9 @@
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Numerics;
 using System.Windows.Input;
+using System.Windows.Data;
+using LaserCollisionIn3DObjects.Domain.Export;
 using Microsoft.Win32;
 using LaserCollisionIn3DObjects.Domain.Generation;
 using LaserCollisionIn3DObjects.Domain.Geometry;
@@ -35,8 +38,10 @@ public sealed class MainWindowViewModel : ObservableObject
     private static readonly ObservableCollection<HitResultItemViewModel> EmptyHitResults = new();
     private static readonly ObservableCollection<Point3> EmptyHoles = new();
     private readonly SceneRenderSyncService _renderSyncService;
+    private readonly CollisionHitPointCsvExportService _collisionHitPointCsvExportService = new();
     private readonly SceneCollectionService _sceneCollectionService;
     private readonly ProjectPersistenceCoordinator _projectPersistenceCoordinator = new();
+    private IReadOnlyList<CollisionHitPointRecord> _lastCollisionHitPointRecords = Array.Empty<CollisionHitPointRecord>();
     private string _newSceneName = "Scene 1";
     private string _newPrismName = "Prism 1";
     private float _newPrismSizeX = 0.002f;
@@ -52,6 +57,9 @@ public sealed class MainWindowViewModel : ObservableObject
     private float _newLightSourceHeight = 10f;
     private int _newLightSourceRayCount = 200;
     private float _newLightSourceTiltWeight = 0.1f;
+    private float _newLightSourceTiltPointX;
+    private float _newLightSourceTiltPointY;
+    private float _newLightSourceTiltPointZ;
     private CollisionAlgorithmOption _selectedCollisionAlgorithm = CollisionAlgorithmOption.ClosestHitSequential;
     private string _lastCollisionDurationMs = "N/A";
     private string _lastSequentialCollisionDurationMs = "N/A";
@@ -70,6 +78,8 @@ public sealed class MainWindowViewModel : ObservableObject
         AnnotationWorkspace = new AnnotationWorkspaceViewModel(_sceneCollectionService);
         ProjectionWorkspace = new ProjectionWorkspaceViewModel(_sceneCollectionService, projectionRenderSyncService);
         GraphicMasterWorkspace = new GraphicMasterViewModel(_sceneCollectionService);
+        CollisionScenes = CollectionViewSource.GetDefaultView(_sceneCollectionService.Scenes);
+        CollisionScenes.Filter = item => item is CollisionSceneViewModel scene && !scene.IsProjectionOnly;
 
         CreateSceneCommand = new RelayCommand(CreateScene);
         DeleteSelectedSceneCommand = new RelayCommand(DeleteSelectedScene, () => SelectedScene is not null);
@@ -83,6 +93,7 @@ public sealed class MainWindowViewModel : ObservableObject
         RemoveAllRaysCommand = new RelayCommand(RemoveAllRays, () => Rays.Count > 0);
         RemoveSelectedLightSourceCommand = new RelayCommand(RemoveSelectedLightSource, () => SelectedLightSource is not null);
         RunCollisionCommand = new RelayCommand(RunCollision, () => SelectedScene is not null);
+        ExportHitPointsCsvCommand = new RelayCommand(ExportHitPointsCsv);
         RegenerateLightSourceRaysCommand = new RelayCommand(RegenerateLightSourceRays, () => SelectedScene is not null);
         ResetDemoSceneCommand = new RelayCommand(ResetDemoScene, () => SelectedScene is not null);
         SaveProjectCommand = new RelayCommand(SaveProject);
@@ -107,6 +118,7 @@ public sealed class MainWindowViewModel : ObservableObject
     public AnnotationWorkspaceViewModel AnnotationWorkspace { get; }
     public ProjectionWorkspaceViewModel ProjectionWorkspace { get; }
     public GraphicMasterViewModel GraphicMasterWorkspace { get; }
+    public ICollectionView CollisionScenes { get; }
 
     public ObservableCollection<CollisionSceneViewModel> Scenes => _sceneCollectionService.Scenes;
 
@@ -150,6 +162,7 @@ public sealed class MainWindowViewModel : ObservableObject
     public ICommand RemoveAllRaysCommand { get; }
     public ICommand RemoveSelectedLightSourceCommand { get; }
     public ICommand RunCollisionCommand { get; }
+    public ICommand ExportHitPointsCsvCommand { get; }
     public ICommand RegenerateLightSourceRaysCommand { get; }
     public ICommand ResetDemoSceneCommand { get; }
     public ICommand SaveProjectCommand { get; }
@@ -198,6 +211,11 @@ public sealed class MainWindowViewModel : ObservableObject
             }
 
             SelectedScene.SelectedPrism = value;
+            if (value is not null)
+            {
+                LoadPrismIntoEditor(value);
+            }
+
             RaiseCanExecuteChanges();
             RaisePropertyChanged();
         }
@@ -230,6 +248,11 @@ public sealed class MainWindowViewModel : ObservableObject
             }
 
             SelectedScene.SelectedLightSource = value;
+            if (value is not null)
+            {
+                LoadLightSourceIntoEditor(value);
+            }
+
             RaiseCanExecuteChanges();
             RaisePropertyChanged();
         }
@@ -272,6 +295,9 @@ public sealed class MainWindowViewModel : ObservableObject
     public float NewLightSourceHeight { get => _newLightSourceHeight; set => SetProperty(ref _newLightSourceHeight, value); }
     public int NewLightSourceRayCount { get => _newLightSourceRayCount; set => SetProperty(ref _newLightSourceRayCount, value); }
     public float NewLightSourceTiltWeight { get => _newLightSourceTiltWeight; set => SetProperty(ref _newLightSourceTiltWeight, value); }
+    public float NewLightSourceTiltPointX { get => _newLightSourceTiltPointX; set => SetProperty(ref _newLightSourceTiltPointX, value); }
+    public float NewLightSourceTiltPointY { get => _newLightSourceTiltPointY; set => SetProperty(ref _newLightSourceTiltPointY, value); }
+    public float NewLightSourceTiltPointZ { get => _newLightSourceTiltPointZ; set => SetProperty(ref _newLightSourceTiltPointZ, value); }
     public CollisionAlgorithmOption SelectedCollisionAlgorithm
     {
         get => _selectedCollisionAlgorithm;
@@ -439,6 +465,9 @@ public sealed class MainWindowViewModel : ObservableObject
             Height = NewLightSourceHeight,
             RayCount = NewLightSourceRayCount,
             TiltWeight = NewLightSourceTiltWeight,
+            TiltPointX = NewLightSourceTiltPointX,
+            TiltPointY = NewLightSourceTiltPointY,
+            TiltPointZ = NewLightSourceTiltPointZ,
             BaseOrientation = Quaternion.Identity,
         });
 
@@ -599,6 +628,9 @@ public sealed class MainWindowViewModel : ObservableObject
             Height = 10,
             RayCount = 120,
             TiltWeight = 0.1f,
+            TiltPointX = 0f,
+            TiltPointY = 0f,
+            TiltPointZ = 0f,
             BaseOrientation = Quaternion.Identity,
         });
 
@@ -645,8 +677,9 @@ public sealed class MainWindowViewModel : ObservableObject
             var rays = scene?.Rays ?? EmptyRays;
             var holes = scene?.HolePoints ?? EmptyHoles;
             var projectionResult = scene?.ProjectionState.SelectedResult;
+            var sceneName = scene?.Name ?? "Scene";
 
-            var sceneSyncResult = _renderSyncService.SyncScene(prisms, lightSources, rays, holes, projectionResult, runCollision, SelectedCollisionAlgorithm);
+            var sceneSyncResult = _renderSyncService.SyncScene(prisms, lightSources, rays, holes, projectionResult, sceneName, runCollision, SelectedCollisionAlgorithm);
             var rows = sceneSyncResult.HitRows;
 
             if (scene is not null)
@@ -662,6 +695,7 @@ public sealed class MainWindowViewModel : ObservableObject
 
             if (runCollision)
             {
+                _lastCollisionHitPointRecords = sceneSyncResult.HitPointRecords;
                 var elapsedMs = sceneSyncResult.CollisionDuration.TotalMilliseconds;
                 LastCollisionDurationMs = $"{elapsedMs:F3}";
 
@@ -688,6 +722,32 @@ public sealed class MainWindowViewModel : ObservableObject
             StatusMessage = $"Please check values: {ex.Message}";
             SelectedScene?.HitResults.Clear();
         }
+    }
+
+    private void ExportHitPointsCsv()
+    {
+        if (_lastCollisionHitPointRecords.Count == 0)
+        {
+            StatusMessage = "Run collision first to export hit points.";
+            return;
+        }
+
+        var cylindricalHitPoints = CollisionHitPointExportSelector.ForCylindricalGeneratedHits(_lastCollisionHitPointRecords);
+        var dialog = new SaveFileDialog
+        {
+            Filter = "CSV Files (*.csv)|*.csv|All Files (*.*)|*.*",
+            DefaultExt = ".csv",
+            FileName = "collision-hit-points.csv",
+        };
+
+        if (dialog.ShowDialog() != true)
+        {
+            StatusMessage = "Export canceled.";
+            return;
+        }
+
+        _collisionHitPointCsvExportService.Export(dialog.FileName, cylindricalHitPoints);
+        StatusMessage = $"Exported {cylindricalHitPoints.Count} cylindrical hit points to '{dialog.FileName}'.";
     }
 
     private bool ValidateAllSceneItems(out string error)
@@ -957,6 +1017,17 @@ public sealed class MainWindowViewModel : ObservableObject
 
     private void RefreshSceneBindingsAndViewport()
     {
+        CollisionScenes.Refresh();
+        if (SelectedScene?.SelectedPrism is not null)
+        {
+            LoadPrismIntoEditor(SelectedScene.SelectedPrism);
+        }
+
+        if (SelectedScene?.SelectedLightSource is not null)
+        {
+            LoadLightSourceIntoEditor(SelectedScene.SelectedLightSource);
+        }
+
         RaisePropertyChanged(nameof(SelectedScene));
         RaisePropertyChanged(nameof(Prisms));
         RaisePropertyChanged(nameof(Rays));
@@ -967,6 +1038,66 @@ public sealed class MainWindowViewModel : ObservableObject
         RaisePropertyChanged(nameof(SelectedLightSource));
         RaiseCanExecuteChanges();
         RefreshViewport(false);
+    }
+
+    private void LoadPrismIntoEditor(PrismItemViewModel prism)
+    {
+        var effectiveOrientation = FrameOrientationBuilder.ApplyLocalEulerDegrees(
+            prism.BaseOrientation,
+            prism.RotationX,
+            prism.RotationY,
+            prism.RotationZ);
+        var (effectiveRotX, effectiveRotY, effectiveRotZ) = FrameOrientationBuilder.ToLocalEulerDegrees(effectiveOrientation);
+
+        NewPrismName = prism.Name;
+        NewPrismPosX = prism.PositionX;
+        NewPrismPosY = prism.PositionY;
+        NewPrismPosZ = prism.PositionZ;
+        NewPrismRotX = effectiveRotX;
+        NewPrismRotY = effectiveRotY;
+        NewPrismRotZ = effectiveRotZ;
+        NewPrismSizeX = prism.SizeX;
+        NewPrismSizeY = prism.SizeY;
+        NewPrismSizeZ = prism.SizeZ;
+
+        RaisePropertyChanged(nameof(NewPrismPosX));
+        RaisePropertyChanged(nameof(NewPrismPosY));
+        RaisePropertyChanged(nameof(NewPrismPosZ));
+        RaisePropertyChanged(nameof(NewPrismRotX));
+        RaisePropertyChanged(nameof(NewPrismRotY));
+        RaisePropertyChanged(nameof(NewPrismRotZ));
+    }
+
+    private void LoadLightSourceIntoEditor(CylindricalLightSourceItemViewModel source)
+    {
+        var effectiveOrientation = FrameOrientationBuilder.ApplyLocalEulerDegrees(
+            source.BaseOrientation,
+            source.RotationX,
+            source.RotationY,
+            source.RotationZ);
+        var (effectiveRotX, effectiveRotY, effectiveRotZ) = FrameOrientationBuilder.ToLocalEulerDegrees(effectiveOrientation);
+
+        NewLightSourceName = source.Name;
+        NewLightSourcePosX = source.PositionX;
+        NewLightSourcePosY = source.PositionY;
+        NewLightSourcePosZ = source.PositionZ;
+        NewLightSourceRotX = effectiveRotX;
+        NewLightSourceRotY = effectiveRotY;
+        NewLightSourceRotZ = effectiveRotZ;
+        NewLightSourceRadius = source.Radius;
+        NewLightSourceHeight = source.Height;
+        NewLightSourceRayCount = source.RayCount;
+        NewLightSourceTiltWeight = source.TiltWeight;
+        NewLightSourceTiltPointX = source.TiltPointX;
+        NewLightSourceTiltPointY = source.TiltPointY;
+        NewLightSourceTiltPointZ = source.TiltPointZ;
+
+        RaisePropertyChanged(nameof(NewLightSourcePosX));
+        RaisePropertyChanged(nameof(NewLightSourcePosY));
+        RaisePropertyChanged(nameof(NewLightSourcePosZ));
+        RaisePropertyChanged(nameof(NewLightSourceRotX));
+        RaisePropertyChanged(nameof(NewLightSourceRotY));
+        RaisePropertyChanged(nameof(NewLightSourceRotZ));
     }
 
     private void RaiseCanExecuteChanges()

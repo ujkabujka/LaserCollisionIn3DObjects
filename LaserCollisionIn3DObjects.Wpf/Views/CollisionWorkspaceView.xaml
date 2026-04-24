@@ -30,7 +30,7 @@
                                 <Button Content="Create Scene" Command="{Binding CreateSceneCommand}" Width="110" Margin="0,0,8,0"/>
                                 <Button Content="Delete Selected" Command="{Binding DeleteSelectedSceneCommand}" Width="120"/>
                             </StackPanel>
-                            <ListBox ItemsSource="{Binding Scenes}" SelectedItem="{Binding SelectedScene}" Height="120" DisplayMemberPath="Name"/>
+                            <ListBox ItemsSource="{Binding CollisionScenes}" SelectedItem="{Binding SelectedScene}" Height="120" DisplayMemberPath="Name"/>
                         </StackPanel>
                     </GroupBox>
 
@@ -79,7 +79,8 @@
                             <UniformGrid Columns="3" Margin="0,0,0,6"><StackPanel Margin="2"><TextBlock Text="Pos X"/><TextBox Text="{Binding NewLightSourcePosX}"/></StackPanel><StackPanel Margin="2"><TextBlock Text="Pos Y"/><TextBox Text="{Binding NewLightSourcePosY}"/></StackPanel><StackPanel Margin="2"><TextBlock Text="Pos Z"/><TextBox Text="{Binding NewLightSourcePosZ}"/></StackPanel></UniformGrid>
                             <UniformGrid Columns="3" Margin="0,0,0,6"><StackPanel Margin="2"><TextBlock Text="Rot X"/><TextBox Text="{Binding NewLightSourceRotX}"/></StackPanel><StackPanel Margin="2"><TextBlock Text="Rot Y"/><TextBox Text="{Binding NewLightSourceRotY}"/></StackPanel><StackPanel Margin="2"><TextBlock Text="Rot Z"/><TextBox Text="{Binding NewLightSourceRotZ}"/></StackPanel></UniformGrid>
                             <UniformGrid Columns="4" Margin="0,0,0,6"><StackPanel Margin="2"><TextBlock Text="Radius"/><TextBox Text="{Binding NewLightSourceRadius}"/></StackPanel><StackPanel Margin="2"><TextBlock Text="Height"/><TextBox Text="{Binding NewLightSourceHeight}"/></StackPanel><StackPanel Margin="2"><TextBlock Text="RayCount"/><TextBox Text="{Binding NewLightSourceRayCount}"/></StackPanel><StackPanel Margin="2"><TextBlock Text="TiltWeight"/><TextBox Text="{Binding NewLightSourceTiltWeight}"/></StackPanel></UniformGrid>
-                            <TextBlock Margin="2,0,2,6" Foreground="#555" TextWrapping="Wrap" Text="Generated rays emit from the cylindrical surface. TiltWeight blends radial Y-Z normal with the local (X,Y,Z) direction; use 0 for pure radial behavior. Rot X/Y/Z are applied in the source frame." />
+                            <UniformGrid Columns="3" Margin="0,0,0,6"><StackPanel Margin="2"><TextBlock Text="Tilt Point X"/><TextBox Text="{Binding NewLightSourceTiltPointX}"/></StackPanel><StackPanel Margin="2"><TextBlock Text="Tilt Point Y"/><TextBox Text="{Binding NewLightSourceTiltPointY}"/></StackPanel><StackPanel Margin="2"><TextBlock Text="Tilt Point Z"/><TextBox Text="{Binding NewLightSourceTiltPointZ}"/></StackPanel></UniformGrid>
+                            <TextBlock Margin="2,0,2,6" Foreground="#555" TextWrapping="Wrap" Text="Generated rays emit from the cylindrical surface. TiltWeight blends radial Y-Z normal with the local vector from a user-defined local tilt point to each ray origin (rayOriginLocal - tiltPointLocal); use 0 for pure radial behavior. Rot X/Y/Z are applied in the source frame." />
                             <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
                                 <Button Content="Add Source" Command="{Binding AddLightSourceCommand}" Width="95" Margin="0,0,8,0"/>
                                 <Button Content="Remove Selected" Command="{Binding RemoveSelectedLightSourceCommand}" Width="130" Margin="0,0,8,0"/>
@@ -121,6 +122,7 @@
                             </Grid>
                             <StackPanel Orientation="Horizontal">
                                 <Button Content="Run Collision" Command="{Binding RunCollisionCommand}" Width="120" Height="30" Margin="0,0,8,0"/>
+                                <Button Content="Export Hit Points CSV" Command="{Binding ExportHitPointsCsvCommand}" Width="160" Height="30" Margin="0,0,8,0"/>
                                 <Button Content="Reset Demo Scene" Command="{Binding ResetDemoSceneCommand}" Width="140" Height="30"/>
                             </StackPanel>
                         </StackPanel>

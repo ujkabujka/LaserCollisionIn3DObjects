@@ -1,6 +1,7 @@
 using LaserCollisionIn3DObjects.Domain.Generation;
 using LaserCollisionIn3DObjects.Domain.Geometry;
 using LaserCollisionIn3DObjects.Domain.Persistence;
+using LaserCollisionIn3DObjects.Domain.Projection;
 using System.Numerics;
 using System.Text.Json;
 
@@ -32,6 +33,9 @@ public class PersistenceRoundTripTests
                                 Height = 5,
                                 RayCount = 10,
                                 TiltWeight = 0.25f,
+                                TiltPointX = 4f,
+                                TiltPointY = -1.5f,
+                                TiltPointZ = 2f,
                             },
                         ],
                         HolePoints = [new Point3(1, 2, 3)],
@@ -93,6 +97,9 @@ public class PersistenceRoundTripTests
             Assert.Equal(new Point3(1, 1, 1), roundTrip.Scenes[0].Projection.Results[0].PointSourceOrigin);
             Assert.Single(roundTrip.Scenes[0].CylindricalLightSources);
             Assert.Equal(0.25f, roundTrip.Scenes[0].CylindricalLightSources[0].TiltWeight, 3);
+            Assert.Equal(4f, roundTrip.Scenes[0].CylindricalLightSources[0].TiltPointX, 3);
+            Assert.Equal(-1.5f, roundTrip.Scenes[0].CylindricalLightSources[0].TiltPointY, 3);
+            Assert.Equal(2f, roundTrip.Scenes[0].CylindricalLightSources[0].TiltPointZ, 3);
             Assert.False(roundTrip.AnnotationWorkspace.IsFolderResolved);
             Assert.Equal("/missing/path", roundTrip.AnnotationWorkspace.FolderPath);
         }
@@ -230,6 +237,9 @@ public class PersistenceRoundTripTests
         var source = new CylindricalLightSourceState { Name = "Legacy Source" };
         Assert.Equal(Quaternion.Identity, BaseOrientationPersistence.FromComponents(prism.BaseOrientationX, prism.BaseOrientationY, prism.BaseOrientationZ, prism.BaseOrientationW));
         Assert.Equal(Quaternion.Identity, BaseOrientationPersistence.FromComponents(source.BaseOrientationX, source.BaseOrientationY, source.BaseOrientationZ, source.BaseOrientationW));
+        Assert.Equal(0f, source.TiltPointX);
+        Assert.Equal(0f, source.TiltPointY);
+        Assert.Equal(0f, source.TiltPointZ);
     }
 
     [Fact]
@@ -259,5 +269,127 @@ public class PersistenceRoundTripTests
                 restored[i].BaseOrientationW);
             Assert.True(Quaternion.Dot(expected, actual) > 0.9999f);
         }
+    }
+
+    [Fact]
+    public void CylindricalSource_MissingTiltPointFields_DefaultsToOrigin()
+    {
+        const string legacyJson = """
+                                  {
+                                    "schemaVersion": 1,
+                                    "scenes": [
+                                      {
+                                        "Name": "Legacy",
+                                        "CylindricalLightSources": [
+                                          {
+                                            "Name": "L1",
+                                            "Radius": 2,
+                                            "Height": 4,
+                                            "RayCount": 12,
+                                            "TiltWeight": 0.1
+                                          }
+                                        ]
+                                      }
+                                    ]
+                                  }
+                                  """;
+
+        var restored = JsonSerializer.Deserialize<ProjectState>(legacyJson)!;
+        var source = restored.Scenes[0].CylindricalLightSources[0];
+
+        Assert.Equal(0f, source.TiltPointX);
+        Assert.Equal(0f, source.TiltPointY);
+        Assert.Equal(0f, source.TiltPointZ);
+    }
+
+
+    [Fact]
+    public void ProjectionState_CylindricalResult_RoundTrips()
+    {
+        var state = new ProjectState
+        {
+            Scenes =
+            [
+                new SceneState
+                {
+                    Name = "Projection Scene",
+                    Projection = new SceneProjectionStateDto
+                    {
+                        SelectedMethodId = ProjectionMethodIds.CylindricalSource,
+                        Results =
+                        [
+                            new ProjectionResultStateDto
+                            {
+                                Key = "proj-1",
+                                Name = "Cyl",
+                                MethodId = ProjectionMethodIds.CylindricalSource,
+                                SourceFrame = new PointSourceFrameStateDto
+                                {
+                                    Origin = new Point3(1, 2, 3),
+                                    AxisX = new Vector3D(1, 0, 0),
+                                    AxisY = new Vector3D(0, 1, 0),
+                                    AxisZ = new Vector3D(0, 0, 1),
+                                },
+                                CylindricalSource = new CylindricalProjectionStateDto
+                                {
+                                    SourceFrame = new PointSourceFrameStateDto
+                                    {
+                                        Origin = new Point3(1, 2, 3),
+                                        AxisX = new Vector3D(1, 0, 0),
+                                        AxisY = new Vector3D(0, 1, 0),
+                                        AxisZ = new Vector3D(0, 0, 1),
+                                    },
+                                    Radius = 4,
+                                    Length = 12,
+                                    Points =
+                                    [
+                                        new CylindricalProjectionPointStateDto
+                                        {
+                                            HolePoint = new Point3(4, 0, 0),
+                                            SourceSurfacePoint = new Point3(0, 4, 0),
+                                            RayOrigin = new Point3(0, 4, 0),
+                                            RayDirection = new Vector3D(1, 0, 0),
+                                        },
+                                    ],
+                                },
+                            },
+                        ],
+                    },
+                },
+            ],
+        };
+
+        var json = JsonSerializer.Serialize(state);
+        var restored = JsonSerializer.Deserialize<ProjectState>(json)!;
+        var result = restored.Scenes[0].Projection.Results[0];
+
+        Assert.NotNull(result.CylindricalSource);
+        Assert.Equal(4d, result.CylindricalSource!.Radius, 6);
+        Assert.Equal(12d, result.CylindricalSource.Length, 6);
+        Assert.Single(result.CylindricalSource.Points);
+        Assert.Equal(new Point3(0, 4, 0), result.CylindricalSource.Points[0].SourceSurfacePoint);
+    }
+
+    [Fact]
+    public void SceneState_ProjectionOnlyFlag_RoundTrips()
+    {
+        var state = new ProjectState
+        {
+            Scenes =
+            [
+                new SceneState
+                {
+                    Name = "Imported Holes",
+                    IsProjectionOnly = true,
+                    HolePoints = [new Point3(1, 2, 3)],
+                },
+            ],
+        };
+
+        var json = JsonSerializer.Serialize(state);
+        var restored = JsonSerializer.Deserialize<ProjectState>(json)!;
+
+        Assert.Single(restored.Scenes);
+        Assert.True(restored.Scenes[0].IsProjectionOnly);
     }
 }

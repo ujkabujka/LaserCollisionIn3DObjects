@@ -16,6 +16,9 @@ public sealed class CylindricalLightSourceItemViewModel : ObservableObject
     private float _height = 10f;
     private int _rayCount = 100;
     private float _tiltWeight = 0.1f;
+    private float _tiltPointX;
+    private float _tiltPointY;
+    private float _tiltPointZ;
 
     public string Name { get => _name; set => SetProperty(ref _name, value); }
     public float PositionX { get => _positionX; set => SetProperty(ref _positionX, value); }
@@ -28,6 +31,9 @@ public sealed class CylindricalLightSourceItemViewModel : ObservableObject
     public float Height { get => _height; set => SetProperty(ref _height, value); }
     public int RayCount { get => _rayCount; set => SetProperty(ref _rayCount, value); }
     public float TiltWeight { get => _tiltWeight; set => SetProperty(ref _tiltWeight, value); }
+    public float TiltPointX { get => _tiltPointX; set => SetProperty(ref _tiltPointX, value); }
+    public float TiltPointY { get => _tiltPointY; set => SetProperty(ref _tiltPointY, value); }
+    public float TiltPointZ { get => _tiltPointZ; set => SetProperty(ref _tiltPointZ, value); }
 
     public Quaternion BaseOrientation { get; set; } = Quaternion.Identity;
 

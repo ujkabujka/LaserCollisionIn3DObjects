@@ -1,9 +1,11 @@
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.Windows.Input;
+using LaserCollisionIn3DObjects.Domain.Export;
 using LaserCollisionIn3DObjects.Domain.Geometry;
 using LaserCollisionIn3DObjects.Domain.Persistence;
 using LaserCollisionIn3DObjects.Domain.Projection;
+using Microsoft.Win32;
 using LaserCollisionIn3DObjects.Wpf.Commands;
 using LaserCollisionIn3DObjects.Wpf.Infrastructure;
 using LaserCollisionIn3DObjects.Wpf.Services;
@@ -16,6 +18,7 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
     private readonly SceneCollectionService _sceneCollectionService;
     private readonly ProjectionRenderSyncService _projectionRenderSyncService;
     private readonly ProjectionMethodRegistry _methodRegistry;
+    private readonly ProjectionHitPointCsvImportService _projectionHitPointCsvImportService = new();
     private ProjectionMethodOptionViewModel? _selectedMethod;
     private CollisionSceneViewModel? _selectedScene;
     private string _statusMessage = "Select a scene with holes to begin projection.";
@@ -28,7 +31,11 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
     {
         _sceneCollectionService = sceneCollectionService ?? throw new ArgumentNullException(nameof(sceneCollectionService));
         _projectionRenderSyncService = projectionRenderSyncService ?? throw new ArgumentNullException(nameof(projectionRenderSyncService));
-        _methodRegistry = methodRegistry ?? new ProjectionMethodRegistry(new[] { new PointSourceProjectionMethod() });
+        _methodRegistry = methodRegistry ?? new ProjectionMethodRegistry(new IProjectionMethod[]
+        {
+            new PointSourceProjectionMethod(),
+            new CylindricalSourceProjectionMethod(),
+        });
 
         ProjectionMethods = new ObservableCollection<ProjectionMethodOptionViewModel>(
             _methodRegistry.Methods.Select(method => new ProjectionMethodOptionViewModel { Method = method }));
@@ -37,6 +44,7 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
             ?? ProjectionMethods.FirstOrDefault();
 
         RunProjectionCommand = new RelayCommand(RunProjection, CanRunProjection);
+        ImportHitPointsCsvCommand = new RelayCommand(ImportHitPointsCsv);
         DeleteSelectedResultCommand = new RelayCommand(DeleteSelectedResult, () => SelectedResult is not null);
 
         _sceneCollectionService.Scenes.CollectionChanged += OnScenesCollectionChanged;
@@ -48,6 +56,7 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
     public ObservableCollection<CollisionSceneViewModel> AvailableScenes { get; } = new();
 
     public ICommand RunProjectionCommand { get; }
+    public ICommand ImportHitPointsCsvCommand { get; }
     public ICommand DeleteSelectedResultCommand { get; }
 
     public double PointSourceX { get; set; }
@@ -65,6 +74,12 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
     public double SourceFrameYx { get; set; }
     public double SourceFrameYy { get; set; } = 1;
     public double SourceFrameYz { get; set; }
+
+    public double CylindricalRadius { get; set; } = 1;
+    public double CylindricalLength { get; set; } = 10;
+
+    public bool IsPointSourceMethodSelected => string.Equals(SelectedMethod?.Id, ProjectionMethodIds.PointSource, StringComparison.OrdinalIgnoreCase);
+    public bool IsCylindricalMethodSelected => string.Equals(SelectedMethod?.Id, ProjectionMethodIds.CylindricalSource, StringComparison.OrdinalIgnoreCase);
 
     public string NewResultName
     {
@@ -120,6 +135,8 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
                 SelectedScene.ProjectionState.SelectedMethodId = value?.Id ?? ProjectionWorkspaceState.DefaultMethodId;
             }
 
+            RaisePropertyChanged(nameof(IsPointSourceMethodSelected));
+            RaisePropertyChanged(nameof(IsCylindricalMethodSelected));
             RaiseCanExecuteChanged();
         }
     }
@@ -189,6 +206,56 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
     private bool CanRunProjection() =>
         SelectedScene is not null && SelectedScene.HolePoints.Count > 0 && SelectedMethod is not null;
 
+    private void ImportHitPointsCsv()
+    {
+        var dialog = new OpenFileDialog
+        {
+            Filter = "CSV Files (*.csv)|*.csv|All Files (*.*)|*.*",
+            DefaultExt = ".csv",
+        };
+
+        if (dialog.ShowDialog() != true)
+        {
+            StatusMessage = "CSV import canceled.";
+            return;
+        }
+
+        ProjectionHitPointCsvImportResult importResult;
+        try
+        {
+            importResult = _projectionHitPointCsvImportService.Import(dialog.FileName);
+        }
+        catch (ArgumentException ex)
+        {
+            StatusMessage = ex.Message;
+            return;
+        }
+
+        if (importResult.HolePoints.Count == 0)
+        {
+            StatusMessage = "No valid hit-point rows were found in the selected CSV.";
+            return;
+        }
+
+        var baseName = string.IsNullOrWhiteSpace(importResult.SceneName) ? "Imported Hit Points" : importResult.SceneName;
+        var sceneName = ResolveImportedSceneName(baseName);
+        var scene = new CollisionSceneViewModel(sceneName)
+        {
+            IsProjectionOnly = true,
+        };
+
+        foreach (var point in importResult.HolePoints)
+        {
+            scene.HolePoints.Add(point);
+        }
+
+        _sceneCollectionService.AddScene(scene, selectScene: false);
+        RefreshAvailableScenes();
+        SelectedScene = scene;
+
+        StatusMessage = $"Imported {importResult.HolePoints.Count} hole points into projection scene '{sceneName}'. Skipped {importResult.SkippedRowCount} invalid rows.";
+    }
+
     private void RunProjection()
     {
         var scene = SelectedScene;
@@ -224,7 +291,9 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
             scene.ProjectionState.SelectedMethodId = SelectedMethod.Id;
             SelectedResult = namedResult;
 
-            StatusMessage = $"Projection completed and saved as '{namedResult.DisplayName}' ({result.Rays.Count} ray(s)).";
+            StatusMessage = result.CylindricalSource is null
+                ? $"Projection completed and saved as '{namedResult.DisplayName}' ({result.Rays.Count} ray(s))."
+                : $"Cylindrical projection completed and saved as '{namedResult.DisplayName}' ({result.CylindricalSource.Points.Count} reconstructed source points).";
         }
         catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
         {
@@ -267,6 +336,16 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
                 new Vector3D(SourceFrameYx, SourceFrameYy, SourceFrameYz));
         }
 
+        if (method.Metadata.Id == ProjectionMethodIds.CylindricalSource)
+        {
+            return new CylindricalSourceProjectionParameters(
+                new Point3(BeamOriginX, BeamOriginY, BeamOriginZ),
+                new Vector3D(SourceFrameXx, SourceFrameXy, SourceFrameXz),
+                new Vector3D(SourceFrameYx, SourceFrameYy, SourceFrameYz),
+                CylindricalRadius,
+                CylindricalLength);
+        }
+
         throw new InvalidOperationException($"Projection method '{method.Metadata.Id}' is not yet supported by the workspace UI parameter panel.");
     }
 
@@ -295,6 +374,26 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
             : AvailableScenes.FirstOrDefault();
 
         RaiseCanExecuteChanged();
+    }
+
+    private string ResolveImportedSceneName(string baseName)
+    {
+        if (_sceneCollectionService.Scenes.All(scene => !string.Equals(scene.Name, baseName, StringComparison.OrdinalIgnoreCase)))
+        {
+            return baseName;
+        }
+
+        var suffix = 2;
+        while (true)
+        {
+            var candidate = $"{baseName} (Imported {suffix})";
+            if (_sceneCollectionService.Scenes.All(scene => !string.Equals(scene.Name, candidate, StringComparison.OrdinalIgnoreCase)))
+            {
+                return candidate;
+            }
+
+            suffix++;
+        }
     }
 
     private void RaiseCanExecuteChanged()
