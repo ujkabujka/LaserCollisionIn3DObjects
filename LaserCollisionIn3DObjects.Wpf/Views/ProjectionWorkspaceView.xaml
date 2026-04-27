@@ -136,7 +136,7 @@
 
                     <StackPanel Margin="0,0,0,8"
                                 Visibility="{Binding ProjectionWorkspace.IsProgressVisible, Converter={StaticResource BoolToVisibility}}">
-                        <ProgressBar Minimum="0" Maximum="100" Height="18" Value="{Binding ProjectionWorkspace.ProjectionProgressPercent}" />
+                        <ProgressBar Minimum="0" Maximum="100" Height="18" Value="{Binding ProjectionWorkspace.ProjectionProgressPercent, Mode=OneWay}" />
                         <TextBlock Text="{Binding ProjectionWorkspace.ProjectionProgressMessage}" Foreground="#666" Margin="0,4,0,0" TextWrapping="Wrap"/>
                     </StackPanel>
 
