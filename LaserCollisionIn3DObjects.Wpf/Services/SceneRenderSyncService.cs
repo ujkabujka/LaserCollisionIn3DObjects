@@ -137,7 +137,7 @@ public sealed class SceneRenderSyncService
 
         if (projectionResult is not null)
         {
-            var projectionRays = projectionResult.Rays.Select(projectionRay => projectionRay.Ray).ToList();
+            var projectionRays = projectionResult.GetEffectiveRays().Select(projectionRay => projectionRay.Ray).ToList();
             scene.Rays.AddRange(projectionRays);
             raySourceTypes.AddRange(Enumerable.Repeat(CollisionRaySourceType.ProjectionResult, projectionRays.Count));
         }
