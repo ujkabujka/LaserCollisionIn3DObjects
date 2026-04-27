@@ -1,5 +1,6 @@
 using System.Text.Json.Serialization;
 using LaserCollisionIn3DObjects.Domain.Geometry;
+using LaserCollisionIn3DObjects.Domain.Projection;
 
 namespace LaserCollisionIn3DObjects.Domain.Persistence;
 
@@ -114,6 +115,9 @@ public sealed class CylindricalProjectionStateDto
     public PointSourceFrameStateDto SourceFrame { get; set; } = new();
     public double Radius { get; set; }
     public double Length { get; set; }
+    public Point3? LocalTiltPoint { get; set; }
+    public double? EstimatedTiltWeight { get; set; }
+    public SelfCalibratingCylindricalProjectionDiagnosticsDto? Diagnostics { get; set; }
     public List<CylindricalProjectionPointStateDto> Points { get; set; } = new();
 }
 
@@ -123,6 +127,26 @@ public sealed class CylindricalProjectionPointStateDto
     public Point3 SourceSurfacePoint { get; set; }
     public Point3 RayOrigin { get; set; }
     public Vector3D RayDirection { get; set; }
+    public Vector3D? ModeledRayDirection { get; set; }
+    public double? LocalU { get; set; }
+    public double? LocalTheta { get; set; }
+    public double? UnwrappedU { get; set; }
+    public double? UnwrappedV { get; set; }
+    public double? FitError { get; set; }
+}
+
+public sealed class SelfCalibratingCylindricalProjectionDiagnosticsDto
+{
+    public double RegularityWeight { get; set; }
+    public List<SelfCalibratingCylindricalCandidateDiagnosticsDto> CandidateScores { get; set; } = new();
+}
+
+public sealed class SelfCalibratingCylindricalCandidateDiagnosticsDto
+{
+    public double Lambda { get; set; }
+    public double MeanFitError { get; set; }
+    public double RegularityError { get; set; }
+    public double Score { get; set; }
 }
 
 public sealed class PointSourceFrameStateDto

@@ -23,6 +23,9 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
     private CollisionSceneViewModel? _selectedScene;
     private string _statusMessage = "Select a scene with holes to begin projection.";
     private string _newResultName = "Projection Result 1";
+    private bool _isProjectionRunning;
+    private double _projectionProgressPercent;
+    private string _projectionProgressMessage = string.Empty;
 
     public ProjectionWorkspaceViewModel(
         SceneCollectionService sceneCollectionService,
@@ -35,6 +38,7 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
         {
             new PointSourceProjectionMethod(),
             new CylindricalSourceProjectionMethod(),
+            new SelfCalibratingCylindricalProjectionMethod(),
         });
 
         ProjectionMethods = new ObservableCollection<ProjectionMethodOptionViewModel>(
@@ -43,9 +47,10 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
         _selectedMethod = ProjectionMethods.FirstOrDefault(method => method.Id == ProjectionWorkspaceState.DefaultMethodId)
             ?? ProjectionMethods.FirstOrDefault();
 
-        RunProjectionCommand = new RelayCommand(RunProjection, CanRunProjection);
+        RunProjectionCommand = new RelayCommand(() => _ = RunProjectionAsync(), CanRunProjection);
         ImportHitPointsCsvCommand = new RelayCommand(ImportHitPointsCsv);
         DeleteSelectedResultCommand = new RelayCommand(DeleteSelectedResult, () => SelectedResult is not null);
+        DeleteSelectedProjectionSceneCommand = new RelayCommand(DeleteSelectedProjectionScene, () => CanDeleteSelectedProjectionScene);
 
         _sceneCollectionService.Scenes.CollectionChanged += OnScenesCollectionChanged;
         RefreshAvailableScenes();
@@ -58,6 +63,7 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
     public ICommand RunProjectionCommand { get; }
     public ICommand ImportHitPointsCsvCommand { get; }
     public ICommand DeleteSelectedResultCommand { get; }
+    public ICommand DeleteSelectedProjectionSceneCommand { get; }
 
     public double PointSourceX { get; set; }
     public double PointSourceY { get; set; }
@@ -77,9 +83,43 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
 
     public double CylindricalRadius { get; set; } = 1;
     public double CylindricalLength { get; set; } = 10;
+    public double TiltPointX { get; set; }
+    public double TiltPointY { get; set; }
+    public double TiltPointZ { get; set; }
 
     public bool IsPointSourceMethodSelected => string.Equals(SelectedMethod?.Id, ProjectionMethodIds.PointSource, StringComparison.OrdinalIgnoreCase);
-    public bool IsCylindricalMethodSelected => string.Equals(SelectedMethod?.Id, ProjectionMethodIds.CylindricalSource, StringComparison.OrdinalIgnoreCase);
+    public bool IsLegacyCylindricalMethodSelected => string.Equals(SelectedMethod?.Id, ProjectionMethodIds.CylindricalSource, StringComparison.OrdinalIgnoreCase);
+    public bool IsSelfCalibratingCylindricalMethodSelected => string.Equals(SelectedMethod?.Id, ProjectionMethodIds.SelfCalibratingCylindricalSource, StringComparison.OrdinalIgnoreCase);
+    public bool IsAnyCylindricalMethodSelected => IsLegacyCylindricalMethodSelected || IsSelfCalibratingCylindricalMethodSelected;
+
+    public bool IsProjectionRunning
+    {
+        get => _isProjectionRunning;
+        private set
+        {
+            if (SetProperty(ref _isProjectionRunning, value))
+            {
+                RaisePropertyChanged(nameof(IsProgressVisible));
+                RaiseCanExecuteChanged();
+            }
+        }
+    }
+
+    public bool IsProgressVisible => IsProjectionRunning;
+
+    public double ProjectionProgressPercent
+    {
+        get => _projectionProgressPercent;
+        private set => SetProperty(ref _projectionProgressPercent, value);
+    }
+
+    public string ProjectionProgressMessage
+    {
+        get => _projectionProgressMessage;
+        private set => SetProperty(ref _projectionProgressMessage, value);
+    }
+
+    public bool CanDeleteSelectedProjectionScene => SelectedScene?.IsProjectionOnly == true;
 
     public string NewResultName
     {
@@ -136,7 +176,9 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
             }
 
             RaisePropertyChanged(nameof(IsPointSourceMethodSelected));
-            RaisePropertyChanged(nameof(IsCylindricalMethodSelected));
+            RaisePropertyChanged(nameof(IsLegacyCylindricalMethodSelected));
+            RaisePropertyChanged(nameof(IsSelfCalibratingCylindricalMethodSelected));
+            RaisePropertyChanged(nameof(IsAnyCylindricalMethodSelected));
             RaiseCanExecuteChanged();
         }
     }
@@ -171,6 +213,7 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
 
             RaisePropertyChanged(nameof(SavedResults));
             RaisePropertyChanged(nameof(SelectedResult));
+            RaisePropertyChanged(nameof(CanDeleteSelectedProjectionScene));
             RefreshViewport();
             RaiseCanExecuteChanged();
         }
@@ -204,7 +247,7 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
     }
 
     private bool CanRunProjection() =>
-        SelectedScene is not null && SelectedScene.HolePoints.Count > 0 && SelectedMethod is not null;
+        !IsProjectionRunning && SelectedScene is not null && SelectedScene.HolePoints.Count > 0 && SelectedMethod is not null;
 
     private void ImportHitPointsCsv()
     {
@@ -256,7 +299,7 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
         StatusMessage = $"Imported {importResult.HolePoints.Count} hole points into projection scene '{sceneName}'. Skipped {importResult.SkippedRowCount} invalid rows.";
     }
 
-    private void RunProjection()
+    private async Task RunProjectionAsync()
     {
         var scene = SelectedScene;
         if (scene is null)
@@ -277,15 +320,31 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
             return;
         }
 
+        IsProjectionRunning = true;
+        ProjectionProgressPercent = 0;
+        ProjectionProgressMessage = "Preparing projection...";
+
         try
         {
+            var progress = new Progress<ProjectionProgress>(report =>
+            {
+                if (report.Percent is not null)
+                {
+                    ProjectionProgressPercent = Math.Clamp(report.Percent.Value, 0d, 100d);
+                }
+
+                ProjectionProgressMessage = report.Message;
+            });
+
             var request = new ProjectionRequest
             {
                 HolePoints = scene.HolePoints.ToList(),
                 Parameters = BuildParameters(SelectedMethod.Method),
+                Progress = progress,
             };
 
-            var result = SelectedMethod.Method.Execute(request);
+            var method = SelectedMethod.Method;
+            var result = await Task.Run(() => method.Execute(request));
             var namedResult = SceneProjectionStateUpdater.SaveResult(scene.ProjectionState, NewResultName, result);
             NewResultName = $"Projection Result {scene.ProjectionState.SavedResults.Count + 1}";
             scene.ProjectionState.SelectedMethodId = SelectedMethod.Id;
@@ -298,6 +357,11 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
         catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
         {
             StatusMessage = ex.Message;
+        }
+        finally
+        {
+            IsProjectionRunning = false;
+            ProjectionProgressMessage = string.Empty;
         }
     }
 
@@ -325,6 +389,27 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
         StatusMessage = $"Deleted projection result '{selectedResult.DisplayName}'.";
     }
 
+    private void DeleteSelectedProjectionScene()
+    {
+        if (SelectedScene is null)
+        {
+            StatusMessage = "Select a scene to delete.";
+            return;
+        }
+
+        if (!SelectedScene.IsProjectionOnly)
+        {
+            StatusMessage = "Only projection-only scenes can be deleted from Projection Workspace.";
+            return;
+        }
+
+        var deletedName = SelectedScene.Name;
+        _sceneCollectionService.RemoveScene(SelectedScene);
+        RefreshAvailableScenes();
+        RefreshViewport();
+        StatusMessage = $"Deleted projection scene '{deletedName}'.";
+    }
+
     private IProjectionParameters BuildParameters(IProjectionMethod method)
     {
         if (method.Metadata.Id == ProjectionMethodIds.PointSource)
@@ -344,6 +429,17 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
                 new Vector3D(SourceFrameYx, SourceFrameYy, SourceFrameYz),
                 CylindricalRadius,
                 CylindricalLength);
+        }
+
+        if (method.Metadata.Id == ProjectionMethodIds.SelfCalibratingCylindricalSource)
+        {
+            return new SelfCalibratingCylindricalProjectionParameters(
+                new Point3(BeamOriginX, BeamOriginY, BeamOriginZ),
+                new Vector3D(SourceFrameXx, SourceFrameXy, SourceFrameXz),
+                new Vector3D(SourceFrameYx, SourceFrameYy, SourceFrameYz),
+                CylindricalRadius,
+                CylindricalLength,
+                new Point3(TiltPointX, TiltPointY, TiltPointZ));
         }
 
         throw new InvalidOperationException($"Projection method '{method.Metadata.Id}' is not yet supported by the workspace UI parameter panel.");
@@ -406,6 +502,11 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
         if (DeleteSelectedResultCommand is RelayCommand deleteSelectedResultCommand)
         {
             deleteSelectedResultCommand.RaiseCanExecuteChanged();
+        }
+
+        if (DeleteSelectedProjectionSceneCommand is RelayCommand deleteSelectedSceneCommand)
+        {
+            deleteSelectedSceneCommand.RaiseCanExecuteChanged();
         }
     }
 
