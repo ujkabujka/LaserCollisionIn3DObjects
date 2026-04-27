@@ -220,12 +220,31 @@ public sealed class ProjectPersistenceCoordinator
                 },
                 Radius = namedResult.Result.CylindricalSource.Radius,
                 Length = namedResult.Result.CylindricalSource.Length,
+                LocalTiltPoint = namedResult.Result.CylindricalSource.LocalTiltPoint,
+                EstimatedTiltWeight = namedResult.Result.CylindricalSource.EstimatedTiltWeight,
+                Diagnostics = namedResult.Result.CylindricalSource.Diagnostics is null ? null : new SelfCalibratingCylindricalProjectionDiagnosticsDto
+                {
+                    RegularityWeight = namedResult.Result.CylindricalSource.Diagnostics.RegularityWeight,
+                    CandidateScores = namedResult.Result.CylindricalSource.Diagnostics.CandidateScores.Select(candidate => new SelfCalibratingCylindricalCandidateDiagnosticsDto
+                    {
+                        Lambda = candidate.Lambda,
+                        MeanFitError = candidate.MeanFitError,
+                        RegularityError = candidate.RegularityError,
+                        Score = candidate.Score,
+                    }).ToList(),
+                },
                 Points = namedResult.Result.CylindricalSource.Points.Select(point => new CylindricalProjectionPointStateDto
                 {
                     HolePoint = point.HolePoint,
                     SourceSurfacePoint = point.SourceSurfacePoint,
                     RayOrigin = point.RayOrigin,
                     RayDirection = point.RayDirection,
+                    ModeledRayDirection = point.ModeledRayDirection,
+                    LocalU = point.LocalU,
+                    LocalTheta = point.LocalTheta,
+                    UnwrappedU = point.UnwrappedU,
+                    UnwrappedV = point.UnwrappedV,
+                    FitError = point.FitError,
                 }).ToList(),
             },
         };
@@ -337,11 +356,30 @@ public sealed class ProjectPersistenceCoordinator
                         },
                         Radius = result.CylindricalSource.Radius,
                         Length = result.CylindricalSource.Length,
+                        LocalTiltPoint = result.CylindricalSource.LocalTiltPoint,
+                        EstimatedTiltWeight = result.CylindricalSource.EstimatedTiltWeight,
+                        Diagnostics = result.CylindricalSource.Diagnostics is null ? null : new SelfCalibratingCylindricalProjectionDiagnostics
+                        {
+                            RegularityWeight = result.CylindricalSource.Diagnostics.RegularityWeight,
+                            CandidateScores = result.CylindricalSource.Diagnostics.CandidateScores.Select(candidate => new SelfCalibratingCylindricalCandidateDiagnostics(
+                                candidate.Lambda,
+                                candidate.MeanFitError,
+                                candidate.RegularityError,
+                                candidate.Score)).ToList(),
+                        },
                         Points = result.CylindricalSource.Points.Select(point => new CylindricalProjectionPoint(
                             point.HolePoint,
                             point.SourceSurfacePoint,
                             point.RayDirection,
-                            point.RayOrigin)).ToList(),
+                            point.RayOrigin)
+                        {
+                            ModeledRayDirection = point.ModeledRayDirection,
+                            LocalU = point.LocalU,
+                            LocalTheta = point.LocalTheta,
+                            UnwrappedU = point.UnwrappedU,
+                            UnwrappedV = point.UnwrappedV,
+                            FitError = point.FitError,
+                        }).ToList(),
                     },
                 },
             });

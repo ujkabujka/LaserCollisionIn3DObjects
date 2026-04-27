@@ -391,5 +391,108 @@ public class PersistenceRoundTripTests
 
         Assert.Single(restored.Scenes);
         Assert.True(restored.Scenes[0].IsProjectionOnly);
+}
+
+    [Fact]
+    public void ProjectState_RoundTrip_PreservesSelfCalibratingCylindricalMetadata()
+    {
+        var service = new JsonStateFileService();
+        var filePath = Path.Combine(Path.GetTempPath(), $"lc3d-self-cal-{Guid.NewGuid():N}.json");
+
+        try
+        {
+            var state = new ProjectState
+            {
+                Scenes =
+                [
+                    new SceneState
+                    {
+                        Name = "Scene SC",
+                        Projection = new SceneProjectionStateDto
+                        {
+                            SelectedMethodId = ProjectionMethodIds.SelfCalibratingCylindricalSource,
+                            Results =
+                            [
+                                new ProjectionResultStateDto
+                                {
+                                    Key = "k",
+                                    Name = "r",
+                                    MethodId = ProjectionMethodIds.SelfCalibratingCylindricalSource,
+                                    SourceFrame = new PointSourceFrameStateDto
+                                    {
+                                        Origin = new Point3(0, 0, 0),
+                                        AxisX = new Vector3D(1, 0, 0),
+                                        AxisY = new Vector3D(0, 1, 0),
+                                        AxisZ = new Vector3D(0, 0, 1),
+                                    },
+                                    CylindricalSource = new CylindricalProjectionStateDto
+                                    {
+                                        SourceFrame = new PointSourceFrameStateDto
+                                        {
+                                            Origin = new Point3(0, 0, 0),
+                                            AxisX = new Vector3D(1, 0, 0),
+                                            AxisY = new Vector3D(0, 1, 0),
+                                            AxisZ = new Vector3D(0, 0, 1),
+                                        },
+                                        Radius = 1.5,
+                                        Length = 6,
+                                        LocalTiltPoint = new Point3(1, 2, 3),
+                                        EstimatedTiltWeight = 0.42,
+                                        Diagnostics = new SelfCalibratingCylindricalProjectionDiagnosticsDto
+                                        {
+                                            RegularityWeight = 0.1,
+                                            CandidateScores =
+                                            [
+                                                new SelfCalibratingCylindricalCandidateDiagnosticsDto
+                                                {
+                                                    Lambda = 0.42,
+                                                    MeanFitError = 0.01,
+                                                    RegularityError = 0.02,
+                                                    Score = 0.012,
+                                                },
+                                            ],
+                                        },
+                                        Points =
+                                        [
+                                            new CylindricalProjectionPointStateDto
+                                            {
+                                                HolePoint = new Point3(9, 9, 9),
+                                                SourceSurfacePoint = new Point3(1, 1, 1),
+                                                RayOrigin = new Point3(1, 1, 1),
+                                                RayDirection = new Vector3D(1, 0, 0),
+                                                ModeledRayDirection = new Vector3D(0, 1, 0),
+                                                LocalU = 2,
+                                                LocalTheta = 0.5,
+                                                UnwrappedU = 2,
+                                                UnwrappedV = 0.75,
+                                                FitError = 0.03,
+                                            },
+                                        ],
+                                    },
+                                },
+                            ],
+                        },
+                    },
+                ],
+            };
+
+            service.SaveProject(filePath, state);
+            var roundTrip = service.LoadProject(filePath);
+
+            var result = roundTrip.Scenes[0].Projection.Results[0].CylindricalSource!;
+            Assert.Equal(0.42, result.EstimatedTiltWeight ?? 0d, 6);
+            Assert.Equal(new Point3(1, 2, 3), result.LocalTiltPoint);
+            Assert.NotNull(result.Diagnostics);
+            Assert.Single(result.Diagnostics!.CandidateScores);
+            Assert.Equal(0.03, result.Points[0].FitError ?? 0d, 6);
+            Assert.Equal(new Vector3D(0, 1, 0), result.Points[0].ModeledRayDirection);
+        }
+        finally
+        {
+            if (File.Exists(filePath))
+            {
+                File.Delete(filePath);
+            }
+        }
     }
 }

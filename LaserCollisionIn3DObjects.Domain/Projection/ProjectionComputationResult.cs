@@ -1,4 +1,5 @@
 using System.Linq;
+using System.Numerics;
 using LaserCollisionIn3DObjects.Domain.Geometry;
 
 namespace LaserCollisionIn3DObjects.Domain.Projection;
@@ -15,25 +16,34 @@ public sealed class ProjectionComputationResult
 
     public CylindricalProjectionState? CylindricalSource { get; init; }
 
-    public PointLaserSourceState ToPointLaserSource()
+    public IReadOnlyList<ProjectionRay> GetEffectiveRays()
     {
-        var rays = Rays;
-        if (rays.Count == 0 && CylindricalSource is not null)
+        if (Rays.Count > 0)
         {
-            rays = CylindricalSource.Points.Select(point => new ProjectionRay(
-                new Ray3D(
-                    new System.Numerics.Vector3((float)point.RayOrigin.X, (float)point.RayOrigin.Y, (float)point.RayOrigin.Z),
-                    new System.Numerics.Vector3((float)point.RayDirection.X, (float)point.RayDirection.Y, (float)point.RayDirection.Z)),
-                point.HolePoint)).ToList();
+            return Rays;
         }
 
+        if (CylindricalSource is null)
+        {
+            return Array.Empty<ProjectionRay>();
+        }
+
+        return CylindricalSource.Points.Select(point => new ProjectionRay(
+            new Ray3D(
+                new Vector3((float)point.RayOrigin.X, (float)point.RayOrigin.Y, (float)point.RayOrigin.Z),
+                new Vector3((float)point.RayDirection.X, (float)point.RayDirection.Y, (float)point.RayDirection.Z)),
+            point.HolePoint)).ToList();
+    }
+
+    public PointLaserSourceState ToPointLaserSource()
+    {
         return new PointLaserSourceState
         {
             Origin = SourceFrame.Origin,
             AxisX = SourceFrame.AxisX,
             AxisY = SourceFrame.AxisY,
             AxisZ = SourceFrame.AxisZ,
-            Rays = rays,
+            Rays = GetEffectiveRays(),
         };
     }
 }
