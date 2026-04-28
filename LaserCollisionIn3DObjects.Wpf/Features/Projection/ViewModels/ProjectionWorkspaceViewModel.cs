@@ -19,6 +19,7 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
     private readonly ProjectionRenderSyncService _projectionRenderSyncService;
     private readonly ProjectionMethodRegistry _methodRegistry;
     private readonly ProjectionHitPointCsvImportService _projectionHitPointCsvImportService = new();
+    private readonly ApplicationLogService? _applicationLogService;
     private ProjectionMethodOptionViewModel? _selectedMethod;
     private CollisionSceneViewModel? _selectedScene;
     private string _statusMessage = "Select a scene with holes to begin projection.";
@@ -26,11 +27,13 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
     private bool _isProjectionRunning;
     private double _projectionProgressPercent;
     private string _projectionProgressMessage = string.Empty;
+    private int _lastLoggedProgressBucket = -1;
 
     public ProjectionWorkspaceViewModel(
         SceneCollectionService sceneCollectionService,
         ProjectionRenderSyncService projectionRenderSyncService,
-        ProjectionMethodRegistry? methodRegistry = null)
+        ProjectionMethodRegistry? methodRegistry = null,
+        ApplicationLogService? applicationLogService = null)
     {
         _sceneCollectionService = sceneCollectionService ?? throw new ArgumentNullException(nameof(sceneCollectionService));
         _projectionRenderSyncService = projectionRenderSyncService ?? throw new ArgumentNullException(nameof(projectionRenderSyncService));
@@ -40,6 +43,7 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
             new CylindricalSourceProjectionMethod(),
             new SelfCalibratingCylindricalProjectionMethod(),
         });
+        _applicationLogService = applicationLogService;
 
         ProjectionMethods = new ObservableCollection<ProjectionMethodOptionViewModel>(
             _methodRegistry.Methods.Select(method => new ProjectionMethodOptionViewModel { Method = method }));
@@ -259,7 +263,7 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
 
         if (dialog.ShowDialog() != true)
         {
-            StatusMessage = "CSV import canceled.";
+            SetStatus("CSV import canceled.");
             return;
         }
 
@@ -270,13 +274,13 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
         }
         catch (ArgumentException ex)
         {
-            StatusMessage = ex.Message;
+            SetStatus(ex.Message, ApplicationLogLevel.Warning, ex);
             return;
         }
 
         if (importResult.HolePoints.Count == 0)
         {
-            StatusMessage = "No valid hit-point rows were found in the selected CSV.";
+            SetStatus("No valid hit-point rows were found in the selected CSV.", ApplicationLogLevel.Warning);
             return;
         }
 
@@ -296,7 +300,7 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
         RefreshAvailableScenes();
         SelectedScene = scene;
 
-        StatusMessage = $"Imported {importResult.HolePoints.Count} hole points into projection scene '{sceneName}'. Skipped {importResult.SkippedRowCount} invalid rows.";
+        SetStatus($"Imported {importResult.HolePoints.Count} hole points into projection scene '{sceneName}'. Skipped {importResult.SkippedRowCount} invalid rows.", ApplicationLogLevel.Success);
     }
 
     private async Task RunProjectionAsync()
@@ -304,25 +308,27 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
         var scene = SelectedScene;
         if (scene is null)
         {
-            StatusMessage = "Select a scene with holes before running projection.";
+            SetStatus("Select a scene with holes before running projection.", ApplicationLogLevel.Warning);
             return;
         }
 
         if (SelectedMethod is null)
         {
-            StatusMessage = "Select a projection methodology.";
+            SetStatus("Select a projection methodology.", ApplicationLogLevel.Warning);
             return;
         }
 
         if (string.IsNullOrWhiteSpace(NewResultName))
         {
-            StatusMessage = "Provide a projection result name.";
+            SetStatus("Provide a projection result name.", ApplicationLogLevel.Warning);
             return;
         }
 
         IsProjectionRunning = true;
         ProjectionProgressPercent = 0;
         ProjectionProgressMessage = "Preparing projection...";
+        _lastLoggedProgressBucket = -1;
+        _applicationLogService?.LogInfo($"Projection started for scene '{scene.Name}' using method '{SelectedMethod.DisplayName}'.", nameof(ProjectionWorkspaceViewModel));
 
         try
         {
@@ -331,6 +337,12 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
                 if (report.Percent is not null)
                 {
                     ProjectionProgressPercent = Math.Clamp(report.Percent.Value, 0d, 100d);
+                    var bucket = (int)(ProjectionProgressPercent / 10d);
+                    if (bucket > _lastLoggedProgressBucket)
+                    {
+                        _lastLoggedProgressBucket = bucket;
+                        _applicationLogService?.LogInfo($"Projection progress {ProjectionProgressPercent:F0}% - {report.Message}", nameof(ProjectionWorkspaceViewModel));
+                    }
                 }
 
                 ProjectionProgressMessage = report.Message;
@@ -350,13 +362,14 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
             scene.ProjectionState.SelectedMethodId = SelectedMethod.Id;
             SelectedResult = namedResult;
 
-            StatusMessage = result.CylindricalSource is null
+            SetStatus(result.CylindricalSource is null
                 ? $"Projection completed and saved as '{namedResult.DisplayName}' ({result.Rays.Count} ray(s))."
-                : $"Cylindrical projection completed and saved as '{namedResult.DisplayName}' ({result.CylindricalSource.Points.Count} reconstructed source points).";
+                : $"Cylindrical projection completed and saved as '{namedResult.DisplayName}' ({result.CylindricalSource.Points.Count} reconstructed source points).",
+                ApplicationLogLevel.Success);
         }
         catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
         {
-            StatusMessage = ex.Message;
+            SetStatus(ex.Message, ApplicationLogLevel.Error, ex);
         }
         finally
         {
@@ -371,14 +384,14 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
         var selectedResult = SelectedResult;
         if (scene is null || selectedResult is null)
         {
-            StatusMessage = "Select a projection result to delete.";
+            SetStatus("Select a projection result to delete.", ApplicationLogLevel.Warning);
             return;
         }
 
         var deleted = SceneProjectionStateUpdater.DeleteResult(scene.ProjectionState, selectedResult);
         if (!deleted)
         {
-            StatusMessage = "Selected projection result could not be deleted.";
+            SetStatus("Selected projection result could not be deleted.", ApplicationLogLevel.Warning);
             return;
         }
 
@@ -386,20 +399,20 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
         RaisePropertyChanged(nameof(SelectedResult));
         RefreshViewport();
         RaiseCanExecuteChanged();
-        StatusMessage = $"Deleted projection result '{selectedResult.DisplayName}'.";
+        SetStatus($"Deleted projection result '{selectedResult.DisplayName}'.", ApplicationLogLevel.Success);
     }
 
     private void DeleteSelectedProjectionScene()
     {
         if (SelectedScene is null)
         {
-            StatusMessage = "Select a scene to delete.";
+            SetStatus("Select a scene to delete.", ApplicationLogLevel.Warning);
             return;
         }
 
         if (!SelectedScene.IsProjectionOnly)
         {
-            StatusMessage = "Only projection-only scenes can be deleted from Projection Workspace.";
+            SetStatus("Only projection-only scenes can be deleted from Projection Workspace.", ApplicationLogLevel.Warning);
             return;
         }
 
@@ -407,7 +420,35 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
         _sceneCollectionService.RemoveScene(SelectedScene);
         RefreshAvailableScenes();
         RefreshViewport();
-        StatusMessage = $"Deleted projection scene '{deletedName}'.";
+        SetStatus($"Deleted projection scene '{deletedName}'.", ApplicationLogLevel.Success);
+    }
+
+    private void SetStatus(string message, ApplicationLogLevel level = ApplicationLogLevel.Info, Exception? exception = null)
+    {
+        StatusMessage = message;
+        if (_applicationLogService is null)
+        {
+            return;
+        }
+
+        switch (level)
+        {
+            case ApplicationLogLevel.Trace:
+                _applicationLogService.LogTrace(message, nameof(ProjectionWorkspaceViewModel));
+                break;
+            case ApplicationLogLevel.Info:
+                _applicationLogService.LogInfo(message, nameof(ProjectionWorkspaceViewModel));
+                break;
+            case ApplicationLogLevel.Success:
+                _applicationLogService.LogSuccess(message, nameof(ProjectionWorkspaceViewModel));
+                break;
+            case ApplicationLogLevel.Warning:
+                _applicationLogService.LogWarning(message, nameof(ProjectionWorkspaceViewModel));
+                break;
+            case ApplicationLogLevel.Error:
+                _applicationLogService.LogError(message, exception, nameof(ProjectionWorkspaceViewModel));
+                break;
+        }
     }
 
     private IProjectionParameters BuildParameters(IProjectionMethod method)

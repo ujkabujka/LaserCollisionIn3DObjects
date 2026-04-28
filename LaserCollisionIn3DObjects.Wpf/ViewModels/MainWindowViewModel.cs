@@ -1,8 +1,10 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Numerics;
+using System.Windows;
 using System.Windows.Input;
 using System.Windows.Data;
+using LaserCollisionIn3DObjects.Wpf;
 using LaserCollisionIn3DObjects.Domain.Export;
 using Microsoft.Win32;
 using LaserCollisionIn3DObjects.Domain.Generation;
@@ -72,11 +74,12 @@ public sealed class MainWindowViewModel : ObservableObject
     {
         _renderSyncService = renderSyncService ?? throw new ArgumentNullException(nameof(renderSyncService));
         ArgumentNullException.ThrowIfNull(projectionRenderSyncService);
+        AppLog = (Application.Current as App)?.AppLog ?? new ApplicationLogService();
         _sceneCollectionService = new SceneCollectionService();
         _sceneCollectionService.PropertyChanged += OnSceneCollectionPropertyChanged;
 
         AnnotationWorkspace = new AnnotationWorkspaceViewModel(_sceneCollectionService);
-        ProjectionWorkspace = new ProjectionWorkspaceViewModel(_sceneCollectionService, projectionRenderSyncService);
+        ProjectionWorkspace = new ProjectionWorkspaceViewModel(_sceneCollectionService, projectionRenderSyncService, applicationLogService: AppLog);
         GraphicMasterWorkspace = new GraphicMasterViewModel(_sceneCollectionService);
         CollisionScenes = CollectionViewSource.GetDefaultView(_sceneCollectionService.Scenes);
         CollisionScenes.Filter = item => item is CollisionSceneViewModel scene && !scene.IsProjectionOnly;
@@ -108,8 +111,11 @@ public sealed class MainWindowViewModel : ObservableObject
         ShowAnnotationWorkspaceCommand = new RelayCommand(() => SelectedWorkspace = WorkspaceKind.Annotation);
         ShowProjectionWorkspaceCommand = new RelayCommand(() => SelectedWorkspace = WorkspaceKind.Projection);
         ShowGraphicMasterWorkspaceCommand = new RelayCommand(() => SelectedWorkspace = WorkspaceKind.GraphicMaster);
+        ClearConsoleCommand = new RelayCommand(() => AppLog.Clear());
+        CopyConsoleCommand = new RelayCommand(CopyConsoleToClipboard);
 
         CreateScene();
+        AppLog.LogInfo("Application started.", nameof(MainWindowViewModel));
         RefreshViewport(false);
     }
 
@@ -119,6 +125,8 @@ public sealed class MainWindowViewModel : ObservableObject
     public ProjectionWorkspaceViewModel ProjectionWorkspace { get; }
     public GraphicMasterViewModel GraphicMasterWorkspace { get; }
     public ICollectionView CollisionScenes { get; }
+    public ApplicationLogService AppLog { get; }
+    public ObservableCollection<ApplicationLogEntry> ConsoleEntries => AppLog.Entries;
 
     public ObservableCollection<CollisionSceneViewModel> Scenes => _sceneCollectionService.Scenes;
 
@@ -135,7 +143,7 @@ public sealed class MainWindowViewModel : ObservableObject
             _sceneCollectionService.SelectedScene = value;
             if (value is not null)
             {
-                StatusMessage = $"Selected scene '{value.Name}'.";
+                SetStatus($"Selected scene '{value.Name}'.");
             }
 
             RefreshSceneBindingsAndViewport();
@@ -177,6 +185,8 @@ public sealed class MainWindowViewModel : ObservableObject
     public ICommand ShowAnnotationWorkspaceCommand { get; }
     public ICommand ShowProjectionWorkspaceCommand { get; }
     public ICommand ShowGraphicMasterWorkspaceCommand { get; }
+    public ICommand ClearConsoleCommand { get; }
+    public ICommand CopyConsoleCommand { get; }
 
     public bool IsNavigationCollapsed
     {
@@ -314,7 +324,7 @@ public sealed class MainWindowViewModel : ObservableObject
         var scene = _sceneCollectionService.CreateScene(NewSceneName);
         SelectedScene = scene;
         NewSceneName = $"Scene {Scenes.Count + 1}";
-        StatusMessage = $"Created scene '{scene.Name}'.";
+        SetStatus($"Created scene '{scene.Name}'.", ApplicationLogLevel.Success);
         RaiseCanExecuteChanges();
         RefreshViewport(false);
     }
@@ -323,15 +333,16 @@ public sealed class MainWindowViewModel : ObservableObject
     {
         if (SelectedScene is null)
         {
-            StatusMessage = "Select a scene to delete.";
+            SetStatus("Select a scene to delete.", ApplicationLogLevel.Warning);
             return;
         }
 
         var deletedName = SelectedScene.Name;
         _sceneCollectionService.RemoveScene(SelectedScene);
-        StatusMessage = Scenes.Count == 0
+        SetStatus(Scenes.Count == 0
             ? $"Deleted '{deletedName}'. Workspace is empty."
-            : $"Deleted '{deletedName}'.";
+            : $"Deleted '{deletedName}'.",
+            ApplicationLogLevel.Success);
 
         RefreshSceneBindingsAndViewport();
     }
@@ -346,7 +357,7 @@ public sealed class MainWindowViewModel : ObservableObject
 
         if (!ValidatePrismInputs(NewPrismSizeX, NewPrismSizeY, NewPrismSizeZ, out var error))
         {
-            StatusMessage = error;
+            SetStatus(error, ApplicationLogLevel.Warning);
             return;
         }
 
@@ -371,13 +382,13 @@ public sealed class MainWindowViewModel : ObservableObject
 
         if (!ValidatePrismInputs(NewPrismSizeX, NewPrismSizeY, NewPrismSizeZ, out var error))
         {
-            StatusMessage = error;
+            SetStatus(error, ApplicationLogLevel.Warning);
             return;
         }
 
         if (!ValidatePrismArrayInputs(SelectedPrismArrayPlacementMode, NewPrismArrayCount, NewPrismArrayRadius, NewPrismArrayLength, out error))
         {
-            StatusMessage = error;
+            SetStatus(error, ApplicationLogLevel.Warning);
             return;
         }
 
@@ -406,7 +417,7 @@ public sealed class MainWindowViewModel : ObservableObject
         NewPrismName = $"Prism {scene.Prisms.Count + 1}";
         RaiseCanExecuteChanges();
         RefreshViewport(false);
-        StatusMessage = $"Added {created.Count} prisms in a {SelectedPrismArrayPlacementMode} array around the world origin with global-axis-aligned default frames.";
+        SetStatus($"Added {created.Count} prisms in a {SelectedPrismArrayPlacementMode} array around the world origin with global-axis-aligned default frames.", ApplicationLogLevel.Success);
     }
 
     private void AddRay()
@@ -419,7 +430,7 @@ public sealed class MainWindowViewModel : ObservableObject
 
         if (!ValidateDirection(NewRayDirectionX, NewRayDirectionY, NewRayDirectionZ, out var error))
         {
-            StatusMessage = error;
+            SetStatus(error, ApplicationLogLevel.Warning);
             return;
         }
 
@@ -448,7 +459,7 @@ public sealed class MainWindowViewModel : ObservableObject
 
         if (!ValidateLightSourceInputs(NewLightSourceRadius, NewLightSourceHeight, NewLightSourceRayCount, NewLightSourceTiltWeight, out var error))
         {
-            StatusMessage = error;
+            SetStatus(error, ApplicationLogLevel.Warning);
             return;
         }
 
@@ -482,7 +493,7 @@ public sealed class MainWindowViewModel : ObservableObject
         var scene = GetSelectedSceneOrSetStatus();
         if (scene?.SelectedPrism is null)
         {
-            StatusMessage = "Select a prism to remove.";
+            SetStatus("Select a prism to remove.", ApplicationLogLevel.Warning);
             return;
         }
 
@@ -502,7 +513,7 @@ public sealed class MainWindowViewModel : ObservableObject
 
         if (scene.Prisms.Count == 0)
         {
-            StatusMessage = "There are no prisms to delete.";
+            SetStatus("There are no prisms to delete.", ApplicationLogLevel.Warning);
             return;
         }
 
@@ -511,7 +522,7 @@ public sealed class MainWindowViewModel : ObservableObject
         scene.SelectedPrism = null;
         RaiseCanExecuteChanges();
         RefreshViewport(false);
-        StatusMessage = $"Deleted {deleted} prisms.";
+        SetStatus($"Deleted {deleted} prisms.", ApplicationLogLevel.Success);
     }
 
     private void RemoveAllRays()
@@ -524,7 +535,7 @@ public sealed class MainWindowViewModel : ObservableObject
 
         if (scene.Rays.Count == 0)
         {
-            StatusMessage = "There are no rays to delete.";
+            SetStatus("There are no rays to delete.", ApplicationLogLevel.Warning);
             return;
         }
 
@@ -533,7 +544,7 @@ public sealed class MainWindowViewModel : ObservableObject
         scene.SelectedRay = null;
         RaiseCanExecuteChanges();
         RefreshViewport(false);
-        StatusMessage = $"Deleted {deleted} rays.";
+        SetStatus($"Deleted {deleted} rays.", ApplicationLogLevel.Success);
     }
 
     private void RemoveSelectedRay()
@@ -541,7 +552,7 @@ public sealed class MainWindowViewModel : ObservableObject
         var scene = GetSelectedSceneOrSetStatus();
         if (scene?.SelectedRay is null)
         {
-            StatusMessage = "Select a ray to remove.";
+            SetStatus("Select a ray to remove.", ApplicationLogLevel.Warning);
             return;
         }
 
@@ -556,7 +567,7 @@ public sealed class MainWindowViewModel : ObservableObject
         var scene = GetSelectedSceneOrSetStatus();
         if (scene?.SelectedLightSource is null)
         {
-            StatusMessage = "Select a light source to remove.";
+            SetStatus("Select a light source to remove.", ApplicationLogLevel.Warning);
             return;
         }
 
@@ -570,13 +581,13 @@ public sealed class MainWindowViewModel : ObservableObject
     {
         if (SelectedScene is null)
         {
-            StatusMessage = "Create or select a scene first.";
+            SetStatus("Create or select a scene first.", ApplicationLogLevel.Warning);
             return;
         }
 
         if (!ValidateAllSceneItems(out var error))
         {
-            StatusMessage = error;
+            SetStatus(error, ApplicationLogLevel.Warning);
             return;
         }
 
@@ -587,18 +598,18 @@ public sealed class MainWindowViewModel : ObservableObject
     {
         if (SelectedScene is null)
         {
-            StatusMessage = "Create or select a scene first.";
+            SetStatus("Create or select a scene first.", ApplicationLogLevel.Warning);
             return;
         }
 
         if (!ValidateAllSceneItems(out var error))
         {
-            StatusMessage = error;
+            SetStatus(error, ApplicationLogLevel.Warning);
             return;
         }
 
         RefreshViewport(false);
-        StatusMessage = "Generated rays refreshed from cylindrical light sources.";
+        SetStatus("Generated rays refreshed from cylindrical light sources.");
     }
 
     private void ResetDemoScene()
@@ -639,7 +650,7 @@ public sealed class MainWindowViewModel : ObservableObject
         scene.SelectedLightSource = null;
 
         RefreshViewport(true);
-        StatusMessage = "Demo scene reset with manual and generated rays.";
+        SetStatus("Demo scene reset with manual and generated rays.", ApplicationLogLevel.Success);
         RaiseCanExecuteChanges();
     }
 
@@ -708,18 +719,19 @@ public sealed class MainWindowViewModel : ObservableObject
                     LastParallelCollisionDurationMs = LastCollisionDurationMs;
                 }
 
-                StatusMessage = $"Collision run complete ({SelectedCollisionAlgorithm}) in {elapsedMs:F3} ms. Hits: {rows.Count(r => r.HasHit)}/{rows.Count}.";
+                SetStatus($"Collision run complete ({SelectedCollisionAlgorithm}) in {elapsedMs:F3} ms. Hits: {rows.Count(r => r.HasHit)}/{rows.Count}.", ApplicationLogLevel.Success);
             }
             else
             {
-                StatusMessage = scene is null
+                SetStatus(scene is null
                     ? "No scene selected. Create a scene to begin."
-                    : $"Scene refreshed. Manual rays: {rays.Count}, generated rays: {lightSources.Sum(s => Math.Max(0, s.RayCount))}.";
+                    : $"Scene refreshed. Manual rays: {rays.Count}, generated rays: {lightSources.Sum(s => Math.Max(0, s.RayCount))}.",
+                    ApplicationLogLevel.Trace);
             }
         }
         catch (ArgumentException ex)
         {
-            StatusMessage = $"Please check values: {ex.Message}";
+            SetStatus($"Please check values: {ex.Message}", ApplicationLogLevel.Warning, ex);
             SelectedScene?.HitResults.Clear();
         }
     }
@@ -728,7 +740,7 @@ public sealed class MainWindowViewModel : ObservableObject
     {
         if (_lastCollisionHitPointRecords.Count == 0)
         {
-            StatusMessage = "Run collision first to export hit points.";
+            SetStatus("Run collision first to export hit points.", ApplicationLogLevel.Warning);
             return;
         }
 
@@ -742,12 +754,12 @@ public sealed class MainWindowViewModel : ObservableObject
 
         if (dialog.ShowDialog() != true)
         {
-            StatusMessage = "Export canceled.";
+            SetStatus("Export canceled.");
             return;
         }
 
         _collisionHitPointCsvExportService.Export(dialog.FileName, cylindricalHitPoints);
-        StatusMessage = $"Exported {cylindricalHitPoints.Count} cylindrical hit points to '{dialog.FileName}'.";
+        SetStatus($"Exported {cylindricalHitPoints.Count} cylindrical hit points to '{dialog.FileName}'.", ApplicationLogLevel.Success);
     }
 
     private bool ValidateAllSceneItems(out string error)
@@ -868,8 +880,45 @@ public sealed class MainWindowViewModel : ObservableObject
             return SelectedScene;
         }
 
-        StatusMessage = "Create or select a scene first.";
+        SetStatus("Create or select a scene first.", ApplicationLogLevel.Warning);
         return null;
+    }
+
+    private void SetStatus(string message, ApplicationLogLevel level = ApplicationLogLevel.Info, Exception? exception = null)
+    {
+        StatusMessage = message;
+
+        switch (level)
+        {
+            case ApplicationLogLevel.Trace:
+                AppLog.LogTrace(message, nameof(MainWindowViewModel));
+                break;
+            case ApplicationLogLevel.Info:
+                AppLog.LogInfo(message, nameof(MainWindowViewModel));
+                break;
+            case ApplicationLogLevel.Success:
+                AppLog.LogSuccess(message, nameof(MainWindowViewModel));
+                break;
+            case ApplicationLogLevel.Warning:
+                AppLog.LogWarning(message, nameof(MainWindowViewModel));
+                break;
+            case ApplicationLogLevel.Error:
+                AppLog.LogError(message, exception, nameof(MainWindowViewModel));
+                break;
+        }
+    }
+
+    private void CopyConsoleToClipboard()
+    {
+        try
+        {
+            Clipboard.SetText(AppLog.CopyAllText());
+            SetStatus("Console text copied to clipboard.");
+        }
+        catch (Exception ex)
+        {
+            SetStatus($"Failed to copy console text: {ex.Message}", ApplicationLogLevel.Warning, ex);
+        }
     }
 
     private void OnSceneCollectionPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
@@ -894,7 +943,7 @@ public sealed class MainWindowViewModel : ObservableObject
         }
 
         _projectPersistenceCoordinator.SaveProject(dialog.FileName, _sceneCollectionService, SelectedScene, AnnotationWorkspace, ProjectionWorkspace);
-        StatusMessage = $"Project saved to '{dialog.FileName}'.";
+        SetStatus($"Project saved to '{dialog.FileName}'.", ApplicationLogLevel.Success);
     }
 
     private void LoadProject()
@@ -911,7 +960,7 @@ public sealed class MainWindowViewModel : ObservableObject
 
         _projectPersistenceCoordinator.LoadProject(dialog.FileName, _sceneCollectionService, AnnotationWorkspace, ProjectionWorkspace);
         RefreshSceneBindingsAndViewport();
-        StatusMessage = $"Project loaded from '{dialog.FileName}'.";
+        SetStatus($"Project loaded from '{dialog.FileName}'.", ApplicationLogLevel.Success);
     }
 
     private void SaveCollisionTabState()
@@ -928,7 +977,7 @@ public sealed class MainWindowViewModel : ObservableObject
         }
 
         _projectPersistenceCoordinator.SaveCollisionTab(dialog.FileName, _sceneCollectionService, SelectedScene);
-        StatusMessage = $"Collision tab state saved to '{dialog.FileName}'.";
+        SetStatus($"Collision tab state saved to '{dialog.FileName}'.", ApplicationLogLevel.Success);
     }
 
     private void LoadCollisionTabState()
@@ -945,7 +994,7 @@ public sealed class MainWindowViewModel : ObservableObject
 
         _projectPersistenceCoordinator.LoadCollisionTab(dialog.FileName, _sceneCollectionService);
         RefreshSceneBindingsAndViewport();
-        StatusMessage = $"Collision tab state loaded from '{dialog.FileName}'.";
+        SetStatus($"Collision tab state loaded from '{dialog.FileName}'.", ApplicationLogLevel.Success);
     }
 
     private void SaveProjectionTabState()
@@ -962,7 +1011,7 @@ public sealed class MainWindowViewModel : ObservableObject
         }
 
         _projectPersistenceCoordinator.SaveProjectionTab(dialog.FileName, _sceneCollectionService, ProjectionWorkspace);
-        StatusMessage = $"Projection tab state saved to '{dialog.FileName}'.";
+        SetStatus($"Projection tab state saved to '{dialog.FileName}'.", ApplicationLogLevel.Success);
     }
 
     private void LoadProjectionTabState()
@@ -979,7 +1028,7 @@ public sealed class MainWindowViewModel : ObservableObject
 
         _projectPersistenceCoordinator.LoadProjectionTab(dialog.FileName, _sceneCollectionService, ProjectionWorkspace);
         RefreshSceneBindingsAndViewport();
-        StatusMessage = $"Projection tab state loaded from '{dialog.FileName}'.";
+        SetStatus($"Projection tab state loaded from '{dialog.FileName}'.", ApplicationLogLevel.Success);
     }
 
     private void SaveAnnotationTabState()
@@ -996,7 +1045,7 @@ public sealed class MainWindowViewModel : ObservableObject
         }
 
         _projectPersistenceCoordinator.SaveAnnotationTab(dialog.FileName, AnnotationWorkspace);
-        StatusMessage = $"Annotation tab state saved to '{dialog.FileName}'.";
+        SetStatus($"Annotation tab state saved to '{dialog.FileName}'.", ApplicationLogLevel.Success);
     }
 
     private void LoadAnnotationTabState()
@@ -1012,7 +1061,7 @@ public sealed class MainWindowViewModel : ObservableObject
         }
 
         _projectPersistenceCoordinator.LoadAnnotationTab(dialog.FileName, AnnotationWorkspace);
-        StatusMessage = $"Annotation tab state loaded from '{dialog.FileName}'.";
+        SetStatus($"Annotation tab state loaded from '{dialog.FileName}'.", ApplicationLogLevel.Success);
     }
 
     private void RefreshSceneBindingsAndViewport()
