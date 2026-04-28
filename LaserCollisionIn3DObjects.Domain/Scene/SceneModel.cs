@@ -19,6 +19,11 @@ public sealed class SceneModel
     public List<CylindricalLightSource> CylindricalLightSources { get; } = new();
 
     /// <summary>
+    /// Gets additional axisymmetric (non-cylindrical) light sources in the scene.
+    /// </summary>
+    public List<AxisymmetricLightSource> AxisymmetricLightSources { get; } = new();
+
+    /// <summary>
     /// Gets the rays in the scene.
     /// </summary>
     public List<Ray3D> Rays { get; } = new();

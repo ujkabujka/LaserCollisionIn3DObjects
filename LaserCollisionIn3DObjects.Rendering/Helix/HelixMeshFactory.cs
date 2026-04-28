@@ -121,6 +121,51 @@ public sealed class HelixMeshFactory
         return new ModelVisual3D { Content = group };
     }
 
+
+    public ModelVisual3D CreateAxisymmetricLightSourceBatch(IReadOnlyList<AxisymmetricLightSource> sources, Color? color = null)
+    {
+        ArgumentNullException.ThrowIfNull(sources);
+
+        var material = MaterialHelper.CreateMaterial(color ?? Colors.Goldenrod);
+        var group = new Model3DGroup();
+
+        foreach (var source in sources)
+        {
+            var meshBuilder = new MeshBuilder(generateNormals: true, generateTexCoords: false);
+            const int slices = 32;
+            const int stacks = 20;
+
+            for (var stack = 0; stack < stacks; stack++)
+            {
+                var u0 = source.Profile.Length * (stack / (float)stacks);
+                var u1 = source.Profile.Length * ((stack + 1) / (float)stacks);
+
+                for (var slice = 0; slice < slices; slice++)
+                {
+                    var t0 = 2f * MathF.PI * (slice / (float)slices);
+                    var t1 = 2f * MathF.PI * ((slice + 1) / (float)slices);
+
+                    var p00 = ToPoint3D(source.Profile.EvaluateSurfacePoint(u0, t0));
+                    var p01 = ToPoint3D(source.Profile.EvaluateSurfacePoint(u0, t1));
+                    var p10 = ToPoint3D(source.Profile.EvaluateSurfacePoint(u1, t0));
+                    var p11 = ToPoint3D(source.Profile.EvaluateSurfacePoint(u1, t1));
+                    meshBuilder.AddQuad(p00, p01, p11, p10);
+                }
+            }
+
+            group.Children.Add(new GeometryModel3D
+            {
+                Geometry = meshBuilder.ToMesh(),
+                Material = material,
+                BackMaterial = material,
+                Transform = CreateTransform(source.Frame.Position, source.Frame.Orientation),
+            });
+        }
+
+        return new ModelVisual3D { Content = group };
+    }
+
+    private static Point3D ToPoint3D(Vector3 point) => new(point.X, point.Y, point.Z);
     private static Transform3D CreateTransform(Vector3 position, System.Numerics.Quaternion orientation)
     {
         var rotation = new RotateTransform3D(

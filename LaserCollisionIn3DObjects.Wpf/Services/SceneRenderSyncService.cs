@@ -29,7 +29,8 @@ public sealed class SceneRenderSyncService
     private readonly HelixViewport3D _viewport;
     private readonly ModelVisual3D _dynamicVisualRoot = new();
     private readonly HelixSceneBuilder _sceneBuilder = new();
-    private readonly CylindricalRayGenerator _rayGenerator = new();
+    private readonly CylindricalRayGenerator _cylindricalRayGenerator = new();
+    private readonly AxisymmetricRayGenerator _axisymmetricRayGenerator = new();
 
     public SceneRenderSyncService(HelixViewport3D viewport)
     {
@@ -105,20 +106,55 @@ public sealed class SceneRenderSyncService
                 lightSource.RotationY,
                 lightSource.RotationZ);
 
-            var domainSource = new CylindricalLightSource(
-                string.IsNullOrWhiteSpace(lightSource.Name) ? "Light Source" : lightSource.Name,
-                new Frame3D(new Vector3(lightSource.PositionX, lightSource.PositionY, lightSource.PositionZ), orientation),
-                lightSource.Radius,
-                lightSource.Height,
-                lightSource.RayCount,
-                lightSource.TiltWeight,
-                new Vector3(lightSource.TiltPointX, lightSource.TiltPointY, lightSource.TiltPointZ));
+            var frame = new Frame3D(new Vector3(lightSource.PositionX, lightSource.PositionY, lightSource.PositionZ), orientation);
+            var tiltPoint = new Vector3(lightSource.TiltPointX, lightSource.TiltPointY, lightSource.TiltPointZ);
 
-            scene.CylindricalLightSources.Add(domainSource);
-            var generatedRays = _rayGenerator.Generate(domainSource);
+            List<DomainRay3D> generatedRays;
+            CollisionRaySourceType sourceType;
+
+            if (lightSource.SourceKind == AxisymmetricSourceKind.Cylinder)
+            {
+                var cylindricalSource = new CylindricalLightSource(
+                    string.IsNullOrWhiteSpace(lightSource.Name) ? "Light Source" : lightSource.Name,
+                    frame,
+                    lightSource.Radius,
+                    lightSource.Height,
+                    lightSource.RayCount,
+                    lightSource.TiltWeight,
+                    tiltPoint);
+
+                scene.CylindricalLightSources.Add(cylindricalSource);
+                generatedRays = _cylindricalRayGenerator.Generate(cylindricalSource);
+                sourceType = CollisionRaySourceType.CylindricalGenerated;
+            }
+            else
+            {
+                IAxisymmetricSourceProfile profile = lightSource.SourceKind switch
+                {
+                    AxisymmetricSourceKind.ConicalFrustum => new ConicalFrustumSourceProfile(lightSource.RadiusStart, lightSource.RadiusEnd, lightSource.Length),
+                    AxisymmetricSourceKind.CircularOgive => new CircularOgiveSourceProfile(lightSource.RadiusStart, lightSource.RadiusEnd, lightSource.Length, lightSource.ArcRadius, lightSource.OgiveCurvatureDirection),
+                    _ => throw new ArgumentOutOfRangeException(nameof(lightSource.SourceKind), "Unsupported axisymmetric source kind."),
+                };
+
+                var axisymmetricSource = new AxisymmetricLightSource(
+                    string.IsNullOrWhiteSpace(lightSource.Name) ? "Light Source" : lightSource.Name,
+                    frame,
+                    lightSource.SourceKind,
+                    profile,
+                    lightSource.RayCount,
+                    lightSource.TiltWeight,
+                    tiltPoint);
+
+                scene.AxisymmetricLightSources.Add(axisymmetricSource);
+                generatedRays = _axisymmetricRayGenerator.Generate(axisymmetricSource);
+                sourceType = lightSource.SourceKind == AxisymmetricSourceKind.ConicalFrustum
+                    ? CollisionRaySourceType.ConicalFrustumGenerated
+                    : CollisionRaySourceType.CircularOgiveGenerated;
+            }
+
             scene.GeneratedRays.AddRange(generatedRays);
             scene.Rays.AddRange(generatedRays);
-            raySourceTypes.AddRange(Enumerable.Repeat(CollisionRaySourceType.CylindricalGenerated, generatedRays.Count));
+            raySourceTypes.AddRange(Enumerable.Repeat(sourceType, generatedRays.Count));
         }
 
         foreach (var ray in rays)

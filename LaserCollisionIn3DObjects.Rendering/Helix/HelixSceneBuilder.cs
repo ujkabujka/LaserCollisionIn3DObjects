@@ -40,8 +40,13 @@ public sealed class HelixSceneBuilder
             scene.RectangularPrisms.Select(prism => (prism.Frame, GetPrismFrameAxisLength(prism))).ToList()));
 
         visuals.Add(_meshFactory.CreateCylindricalLightSourceBatch(scene.CylindricalLightSources, Colors.Gold));
-        visuals.AddRange(_frameVisualizer.CreateFrameVisualsBatch(
-            scene.CylindricalLightSources.Select(lightSource => (lightSource.Frame, GetLightSourceFrameAxisLength(lightSource))).ToList()));
+        visuals.Add(_meshFactory.CreateAxisymmetricLightSourceBatch(scene.AxisymmetricLightSources, Colors.Goldenrod));
+
+        var lightSourceFrames = scene.CylindricalLightSources
+            .Select(lightSource => (lightSource.Frame, GetLightSourceFrameAxisLength(lightSource)))
+            .Concat(scene.AxisymmetricLightSources.Select(lightSource => (lightSource.Frame, GetLightSourceFrameAxisLength(lightSource))))
+            .ToList();
+        visuals.AddRange(_frameVisualizer.CreateFrameVisualsBatch(lightSourceFrames));
 
         var raySegments = new List<(Ray3D Ray, float Length)>(scene.Rays.Count);
         var generatedRayOriginsWithoutHit = new List<Ray3D>();
@@ -167,8 +172,14 @@ public sealed class HelixSceneBuilder
 
     private static float GetLightSourceFrameAxisLength(CylindricalLightSource source)
     {
-        //return Math.Max(source.Height, source.Radius * 2f) * 0.65f;
-        return 1f;
+        return Math.Max(source.Height, source.Radius * 2f) * 0.25f;
+    }
+
+    private static float GetLightSourceFrameAxisLength(AxisymmetricLightSource source)
+    {
+        var startRadius = source.Profile.RadiusAt(0f);
+        var endRadius = source.Profile.RadiusAt(source.Profile.Length);
+        return Math.Max(source.Profile.Length, Math.Max(startRadius, endRadius) * 2f) * 0.25f;
     }
 
     private static Frame3D ToFrame3D(PointSourceFrameState frame)
