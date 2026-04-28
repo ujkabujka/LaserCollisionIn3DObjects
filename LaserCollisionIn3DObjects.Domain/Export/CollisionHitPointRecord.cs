@@ -7,6 +7,7 @@ public enum CollisionRaySourceType
     CylindricalGenerated,
     ConicalFrustumGenerated,
     CircularOgiveGenerated,
+    HybridAxisymmetricGenerated,
     Manual,
     ProjectionResult,
 }

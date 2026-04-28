@@ -126,43 +126,65 @@ public sealed class HelixMeshFactory
     {
         ArgumentNullException.ThrowIfNull(sources);
 
-        var material = MaterialHelper.CreateMaterial(color ?? Colors.Goldenrod);
         var group = new Model3DGroup();
-
+        var resolvedColor = color ?? Colors.Goldenrod;
         foreach (var source in sources)
         {
-            var meshBuilder = new MeshBuilder(generateNormals: true, generateTexCoords: false);
-            const int slices = 32;
-            const int stacks = 20;
-
-            for (var stack = 0; stack < stacks; stack++)
+            var visual = CreateAxisymmetricSourceProfileVisual(source.Profile, source.Frame, resolvedColor, 1d, slices: 32, stacks: 20);
+            if (visual.Content is GeometryModel3D geometry)
             {
-                var u0 = source.Profile.Length * (stack / (float)stacks);
-                var u1 = source.Profile.Length * ((stack + 1) / (float)stacks);
-
-                for (var slice = 0; slice < slices; slice++)
-                {
-                    var t0 = 2f * MathF.PI * (slice / (float)slices);
-                    var t1 = 2f * MathF.PI * ((slice + 1) / (float)slices);
-
-                    var p00 = ToPoint3D(source.Profile.EvaluateSurfacePoint(u0, t0));
-                    var p01 = ToPoint3D(source.Profile.EvaluateSurfacePoint(u0, t1));
-                    var p10 = ToPoint3D(source.Profile.EvaluateSurfacePoint(u1, t0));
-                    var p11 = ToPoint3D(source.Profile.EvaluateSurfacePoint(u1, t1));
-                    meshBuilder.AddQuad(p00, p01, p11, p10);
-                }
+                group.Children.Add(geometry);
             }
-
-            group.Children.Add(new GeometryModel3D
-            {
-                Geometry = meshBuilder.ToMesh(),
-                Material = material,
-                BackMaterial = material,
-                Transform = CreateTransform(source.Frame.Position, source.Frame.Orientation),
-            });
         }
 
         return new ModelVisual3D { Content = group };
+    }
+
+    public ModelVisual3D CreateAxisymmetricSourceProfileVisual(
+        IAxisymmetricSourceProfile profile,
+        Frame3D frame,
+        Color color,
+        double opacity,
+        int slices = 32,
+        int stacks = 32)
+    {
+        ArgumentNullException.ThrowIfNull(profile);
+        ArgumentNullException.ThrowIfNull(frame);
+
+        var meshBuilder = new MeshBuilder(generateNormals: true, generateTexCoords: false);
+        var clampedOpacity = Math.Clamp(opacity, 0d, 1d);
+
+        for (var stack = 0; stack < stacks; stack++)
+        {
+            var u0 = profile.Length * (stack / (float)stacks);
+            var u1 = profile.Length * ((stack + 1) / (float)stacks);
+
+            for (var slice = 0; slice < slices; slice++)
+            {
+                var t0 = 2f * MathF.PI * (slice / (float)slices);
+                var t1 = 2f * MathF.PI * ((slice + 1) / (float)slices);
+
+                var p00 = ToPoint3D(profile.EvaluateSurfacePoint(u0, t0));
+                var p01 = ToPoint3D(profile.EvaluateSurfacePoint(u0, t1));
+                var p10 = ToPoint3D(profile.EvaluateSurfacePoint(u1, t0));
+                var p11 = ToPoint3D(profile.EvaluateSurfacePoint(u1, t1));
+                meshBuilder.AddQuad(p00, p01, p11, p10);
+            }
+        }
+
+        var mesh = meshBuilder.ToMesh();
+        var adjustedColor = Color.FromArgb((byte)Math.Round(255d * clampedOpacity), color.R, color.G, color.B);
+        var material = MaterialHelper.CreateMaterial(adjustedColor);
+
+        var geometry = new GeometryModel3D
+        {
+            Geometry = mesh,
+            Material = material,
+            BackMaterial = material,
+            Transform = CreateTransform(frame.Position, frame.Orientation),
+        };
+
+        return new ModelVisual3D { Content = geometry };
     }
 
     private static Point3D ToPoint3D(Vector3 point) => new(point.X, point.Y, point.Z);

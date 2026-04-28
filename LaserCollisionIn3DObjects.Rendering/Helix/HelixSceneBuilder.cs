@@ -103,7 +103,10 @@ public sealed class HelixSceneBuilder
 
     public IReadOnlyList<Visual3D> BuildProjectionVisuals(
         IReadOnlyList<Point3> holePoints,
-        ProjectionComputationResult? projectionResult)
+        ProjectionComputationResult? projectionResult,
+        IAxisymmetricSourceProfile? previewProfile = null,
+        Frame3D? previewFrame = null,
+        bool previewAsGhost = true)
     {
         ArgumentNullException.ThrowIfNull(holePoints);
 
@@ -116,6 +119,13 @@ public sealed class HelixSceneBuilder
         if (projectionResult?.SourceFrame is { } sourceFrame)
         {
             visuals.AddRange(_frameVisualizer.CreateFrameVisualsBatch(new[] { (ToFrame3D(sourceFrame), 1.5f) }));
+        }
+
+        if (previewProfile is not null && previewFrame is not null)
+        {
+            var previewOpacity = previewAsGhost ? 0.25d : 1d;
+            visuals.Add(_meshFactory.CreateAxisymmetricSourceProfileVisual(previewProfile, previewFrame, Colors.MediumPurple, previewOpacity, slices: 32, stacks: 24));
+            visuals.AddRange(_frameVisualizer.CreateFrameVisualsBatch(new[] { (previewFrame, 1.5f) }));
         }
 
         if (projectionResult?.CylindricalSource is { } cylindrical)

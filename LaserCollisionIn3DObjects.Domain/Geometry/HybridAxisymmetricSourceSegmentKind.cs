@@ -1,9 +1,8 @@
 namespace LaserCollisionIn3DObjects.Domain.Geometry;
 
-public enum AxisymmetricSourceKind
+public enum HybridAxisymmetricSourceSegmentKind
 {
     Cylinder,
     ConicalFrustum,
     CircularOgive,
-    Hybrid,
 }
