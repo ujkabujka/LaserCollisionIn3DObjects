@@ -673,4 +673,99 @@ public class PersistenceRoundTripTests
         }
     }
 
+    [Fact]
+    public void AxisymmetricLightSources_RoundTrip_PreservesHybridSegments()
+    {
+        var service = new JsonStateFileService();
+        var filePath = Path.Combine(Path.GetTempPath(), $"lc3d-hybrid-{Guid.NewGuid():N}.json");
+
+        try
+        {
+            var state = new ProjectState
+            {
+                Scenes =
+                [
+                    new SceneState
+                    {
+                        Name = "Scene Hybrid",
+                        LightSources =
+                        [
+                            new AxisymmetricLightSourceState
+                            {
+                                Name = "Hybrid",
+                                SourceKind = AxisymmetricSourceKind.Hybrid,
+                                RayCount = 12,
+                                Segments =
+                                [
+                                    new AxisymmetricSourceSegmentStateDto { SegmentKind = HybridAxisymmetricSourceSegmentKind.Cylinder, Length = 2f, RadiusStart = 3f, RadiusEnd = 3f },
+                                    new AxisymmetricSourceSegmentStateDto { SegmentKind = HybridAxisymmetricSourceSegmentKind.ConicalFrustum, Length = 2f, RadiusStart = 3f, RadiusEnd = 4f },
+                                ],
+                            },
+                        ],
+                    },
+                ],
+                ProjectionWorkspace = new ProjectionWorkspaceStateDto
+                {
+                    HybridSegmentCount = 2,
+                    HybridSegments =
+                    [
+                        new AxisymmetricSourceSegmentStateDto { SegmentKind = HybridAxisymmetricSourceSegmentKind.Cylinder, Length = 1f, RadiusStart = 2f, RadiusEnd = 2f },
+                        new AxisymmetricSourceSegmentStateDto { SegmentKind = HybridAxisymmetricSourceSegmentKind.ConicalFrustum, Length = 1f, RadiusStart = 2f, RadiusEnd = 3f },
+                    ],
+                },
+            };
+
+            service.SaveProject(filePath, state);
+            var restored = service.LoadProject(filePath);
+
+            Assert.Equal(AxisymmetricSourceKind.Hybrid, restored.Scenes[0].LightSources[0].SourceKind);
+            Assert.Equal(2, restored.Scenes[0].LightSources[0].Segments.Count);
+            Assert.Equal(HybridAxisymmetricSourceSegmentKind.ConicalFrustum, restored.Scenes[0].LightSources[0].Segments[1].SegmentKind);
+            Assert.Equal(2, restored.ProjectionWorkspace.HybridSegments.Count);
+        }
+        finally
+        {
+            if (File.Exists(filePath))
+            {
+                File.Delete(filePath);
+            }
+        }
+    }
+
+    [Fact]
+    public void ProjectionWorkspaceState_RoundTrip_PreservesGeometryKind()
+    {
+        var service = new JsonStateFileService();
+        var filePath = Path.Combine(Path.GetTempPath(), $"lc3d-geom-{Guid.NewGuid():N}.json");
+
+        try
+        {
+            var state = new ProjectState
+            {
+                ProjectionWorkspace = new ProjectionWorkspaceStateDto
+                {
+                    ProjectionGeometryKind = AxisymmetricSourceKind.CircularOgive,
+                    GeometryRadiusStart = 2.5,
+                    GeometryRadiusEnd = 1.25,
+                    GeometryLength = 11,
+                    GeometryArcRadius = 24,
+                },
+            };
+
+            service.SaveProject(filePath, state);
+            var restored = service.LoadProject(filePath);
+
+            Assert.Equal(AxisymmetricSourceKind.CircularOgive, restored.ProjectionWorkspace.ProjectionGeometryKind);
+            Assert.Equal(2.5, restored.ProjectionWorkspace.GeometryRadiusStart, 6);
+            Assert.Equal(1.25, restored.ProjectionWorkspace.GeometryRadiusEnd, 6);
+        }
+        finally
+        {
+            if (File.Exists(filePath))
+            {
+                File.Delete(filePath);
+            }
+        }
+    }
+
 }

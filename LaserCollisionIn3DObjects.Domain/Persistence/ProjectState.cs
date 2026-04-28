@@ -59,6 +59,7 @@ public sealed class PrismState
     public float? BaseOrientationY { get; set; }
     public float? BaseOrientationZ { get; set; }
     public float? BaseOrientationW { get; set; }
+    public List<AxisymmetricSourceSegmentStateDto> Segments { get; set; } = new();
 }
 
 public sealed class RayState
@@ -98,7 +99,19 @@ public sealed class AxisymmetricLightSourceState
     public float? BaseOrientationY { get; set; }
     public float? BaseOrientationZ { get; set; }
     public float? BaseOrientationW { get; set; }
+    public List<AxisymmetricSourceSegmentStateDto> Segments { get; set; } = new();
 }
+
+public sealed class AxisymmetricSourceSegmentStateDto
+{
+    public HybridAxisymmetricSourceSegmentKind SegmentKind { get; set; } = HybridAxisymmetricSourceSegmentKind.Cylinder;
+    public float Length { get; set; }
+    public float RadiusStart { get; set; }
+    public float RadiusEnd { get; set; }
+    public float? ArcRadius { get; set; }
+    public OgiveCurvatureDirection OgiveCurvatureDirection { get; set; } = OgiveCurvatureDirection.Outward;
+}
+
 public sealed class CylindricalLightSourceState
 {
     public string Name { get; set; } = string.Empty;
@@ -119,6 +132,7 @@ public sealed class CylindricalLightSourceState
     public float? BaseOrientationY { get; set; }
     public float? BaseOrientationZ { get; set; }
     public float? BaseOrientationW { get; set; }
+    public List<AxisymmetricSourceSegmentStateDto> Segments { get; set; } = new();
 }
 
 public sealed class SceneProjectionStateDto
@@ -228,6 +242,19 @@ public sealed class ProjectionWorkspaceStateDto
 {
     public string? SelectedSceneName { get; set; }
     public string SelectedMethodId { get; set; } = string.Empty;
+    public AxisymmetricSourceKind ProjectionGeometryKind { get; set; } = AxisymmetricSourceKind.Cylinder;
+    public double GeometryRadiusStart { get; set; } = 1d;
+    public double GeometryRadiusEnd { get; set; } = 1d;
+    public double GeometryLength { get; set; } = 10d;
+    public double GeometryArcRadius { get; set; } = 20d;
+    public OgiveCurvatureDirection GeometryOgiveCurvatureDirection { get; set; } = OgiveCurvatureDirection.Outward;
+    public int HybridSegmentCount { get; set; } = 1;
+    public List<AxisymmetricSourceSegmentStateDto> HybridSegments { get; set; } = new();
+    public int HybridRayCount { get; set; } = 200;
+    public float HybridTiltWeight { get; set; } = 0.1f;
+    public float HybridTiltPointX { get; set; }
+    public float HybridTiltPointY { get; set; }
+    public float HybridTiltPointZ { get; set; }
 }
 
 public sealed class AnnotationWorkspaceState

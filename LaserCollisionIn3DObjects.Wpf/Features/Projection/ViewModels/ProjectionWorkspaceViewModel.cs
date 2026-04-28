@@ -28,6 +28,9 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
     private double _projectionProgressPercent;
     private string _projectionProgressMessage = string.Empty;
     private int _lastLoggedProgressBucket = -1;
+    private AxisymmetricSourceKind _selectedAxisymmetricSourceKind = AxisymmetricSourceKind.Cylinder;
+    private int _hybridRayCount = 200;
+    private float _hybridTiltWeight = 0.1f;
 
     public ProjectionWorkspaceViewModel(
         SceneCollectionService sceneCollectionService,
@@ -56,8 +59,12 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
         ImportHitPointsCsvCommand = new RelayCommand(ImportHitPointsCsv);
         DeleteSelectedResultCommand = new RelayCommand(DeleteSelectedResult, () => SelectedResult is not null);
         DeleteSelectedProjectionSceneCommand = new RelayCommand(DeleteSelectedProjectionScene, () => CanDeleteSelectedProjectionScene);
+        AddHybridSegmentCommand = new RelayCommand(AddHybridSegment);
+        RemoveSelectedHybridSegmentCommand = new RelayCommand(RemoveSelectedHybridSegment, () => SelectedHybridSegment is not null);
+        AddGeometryToCollisionSceneCommand = new RelayCommand(AddGeometryToCollision, () => SelectedScene is not null);
 
         _sceneCollectionService.Scenes.CollectionChanged += OnScenesCollectionChanged;
+        AddHybridSegment();
         RefreshAvailableScenes();
     }
 
@@ -69,6 +76,9 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
     public ICommand ImportHitPointsCsvCommand { get; }
     public ICommand DeleteSelectedResultCommand { get; }
     public ICommand DeleteSelectedProjectionSceneCommand { get; }
+    public ICommand AddHybridSegmentCommand { get; }
+    public ICommand RemoveSelectedHybridSegmentCommand { get; }
+    public ICommand AddGeometryToCollisionSceneCommand { get; }
 
     public double PointSourceX { get; set; }
     public double PointSourceY { get; set; }
@@ -91,6 +101,50 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
     public double TiltPointX { get; set; }
     public double TiltPointY { get; set; }
     public double TiltPointZ { get; set; }
+
+    public AxisymmetricSourceKind[] AxisymmetricSourceKinds { get; } = Enum.GetValues<AxisymmetricSourceKind>();
+    public AxisymmetricSourceKind SelectedProjectionGeometryKind
+    {
+        get => SelectedAxisymmetricSourceKind;
+        set => SelectedAxisymmetricSourceKind = value;
+    }
+
+    public AxisymmetricSourceKind SelectedAxisymmetricSourceKind
+    {
+        get => _selectedAxisymmetricSourceKind;
+        set
+        {
+            if (SetProperty(ref _selectedAxisymmetricSourceKind, value))
+            {
+                RaisePropertyChanged(nameof(IsProjectionGeometryCylinder));
+                RaisePropertyChanged(nameof(IsProjectionGeometryConicalFrustum));
+                RaisePropertyChanged(nameof(IsProjectionGeometryCircularOgive));
+                RaisePropertyChanged(nameof(IsProjectionGeometryHybrid));
+                RefreshViewport();
+            }
+        }
+    }
+
+    public bool IsProjectionGeometryCylinder => SelectedAxisymmetricSourceKind == AxisymmetricSourceKind.Cylinder;
+    public bool IsProjectionGeometryConicalFrustum => SelectedAxisymmetricSourceKind == AxisymmetricSourceKind.ConicalFrustum;
+    public bool IsProjectionGeometryCircularOgive => SelectedAxisymmetricSourceKind == AxisymmetricSourceKind.CircularOgive;
+    public bool IsProjectionGeometryHybrid => SelectedAxisymmetricSourceKind == AxisymmetricSourceKind.Hybrid;
+
+    public double GeometryRadiusStart { get; set; } = 1;
+    public double GeometryRadiusEnd { get; set; } = 1;
+    public double GeometryLength { get; set; } = 10;
+    public double GeometryArcRadius { get; set; } = 20;
+    public OgiveCurvatureDirection GeometryOgiveCurvatureDirection { get; set; } = OgiveCurvatureDirection.Outward;
+
+    public ObservableCollection<HybridSourceSegmentItemViewModel> HybridSegments { get; } = new();
+    public HybridSourceSegmentItemViewModel? SelectedHybridSegment { get; set; }
+    public HybridAxisymmetricSourceSegmentKind[] HybridSegmentKinds { get; } = Enum.GetValues<HybridAxisymmetricSourceSegmentKind>();
+    public OgiveCurvatureDirection[] OgiveCurvatureDirections { get; } = Enum.GetValues<OgiveCurvatureDirection>();
+    public int HybridRayCount { get => _hybridRayCount; set => SetProperty(ref _hybridRayCount, value); }
+    public float HybridTiltWeight { get => _hybridTiltWeight; set => SetProperty(ref _hybridTiltWeight, value); }
+    public float HybridTiltPointX { get; set; }
+    public float HybridTiltPointY { get; set; }
+    public float HybridTiltPointZ { get; set; }
 
     public bool IsPointSourceMethodSelected => string.Equals(SelectedMethod?.Id, ProjectionMethodIds.PointSource, StringComparison.OrdinalIgnoreCase);
     public bool IsLegacyCylindricalMethodSelected => string.Equals(SelectedMethod?.Id, ProjectionMethodIds.CylindricalSource, StringComparison.OrdinalIgnoreCase);
@@ -240,6 +294,26 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
         {
             SelectedSceneName = SelectedScene?.Name,
             SelectedMethodId = SelectedMethod?.Id ?? ProjectionWorkspaceState.DefaultMethodId,
+            ProjectionGeometryKind = SelectedAxisymmetricSourceKind,
+            GeometryRadiusStart = GeometryRadiusStart,
+            GeometryRadiusEnd = GeometryRadiusEnd,
+            GeometryLength = GeometryLength,
+            GeometryArcRadius = GeometryArcRadius,
+            GeometryOgiveCurvatureDirection = GeometryOgiveCurvatureDirection,
+            HybridSegments = HybridSegments.Select(segment => new AxisymmetricSourceSegmentStateDto
+            {
+                SegmentKind = segment.SegmentKind,
+                Length = segment.Length,
+                RadiusStart = segment.RadiusStart,
+                RadiusEnd = segment.RadiusEnd,
+                ArcRadius = segment.IsOgive ? segment.ArcRadius : null,
+                OgiveCurvatureDirection = segment.OgiveCurvatureDirection,
+            }).ToList(),
+            HybridRayCount = HybridRayCount,
+            HybridTiltWeight = HybridTiltWeight,
+            HybridTiltPointX = HybridTiltPointX,
+            HybridTiltPointY = HybridTiltPointY,
+            HybridTiltPointZ = HybridTiltPointZ,
         };
     }
 
@@ -250,6 +324,38 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
         SelectedMethod = ProjectionMethods.FirstOrDefault(method => method.Id == state.SelectedMethodId)
             ?? ProjectionMethods.FirstOrDefault(method => method.Id == ProjectionWorkspaceState.DefaultMethodId)
             ?? ProjectionMethods.FirstOrDefault();
+
+        SelectedAxisymmetricSourceKind = state.ProjectionGeometryKind;
+        GeometryRadiusStart = state.GeometryRadiusStart;
+        GeometryRadiusEnd = state.GeometryRadiusEnd;
+        GeometryLength = state.GeometryLength;
+        GeometryArcRadius = state.GeometryArcRadius;
+        GeometryOgiveCurvatureDirection = state.GeometryOgiveCurvatureDirection;
+
+        HybridSegments.Clear();
+        if (state.HybridSegments.Count > 0)
+        {
+            foreach (var segment in state.HybridSegments)
+            {
+                HybridSegments.Add(new HybridSourceSegmentItemViewModel
+                {
+                    SegmentKind = segment.SegmentKind,
+                    Length = segment.Length,
+                    RadiusStart = segment.RadiusStart,
+                    RadiusEnd = segment.RadiusEnd,
+                    ArcRadius = segment.ArcRadius ?? 20f,
+                    OgiveCurvatureDirection = segment.OgiveCurvatureDirection,
+                });
+            }
+
+            SynchronizeHybridSegmentContinuity();
+        }
+
+        HybridRayCount = state.HybridRayCount > 0 ? state.HybridRayCount : HybridRayCount;
+        HybridTiltWeight = state.HybridTiltWeight;
+        HybridTiltPointX = state.HybridTiltPointX;
+        HybridTiltPointY = state.HybridTiltPointY;
+        HybridTiltPointZ = state.HybridTiltPointZ;
 
         SelectedScene = AvailableScenes.FirstOrDefault(scene => scene.Name == state.SelectedSceneName)
             ?? AvailableScenes.FirstOrDefault();
@@ -355,6 +461,12 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
 
                 ProjectionProgressMessage = report.Message;
             });
+
+            if (!IsMethodCompatibleWithGeometry(SelectedMethod.Method))
+            {
+                SetStatus("Selected projection method currently supports only cylinder geometry.", ApplicationLogLevel.Warning);
+                return;
+            }
 
             var request = new ProjectionRequest
             {
@@ -479,8 +591,8 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
                 new Point3(BeamOriginX, BeamOriginY, BeamOriginZ),
                 new Vector3D(SourceFrameXx, SourceFrameXy, SourceFrameXz),
                 new Vector3D(SourceFrameYx, SourceFrameYy, SourceFrameYz),
-                CylindricalRadius,
-                CylindricalLength);
+                GeometryRadiusStart,
+                GeometryLength);
         }
 
         if (method.Metadata.Id == ProjectionMethodIds.SelfCalibratingCylindricalSource)
@@ -489,8 +601,8 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
                 new Point3(BeamOriginX, BeamOriginY, BeamOriginZ),
                 new Vector3D(SourceFrameXx, SourceFrameXy, SourceFrameXz),
                 new Vector3D(SourceFrameYx, SourceFrameYy, SourceFrameYz),
-                CylindricalRadius,
-                CylindricalLength,
+                GeometryRadiusStart,
+                GeometryLength,
                 new Point3(TiltPointX, TiltPointY, TiltPointZ));
         }
 
@@ -500,8 +612,8 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
                 new Point3(BeamOriginX, BeamOriginY, BeamOriginZ),
                 new Vector3D(SourceFrameXx, SourceFrameXy, SourceFrameXz),
                 new Vector3D(SourceFrameYx, SourceFrameYy, SourceFrameYz),
-                CylindricalRadius,
-                CylindricalLength,
+                GeometryRadiusStart,
+                GeometryLength,
                 new Point3(TiltPointX, TiltPointY, TiltPointZ));
         }
 
@@ -607,7 +719,7 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
         var scene = SelectedScene;
         var holePoints = scene?.HolePoints?.ToList() ?? new List<Point3>();
         var result = scene?.ProjectionState.SelectedResult;
-        _projectionRenderSyncService.SyncProjectionScene(holePoints, result);
+        _projectionRenderSyncService.SyncProjectionScene(holePoints, result, BuildSelectedProjectionGeometryProfile(), BuildPreviewFrame(), previewAsGhost: result is null);
     }
 
     private void OnScenesCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e) => RefreshAvailableScenes();
@@ -649,6 +761,199 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
         }
     }
 
+
+    private void AddHybridSegment()
+    {
+        var previous = HybridSegments.LastOrDefault();
+        var radius = previous?.RadiusEnd ?? (float)GeometryRadiusStart;
+        HybridSegments.Add(new HybridSourceSegmentItemViewModel
+        {
+            SegmentIndex = HybridSegments.Count + 1,
+            IsRadiusStartEditable = HybridSegments.Count == 0,
+            RadiusStart = radius,
+            RadiusEnd = radius,
+        });
+
+        SynchronizeHybridSegmentContinuity();
+        SelectedHybridSegment = HybridSegments.LastOrDefault();
+        RefreshViewport();
+    }
+
+    private void RemoveSelectedHybridSegment()
+    {
+        if (SelectedHybridSegment is null)
+        {
+            SetStatus("Select a hybrid segment to remove.", ApplicationLogLevel.Warning);
+            return;
+        }
+
+        HybridSegments.Remove(SelectedHybridSegment);
+        if (HybridSegments.Count == 0)
+        {
+            AddHybridSegment();
+        }
+
+        SynchronizeHybridSegmentContinuity();
+        SelectedHybridSegment = HybridSegments.LastOrDefault();
+        RefreshViewport();
+    }
+
+    private void SynchronizeHybridSegmentContinuity()
+    {
+        for (var i = 0; i < HybridSegments.Count; i++)
+        {
+            HybridSegments[i].SegmentIndex = i + 1;
+            HybridSegments[i].IsRadiusStartEditable = i == 0;
+            if (i > 0)
+            {
+                HybridSegments[i].RadiusStart = HybridSegments[i - 1].RadiusEnd;
+            }
+
+            if (HybridSegments[i].SegmentKind == HybridAxisymmetricSourceSegmentKind.Cylinder)
+            {
+                HybridSegments[i].RadiusEnd = HybridSegments[i].RadiusStart;
+            }
+        }
+    }
+
+    private bool IsMethodCompatibleWithGeometry(IProjectionMethod method)
+    {
+        if (method.Metadata.Id == ProjectionMethodIds.PointSource)
+        {
+            return true;
+        }
+
+        var requiresCylinder = method.Metadata.Id == ProjectionMethodIds.CylindricalSource
+            || method.Metadata.Id == ProjectionMethodIds.SelfCalibratingCylindricalSource
+            || method.Metadata.Id == ProjectionMethodIds.LeastSquaresCylindricalAlignmentSource;
+
+        return !requiresCylinder || SelectedAxisymmetricSourceKind == AxisymmetricSourceKind.Cylinder;
+    }
+
+    private IAxisymmetricSourceProfile? BuildSelectedProjectionGeometryProfile()
+    {
+        try
+        {
+            return SelectedAxisymmetricSourceKind switch
+            {
+                AxisymmetricSourceKind.Cylinder => new CylindricalSourceProfile((float)GeometryRadiusStart, (float)GeometryLength),
+                AxisymmetricSourceKind.ConicalFrustum => new ConicalFrustumSourceProfile((float)GeometryRadiusStart, (float)GeometryRadiusEnd, (float)GeometryLength),
+                AxisymmetricSourceKind.CircularOgive => new CircularOgiveSourceProfile((float)GeometryRadiusStart, (float)GeometryRadiusEnd, (float)GeometryLength, (float)GeometryArcRadius, GeometryOgiveCurvatureDirection),
+                AxisymmetricSourceKind.Hybrid => BuildHybridPreviewProfile(),
+                _ => null,
+            };
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private IAxisymmetricSourceProfile? BuildHybridPreviewProfile()
+    {
+        if (HybridSegments.Count == 0)
+        {
+            return null;
+        }
+
+        try
+        {
+            SynchronizeHybridSegmentContinuity();
+            return new HybridAxisymmetricSourceProfile(HybridSegments.Select(segment => new HybridAxisymmetricSourceSegmentDefinition(
+                segment.SegmentKind,
+                segment.Length,
+                segment.RadiusStart,
+                segment.RadiusEnd,
+                segment.IsOgive ? segment.ArcRadius : null,
+                segment.OgiveCurvatureDirection)).ToList());
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+
+    private Frame3D BuildPreviewFrame()
+    {
+        var sourceFrame = PointSourceFrameBuilder.Build(
+            new Point3(BeamOriginX, BeamOriginY, BeamOriginZ),
+            new Vector3D(SourceFrameXx, SourceFrameXy, SourceFrameXz),
+            new Vector3D(SourceFrameYx, SourceFrameYy, SourceFrameYz));
+
+        var x = new System.Numerics.Vector3((float)sourceFrame.AxisX.X, (float)sourceFrame.AxisX.Y, (float)sourceFrame.AxisX.Z);
+        var y = new System.Numerics.Vector3((float)sourceFrame.AxisY.X, (float)sourceFrame.AxisY.Y, (float)sourceFrame.AxisY.Z);
+        var z = new System.Numerics.Vector3((float)sourceFrame.AxisZ.X, (float)sourceFrame.AxisZ.Y, (float)sourceFrame.AxisZ.Z);
+        var matrix = new System.Numerics.Matrix4x4(
+            x.X, x.Y, x.Z, 0,
+            y.X, y.Y, y.Z, 0,
+            z.X, z.Y, z.Z, 0,
+            0, 0, 0, 1);
+        var orientation = System.Numerics.Quaternion.CreateFromRotationMatrix(matrix);
+        return new Frame3D(new System.Numerics.Vector3((float)sourceFrame.Origin.X, (float)sourceFrame.Origin.Y, (float)sourceFrame.Origin.Z), orientation);
+    }
+
+    private void AddGeometryToCollision()
+    {
+        var scene = _sceneCollectionService.SelectedScene ?? _sceneCollectionService.Scenes.FirstOrDefault(scene => !scene.IsProjectionOnly);
+        if (scene is null)
+        {
+            SetStatus("No collision scene is available for adding geometry.", ApplicationLogLevel.Warning);
+            return;
+        }
+
+        var frame = BuildPreviewFrame();
+        var source = new CylindricalLightSourceItemViewModel
+        {
+            Name = $"{SelectedAxisymmetricSourceKind} Source {scene.LightSources.Count + 1}",
+            SourceKind = SelectedAxisymmetricSourceKind switch
+            {
+                AxisymmetricSourceKind.Cylinder => AxisymmetricSourceKind.Cylinder,
+                AxisymmetricSourceKind.ConicalFrustum => AxisymmetricSourceKind.ConicalFrustum,
+                AxisymmetricSourceKind.CircularOgive => AxisymmetricSourceKind.CircularOgive,
+                _ => AxisymmetricSourceKind.Hybrid,
+            },
+            PositionX = frame.Position.X,
+            PositionY = frame.Position.Y,
+            PositionZ = frame.Position.Z,
+            BaseOrientation = frame.Orientation,
+            Radius = (float)GeometryRadiusStart,
+            Height = (float)GeometryLength,
+            RadiusStart = (float)GeometryRadiusStart,
+            RadiusEnd = (float)GeometryRadiusEnd,
+            Length = (float)GeometryLength,
+            ArcRadius = (float)GeometryArcRadius,
+            OgiveCurvatureDirection = GeometryOgiveCurvatureDirection,
+            RayCount = HybridRayCount,
+            TiltWeight = HybridTiltWeight,
+            TiltPointX = HybridTiltPointX,
+            TiltPointY = HybridTiltPointY,
+            TiltPointZ = HybridTiltPointZ,
+        };
+
+        if (SelectedAxisymmetricSourceKind == AxisymmetricSourceKind.Hybrid)
+        {
+            foreach (var segment in HybridSegments)
+            {
+                source.HybridSegments.Add(new HybridSourceSegmentItemViewModel
+                {
+                    SegmentIndex = segment.SegmentIndex,
+                    SegmentKind = segment.SegmentKind,
+                    Length = segment.Length,
+                    RadiusStart = segment.RadiusStart,
+                    RadiusEnd = segment.RadiusEnd,
+                    ArcRadius = segment.ArcRadius,
+                    OgiveCurvatureDirection = segment.OgiveCurvatureDirection,
+                    IsRadiusStartEditable = segment.IsRadiusStartEditable,
+                });
+            }
+        }
+
+        scene.LightSources.Add(source);
+        scene.SelectedLightSource = source;
+        SetStatus($"Added {SelectedAxisymmetricSourceKind} geometry to collision scene '{scene.Name}'.", ApplicationLogLevel.Success);
+    }
+
     private void RaiseCanExecuteChanged()
     {
         if (RunProjectionCommand is RelayCommand runProjectionCommand)
@@ -664,6 +969,16 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
         if (DeleteSelectedProjectionSceneCommand is RelayCommand deleteSelectedSceneCommand)
         {
             deleteSelectedSceneCommand.RaiseCanExecuteChanged();
+        }
+
+        if (AddGeometryToCollisionSceneCommand is RelayCommand addGeometryToCollisionSceneCommand)
+        {
+            addGeometryToCollisionSceneCommand.RaiseCanExecuteChanged();
+        }
+
+        if (RemoveSelectedHybridSegmentCommand is RelayCommand removeSelectedHybridSegmentCommand)
+        {
+            removeSelectedHybridSegmentCommand.RaiseCanExecuteChanged();
         }
     }
 

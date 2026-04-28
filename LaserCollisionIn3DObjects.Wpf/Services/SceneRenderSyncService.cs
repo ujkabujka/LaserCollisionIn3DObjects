@@ -129,12 +129,7 @@ public sealed class SceneRenderSyncService
             }
             else
             {
-                IAxisymmetricSourceProfile profile = lightSource.SourceKind switch
-                {
-                    AxisymmetricSourceKind.ConicalFrustum => new ConicalFrustumSourceProfile(lightSource.RadiusStart, lightSource.RadiusEnd, lightSource.Length),
-                    AxisymmetricSourceKind.CircularOgive => new CircularOgiveSourceProfile(lightSource.RadiusStart, lightSource.RadiusEnd, lightSource.Length, lightSource.ArcRadius, lightSource.OgiveCurvatureDirection),
-                    _ => throw new ArgumentOutOfRangeException(nameof(lightSource.SourceKind), "Unsupported axisymmetric source kind."),
-                };
+                var profile = BuildAxisymmetricProfile(lightSource);
 
                 var axisymmetricSource = new AxisymmetricLightSource(
                     string.IsNullOrWhiteSpace(lightSource.Name) ? "Light Source" : lightSource.Name,
@@ -147,9 +142,13 @@ public sealed class SceneRenderSyncService
 
                 scene.AxisymmetricLightSources.Add(axisymmetricSource);
                 generatedRays = _axisymmetricRayGenerator.Generate(axisymmetricSource);
-                sourceType = lightSource.SourceKind == AxisymmetricSourceKind.ConicalFrustum
-                    ? CollisionRaySourceType.ConicalFrustumGenerated
-                    : CollisionRaySourceType.CircularOgiveGenerated;
+                sourceType = lightSource.SourceKind switch
+                {
+                    AxisymmetricSourceKind.ConicalFrustum => CollisionRaySourceType.ConicalFrustumGenerated,
+                    AxisymmetricSourceKind.CircularOgive => CollisionRaySourceType.CircularOgiveGenerated,
+                    AxisymmetricSourceKind.Hybrid => CollisionRaySourceType.HybridAxisymmetricGenerated,
+                    _ => throw new ArgumentOutOfRangeException(nameof(lightSource.SourceKind), "Unsupported axisymmetric source kind."),
+                };
             }
 
             scene.GeneratedRays.AddRange(generatedRays);
@@ -213,6 +212,24 @@ public sealed class SceneRenderSyncService
         return results;
     }
 
+
+    private static IAxisymmetricSourceProfile BuildAxisymmetricProfile(CylindricalLightSourceItemViewModel lightSource)
+    {
+        return lightSource.SourceKind switch
+        {
+            AxisymmetricSourceKind.ConicalFrustum => new ConicalFrustumSourceProfile(lightSource.RadiusStart, lightSource.RadiusEnd, lightSource.Length),
+            AxisymmetricSourceKind.CircularOgive => new CircularOgiveSourceProfile(lightSource.RadiusStart, lightSource.RadiusEnd, lightSource.Length, lightSource.ArcRadius, lightSource.OgiveCurvatureDirection),
+            AxisymmetricSourceKind.Hybrid => new HybridAxisymmetricSourceProfile(lightSource.HybridSegments.Select(segment =>
+                new HybridAxisymmetricSourceSegmentDefinition(
+                    segment.SegmentKind,
+                    segment.Length,
+                    segment.RadiusStart,
+                    segment.RadiusEnd,
+                    segment.SegmentKind == HybridAxisymmetricSourceSegmentKind.CircularOgive ? segment.ArcRadius : null,
+                    segment.OgiveCurvatureDirection)).ToList()),
+            _ => throw new ArgumentOutOfRangeException(nameof(lightSource.SourceKind), "Unsupported axisymmetric source kind."),
+        };
+    }
     private static List<(DomainRay3D Ray, RayHitResult Hit)> CalculateFirstHitsParallel(SceneModel scene)
     {
         var results = new (DomainRay3D Ray, RayHitResult Hit)[scene.Rays.Count];
