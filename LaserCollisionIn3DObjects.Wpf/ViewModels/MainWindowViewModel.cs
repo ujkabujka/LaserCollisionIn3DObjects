@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.IO;
 using System.Numerics;
 using System.Windows;
 using System.Windows.Input;
@@ -67,6 +68,7 @@ public sealed class MainWindowViewModel : ObservableObject
     private string _lastSequentialCollisionDurationMs = "N/A";
     private string _lastParallelCollisionDurationMs = "N/A";
     private string _statusMessage = "Add objects, then click Run Collision.";
+    private bool _isConsoleVisible = true;
     private bool _isNavigationCollapsed;
     private WorkspaceKind _selectedWorkspace = WorkspaceKind.Collision;
 
@@ -113,6 +115,9 @@ public sealed class MainWindowViewModel : ObservableObject
         ShowGraphicMasterWorkspaceCommand = new RelayCommand(() => SelectedWorkspace = WorkspaceKind.GraphicMaster);
         ClearConsoleCommand = new RelayCommand(() => AppLog.Clear());
         CopyConsoleCommand = new RelayCommand(CopyConsoleToClipboard);
+        ShowConsoleCommand = new RelayCommand(() => IsConsoleVisible = true, () => !IsConsoleVisible);
+        HideConsoleCommand = new RelayCommand(() => IsConsoleVisible = false, () => IsConsoleVisible);
+        ToggleConsoleCommand = new RelayCommand(() => IsConsoleVisible = !IsConsoleVisible);
 
         CreateScene();
         AppLog.LogInfo("Application started.", nameof(MainWindowViewModel));
@@ -187,6 +192,24 @@ public sealed class MainWindowViewModel : ObservableObject
     public ICommand ShowGraphicMasterWorkspaceCommand { get; }
     public ICommand ClearConsoleCommand { get; }
     public ICommand CopyConsoleCommand { get; }
+    public ICommand ShowConsoleCommand { get; }
+    public ICommand HideConsoleCommand { get; }
+    public ICommand ToggleConsoleCommand { get; }
+
+    public bool IsConsoleVisible
+    {
+        get => _isConsoleVisible;
+        set
+        {
+            if (SetProperty(ref _isConsoleVisible, value))
+            {
+                RaisePropertyChanged(nameof(ConsoleVisibilityMenuText));
+                RaiseConsoleCommandState();
+            }
+        }
+    }
+
+    public string ConsoleVisibilityMenuText => IsConsoleVisible ? "Hide Console" : "Show Console";
 
     public bool IsNavigationCollapsed
     {
@@ -942,8 +965,16 @@ public sealed class MainWindowViewModel : ObservableObject
             return;
         }
 
-        _projectPersistenceCoordinator.SaveProject(dialog.FileName, _sceneCollectionService, SelectedScene, AnnotationWorkspace, ProjectionWorkspace);
-        SetStatus($"Project saved to '{dialog.FileName}'.", ApplicationLogLevel.Success);
+        try
+        {
+            SetStatus($"Saving project to '{dialog.FileName}'...");
+            _projectPersistenceCoordinator.SaveProject(dialog.FileName, _sceneCollectionService, SelectedScene, AnnotationWorkspace, ProjectionWorkspace);
+            SetStatus($"Project saved to '{dialog.FileName}'.", ApplicationLogLevel.Success);
+        }
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or IOException)
+        {
+            SetStatus($"Failed to save project: {ex.Message}", ApplicationLogLevel.Error, ex);
+        }
     }
 
     private void LoadProject()
@@ -958,9 +989,17 @@ public sealed class MainWindowViewModel : ObservableObject
             return;
         }
 
-        _projectPersistenceCoordinator.LoadProject(dialog.FileName, _sceneCollectionService, AnnotationWorkspace, ProjectionWorkspace);
-        RefreshSceneBindingsAndViewport();
-        SetStatus($"Project loaded from '{dialog.FileName}'.", ApplicationLogLevel.Success);
+        try
+        {
+            SetStatus($"Loading project from '{dialog.FileName}'...");
+            _projectPersistenceCoordinator.LoadProject(dialog.FileName, _sceneCollectionService, AnnotationWorkspace, ProjectionWorkspace);
+            RefreshSceneBindingsAndViewport();
+            SetStatus($"Project loaded from '{dialog.FileName}'.", ApplicationLogLevel.Success);
+        }
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or IOException)
+        {
+            SetStatus($"Failed to load project: {ex.Message}", ApplicationLogLevel.Error, ex);
+        }
     }
 
     private void SaveCollisionTabState()
@@ -976,8 +1015,16 @@ public sealed class MainWindowViewModel : ObservableObject
             return;
         }
 
-        _projectPersistenceCoordinator.SaveCollisionTab(dialog.FileName, _sceneCollectionService, SelectedScene);
-        SetStatus($"Collision tab state saved to '{dialog.FileName}'.", ApplicationLogLevel.Success);
+        try
+        {
+            SetStatus($"Saving collision tab state to '{dialog.FileName}'...");
+            _projectPersistenceCoordinator.SaveCollisionTab(dialog.FileName, _sceneCollectionService, SelectedScene);
+            SetStatus($"Collision tab state saved to '{dialog.FileName}'.", ApplicationLogLevel.Success);
+        }
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or IOException)
+        {
+            SetStatus($"Failed to save collision tab state: {ex.Message}", ApplicationLogLevel.Error, ex);
+        }
     }
 
     private void LoadCollisionTabState()
@@ -992,9 +1039,17 @@ public sealed class MainWindowViewModel : ObservableObject
             return;
         }
 
-        _projectPersistenceCoordinator.LoadCollisionTab(dialog.FileName, _sceneCollectionService);
-        RefreshSceneBindingsAndViewport();
-        SetStatus($"Collision tab state loaded from '{dialog.FileName}'.", ApplicationLogLevel.Success);
+        try
+        {
+            SetStatus($"Loading collision tab state from '{dialog.FileName}'...");
+            _projectPersistenceCoordinator.LoadCollisionTab(dialog.FileName, _sceneCollectionService);
+            RefreshSceneBindingsAndViewport();
+            SetStatus($"Collision tab state loaded from '{dialog.FileName}'.", ApplicationLogLevel.Success);
+        }
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or IOException)
+        {
+            SetStatus($"Failed to load collision tab state: {ex.Message}", ApplicationLogLevel.Error, ex);
+        }
     }
 
     private void SaveProjectionTabState()
@@ -1010,8 +1065,16 @@ public sealed class MainWindowViewModel : ObservableObject
             return;
         }
 
-        _projectPersistenceCoordinator.SaveProjectionTab(dialog.FileName, _sceneCollectionService, ProjectionWorkspace);
-        SetStatus($"Projection tab state saved to '{dialog.FileName}'.", ApplicationLogLevel.Success);
+        try
+        {
+            SetStatus($"Saving projection tab state to '{dialog.FileName}'...");
+            _projectPersistenceCoordinator.SaveProjectionTab(dialog.FileName, _sceneCollectionService, ProjectionWorkspace);
+            SetStatus($"Projection tab state saved to '{dialog.FileName}'.", ApplicationLogLevel.Success);
+        }
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or IOException)
+        {
+            SetStatus($"Failed to save projection tab state: {ex.Message}", ApplicationLogLevel.Error, ex);
+        }
     }
 
     private void LoadProjectionTabState()
@@ -1026,9 +1089,17 @@ public sealed class MainWindowViewModel : ObservableObject
             return;
         }
 
-        _projectPersistenceCoordinator.LoadProjectionTab(dialog.FileName, _sceneCollectionService, ProjectionWorkspace);
-        RefreshSceneBindingsAndViewport();
-        SetStatus($"Projection tab state loaded from '{dialog.FileName}'.", ApplicationLogLevel.Success);
+        try
+        {
+            SetStatus($"Loading projection tab state from '{dialog.FileName}'...");
+            _projectPersistenceCoordinator.LoadProjectionTab(dialog.FileName, _sceneCollectionService, ProjectionWorkspace);
+            RefreshSceneBindingsAndViewport();
+            SetStatus($"Projection tab state loaded from '{dialog.FileName}'.", ApplicationLogLevel.Success);
+        }
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or IOException)
+        {
+            SetStatus($"Failed to load projection tab state: {ex.Message}", ApplicationLogLevel.Error, ex);
+        }
     }
 
     private void SaveAnnotationTabState()
@@ -1044,8 +1115,16 @@ public sealed class MainWindowViewModel : ObservableObject
             return;
         }
 
-        _projectPersistenceCoordinator.SaveAnnotationTab(dialog.FileName, AnnotationWorkspace);
-        SetStatus($"Annotation tab state saved to '{dialog.FileName}'.", ApplicationLogLevel.Success);
+        try
+        {
+            SetStatus($"Saving annotation tab state to '{dialog.FileName}'...");
+            _projectPersistenceCoordinator.SaveAnnotationTab(dialog.FileName, AnnotationWorkspace);
+            SetStatus($"Annotation tab state saved to '{dialog.FileName}'.", ApplicationLogLevel.Success);
+        }
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or IOException)
+        {
+            SetStatus($"Failed to save annotation tab state: {ex.Message}", ApplicationLogLevel.Error, ex);
+        }
     }
 
     private void LoadAnnotationTabState()
@@ -1060,8 +1139,29 @@ public sealed class MainWindowViewModel : ObservableObject
             return;
         }
 
-        _projectPersistenceCoordinator.LoadAnnotationTab(dialog.FileName, AnnotationWorkspace);
-        SetStatus($"Annotation tab state loaded from '{dialog.FileName}'.", ApplicationLogLevel.Success);
+        try
+        {
+            SetStatus($"Loading annotation tab state from '{dialog.FileName}'...");
+            _projectPersistenceCoordinator.LoadAnnotationTab(dialog.FileName, AnnotationWorkspace);
+            SetStatus($"Annotation tab state loaded from '{dialog.FileName}'.", ApplicationLogLevel.Success);
+        }
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or IOException)
+        {
+            SetStatus($"Failed to load annotation tab state: {ex.Message}", ApplicationLogLevel.Error, ex);
+        }
+    }
+
+    private void RaiseConsoleCommandState()
+    {
+        if (ShowConsoleCommand is RelayCommand showConsoleCommand)
+        {
+            showConsoleCommand.RaiseCanExecuteChanged();
+        }
+
+        if (HideConsoleCommand is RelayCommand hideConsoleCommand)
+        {
+            hideConsoleCommand.RaiseCanExecuteChanged();
+        }
     }
 
     private void RefreshSceneBindingsAndViewport()

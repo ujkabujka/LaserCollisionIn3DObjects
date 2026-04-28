@@ -328,7 +328,10 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
         ProjectionProgressPercent = 0;
         ProjectionProgressMessage = "Preparing projection...";
         _lastLoggedProgressBucket = -1;
-        _applicationLogService?.LogInfo($"Projection started for scene '{scene.Name}' using method '{SelectedMethod.DisplayName}'.", nameof(ProjectionWorkspaceViewModel));
+        _applicationLogService?.LogInfo($"Projection scene: {scene.Name}", nameof(ProjectionWorkspaceViewModel));
+        _applicationLogService?.LogInfo($"Projection method: {SelectedMethod.DisplayName} ({SelectedMethod.Id})", nameof(ProjectionWorkspaceViewModel));
+        _applicationLogService?.LogInfo($"Projection input hole points: {scene.HolePoints.Count}", nameof(ProjectionWorkspaceViewModel));
+        _applicationLogService?.LogInfo("Projection run started.", nameof(ProjectionWorkspaceViewModel));
 
         try
         {
@@ -366,10 +369,13 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
                 ? $"Projection completed and saved as '{namedResult.DisplayName}' ({result.Rays.Count} ray(s))."
                 : $"Cylindrical projection completed and saved as '{namedResult.DisplayName}' ({result.CylindricalSource.Points.Count} reconstructed source points).",
                 ApplicationLogLevel.Success);
+            LogProjectionSummary(result);
+            _applicationLogService?.LogSuccess("Projection run completed.", nameof(ProjectionWorkspaceViewModel));
         }
         catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
         {
             SetStatus(ex.Message, ApplicationLogLevel.Error, ex);
+            _applicationLogService?.LogError("Projection run failed.", ex, nameof(ProjectionWorkspaceViewModel));
         }
         finally
         {
@@ -484,6 +490,84 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
         }
 
         throw new InvalidOperationException($"Projection method '{method.Metadata.Id}' is not yet supported by the workspace UI parameter panel.");
+    }
+
+    private void LogProjectionSummary(ProjectionComputationResult result)
+    {
+        if (_applicationLogService is null)
+        {
+            return;
+        }
+
+        if (result.MethodId == ProjectionMethodIds.PointSource)
+        {
+            _applicationLogService.LogInfo($"Generated rays: {result.Rays.Count}", nameof(ProjectionWorkspaceViewModel));
+            if (result.PointSourceOrigin is Point3 pointSourceOrigin)
+            {
+                _applicationLogService.LogInfo(
+                    $"Point source origin: ({pointSourceOrigin.X:F4}, {pointSourceOrigin.Y:F4}, {pointSourceOrigin.Z:F4})",
+                    nameof(ProjectionWorkspaceViewModel));
+            }
+
+            return;
+        }
+
+        var cylindrical = result.CylindricalSource;
+        if (cylindrical is null)
+        {
+            return;
+        }
+
+        _applicationLogService.LogInfo($"Radius: {cylindrical.Radius:F6}", nameof(ProjectionWorkspaceViewModel));
+        _applicationLogService.LogInfo($"Length: {cylindrical.Length:F6}", nameof(ProjectionWorkspaceViewModel));
+        _applicationLogService.LogInfo($"Reconstructed source points: {cylindrical.Points.Count}", nameof(ProjectionWorkspaceViewModel));
+
+        var fitEntries = cylindrical.Points
+            .Select((point, index) => new { point.FitError, Index = index })
+            .Where(item => item.FitError.HasValue)
+            .Select(item => new { FitError = item.FitError!.Value, item.Index })
+            .ToList();
+
+        if (fitEntries.Count > 0)
+        {
+            var meanFitError = fitEntries.Average(item => item.FitError);
+            var rmsFitError = Math.Sqrt(fitEntries.Average(item => item.FitError * item.FitError));
+            var minFitErrorEntry = fitEntries.MinBy(item => item.FitError)!;
+            var maxFitErrorEntry = fitEntries.MaxBy(item => item.FitError)!;
+
+            _applicationLogService.LogInfo($"Mean fit error: {meanFitError:F6}", nameof(ProjectionWorkspaceViewModel));
+            _applicationLogService.LogInfo($"RMS fit error: {rmsFitError:F6}", nameof(ProjectionWorkspaceViewModel));
+            _applicationLogService.LogInfo($"Min fit error: {minFitErrorEntry.FitError:F6} at hole index {minFitErrorEntry.Index}", nameof(ProjectionWorkspaceViewModel));
+            _applicationLogService.LogWarning($"Max fit error: {maxFitErrorEntry.FitError:F6} at hole index {maxFitErrorEntry.Index}", nameof(ProjectionWorkspaceViewModel));
+        }
+
+        if (result.MethodId != ProjectionMethodIds.SelfCalibratingCylindricalSource)
+        {
+            return;
+        }
+
+        _applicationLogService.LogSuccess("Self-calibrating cylindrical projection completed.", nameof(ProjectionWorkspaceViewModel));
+        if (cylindrical.EstimatedTiltWeight.HasValue)
+        {
+            _applicationLogService.LogSuccess($"Estimated lambda: {cylindrical.EstimatedTiltWeight.Value:F6}", nameof(ProjectionWorkspaceViewModel));
+        }
+
+        if (cylindrical.Diagnostics is null)
+        {
+            return;
+        }
+
+        _applicationLogService.LogInfo($"Regularity weight: {cylindrical.Diagnostics.RegularityWeight:F6}", nameof(ProjectionWorkspaceViewModel));
+        _applicationLogService.LogInfo($"Candidates evaluated: {cylindrical.Diagnostics.CandidateScores.Count}", nameof(ProjectionWorkspaceViewModel));
+
+        var bestCandidate = cylindrical.Diagnostics.CandidateScores.MinBy(candidate => candidate.Score);
+        if (bestCandidate is not null)
+        {
+            _applicationLogService.LogInfo($"Best candidate score: {bestCandidate.Score:F6}", nameof(ProjectionWorkspaceViewModel));
+            _applicationLogService.LogInfo($"Best candidate regularity score: {bestCandidate.RegularityError:F6}", nameof(ProjectionWorkspaceViewModel));
+            _applicationLogService.LogInfo($"Best candidate mean fit error: {bestCandidate.MeanFitError:F6}", nameof(ProjectionWorkspaceViewModel));
+            _applicationLogService.LogInfo($"Best candidate total score: {bestCandidate.Score:F6}", nameof(ProjectionWorkspaceViewModel));
+        }
     }
 
     private void RefreshViewport()

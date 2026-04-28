@@ -37,5 +37,6 @@ public partial class App : System.Windows.Application
     private void OnUnobservedTaskException(object? sender, UnobservedTaskExceptionEventArgs e)
     {
         AppLog.LogError("Unobserved task exception.", e.Exception, nameof(App));
+        e.SetObserved();
     }
 }
