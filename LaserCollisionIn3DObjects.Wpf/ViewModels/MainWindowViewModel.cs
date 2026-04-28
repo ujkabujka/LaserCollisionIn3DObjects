@@ -99,7 +99,8 @@ public sealed class MainWindowViewModel : ObservableObject
         AddPrismArrayCommand = new RelayCommand(AddPrismArray, () => SelectedScene is not null);
         AddRayCommand = new RelayCommand(AddRay, () => SelectedScene is not null);
         AddLightSourceCommand = new RelayCommand(AddLightSource, () => SelectedScene is not null);
-        ApplyHybridSegmentCountCommand = new RelayCommand(ApplyHybridSegmentCount);
+        AddHybridSegmentCommand = new RelayCommand(AddHybridSegment);
+        RemoveSelectedHybridSegmentCommand = new RelayCommand(RemoveSelectedHybridSegment, () => SelectedNewHybridSegment is not null);
         RemoveSelectedPrismCommand = new RelayCommand(RemoveSelectedPrism, () => SelectedPrism is not null);
         RemoveAllPrismsCommand = new RelayCommand(RemoveAllPrisms, () => Prisms.Count > 0);
         RemoveSelectedRayCommand = new RelayCommand(RemoveSelectedRay, () => SelectedRay is not null);
@@ -127,7 +128,10 @@ public sealed class MainWindowViewModel : ObservableObject
         HideConsoleCommand = new RelayCommand(() => IsConsoleVisible = false, () => IsConsoleVisible);
         ToggleConsoleCommand = new RelayCommand(() => IsConsoleVisible = !IsConsoleVisible);
 
-        ApplyHybridSegmentCount();
+        if (NewHybridSegments.Count == 0)
+        {
+            AddHybridSegment();
+        }
         CreateScene();
         AppLog.LogInfo("Application started.", nameof(MainWindowViewModel));
         RefreshViewport(false);
@@ -176,13 +180,27 @@ public sealed class MainWindowViewModel : ObservableObject
     public HybridAxisymmetricSourceSegmentKind[] HybridSegmentKinds { get; } = Enum.GetValues<HybridAxisymmetricSourceSegmentKind>();
     public ObservableCollection<HybridSourceSegmentItemViewModel> NewHybridSegments { get; } = new();
 
+    private HybridSourceSegmentItemViewModel? _selectedNewHybridSegment;
+    public HybridSourceSegmentItemViewModel? SelectedNewHybridSegment
+    {
+        get => _selectedNewHybridSegment;
+        set
+        {
+            if (SetProperty(ref _selectedNewHybridSegment, value) && RemoveSelectedHybridSegmentCommand is RelayCommand removeHybridSegmentCommand)
+            {
+                removeHybridSegmentCommand.RaiseCanExecuteChanged();
+            }
+        }
+    }
+
     public ICommand CreateSceneCommand { get; }
     public ICommand DeleteSelectedSceneCommand { get; }
     public ICommand AddPrismCommand { get; }
     public ICommand AddPrismArrayCommand { get; }
     public ICommand AddRayCommand { get; }
     public ICommand AddLightSourceCommand { get; }
-    public ICommand ApplyHybridSegmentCountCommand { get; }
+    public ICommand AddHybridSegmentCommand { get; }
+    public ICommand RemoveSelectedHybridSegmentCommand { get; }
     public ICommand RemoveSelectedPrismCommand { get; }
     public ICommand RemoveAllPrismsCommand { get; }
     public ICommand RemoveSelectedRayCommand { get; }
@@ -332,7 +350,20 @@ public sealed class MainWindowViewModel : ObservableObject
     public float NewRayDirectionZ { get; set; }
 
     public string NewLightSourceName { get => _newLightSourceName; set => SetProperty(ref _newLightSourceName, value); }
-    public AxisymmetricSourceKind NewLightSourceKind { get => _newLightSourceKind; set => SetProperty(ref _newLightSourceKind, value); }
+    public AxisymmetricSourceKind NewLightSourceKind
+    {
+        get => _newLightSourceKind;
+        set
+        {
+            if (SetProperty(ref _newLightSourceKind, value))
+            {
+                RaisePropertyChanged(nameof(IsNewLightSourceCylinder));
+                RaisePropertyChanged(nameof(IsNewLightSourceConicalFrustum));
+                RaisePropertyChanged(nameof(IsNewLightSourceCircularOgive));
+                RaisePropertyChanged(nameof(IsNewLightSourceHybrid));
+            }
+        }
+    }
     public float NewLightSourcePosX { get; set; }
     public float NewLightSourcePosY { get; set; }
     public float NewLightSourcePosZ { get; set; }
@@ -352,6 +383,11 @@ public sealed class MainWindowViewModel : ObservableObject
     public float NewLightSourceTiltPointX { get => _newLightSourceTiltPointX; set => SetProperty(ref _newLightSourceTiltPointX, value); }
     public float NewLightSourceTiltPointY { get => _newLightSourceTiltPointY; set => SetProperty(ref _newLightSourceTiltPointY, value); }
     public float NewLightSourceTiltPointZ { get => _newLightSourceTiltPointZ; set => SetProperty(ref _newLightSourceTiltPointZ, value); }
+
+    public bool IsNewLightSourceCylinder => NewLightSourceKind == AxisymmetricSourceKind.Cylinder;
+    public bool IsNewLightSourceConicalFrustum => NewLightSourceKind == AxisymmetricSourceKind.ConicalFrustum;
+    public bool IsNewLightSourceCircularOgive => NewLightSourceKind == AxisymmetricSourceKind.CircularOgive;
+    public bool IsNewLightSourceHybrid => NewLightSourceKind == AxisymmetricSourceKind.Hybrid;
     public CollisionAlgorithmOption SelectedCollisionAlgorithm
     {
         get => _selectedCollisionAlgorithm;
@@ -494,33 +530,42 @@ public sealed class MainWindowViewModel : ObservableObject
     }
 
 
-    private void ApplyHybridSegmentCount()
+    private void AddHybridSegment()
     {
-        if (NewHybridSegmentCount <= 0)
+        var previous = NewHybridSegments.LastOrDefault();
+        var radius = previous?.RadiusEnd ?? NewLightSourceRadiusStart;
+        NewHybridSegments.Add(new HybridSourceSegmentItemViewModel
         {
-            SetStatus("Hybrid source requires at least one segment.", ApplicationLogLevel.Warning);
+            SegmentIndex = NewHybridSegments.Count + 1,
+            IsRadiusStartEditable = NewHybridSegments.Count == 0,
+            RadiusStart = radius,
+            RadiusEnd = radius,
+        });
+
+        SynchronizeHybridSegmentContinuity();
+        SelectedNewHybridSegment = NewHybridSegments.LastOrDefault();
+        SetStatus($"Hybrid segment {NewHybridSegments.Count} added.", ApplicationLogLevel.Trace);
+    }
+
+    private void RemoveSelectedHybridSegment()
+    {
+        if (SelectedNewHybridSegment is null)
+        {
+            SetStatus("Select a hybrid segment to remove.", ApplicationLogLevel.Warning);
             return;
         }
 
-        while (NewHybridSegments.Count < NewHybridSegmentCount)
+        NewHybridSegments.Remove(SelectedNewHybridSegment);
+        if (NewHybridSegments.Count == 0)
         {
-            var previous = NewHybridSegments.LastOrDefault();
-            NewHybridSegments.Add(new HybridSourceSegmentItemViewModel
-            {
-                SegmentIndex = NewHybridSegments.Count + 1,
-                IsRadiusStartEditable = NewHybridSegments.Count == 0,
-                RadiusStart = previous?.RadiusEnd ?? NewLightSourceRadiusStart,
-                RadiusEnd = previous?.RadiusEnd ?? NewLightSourceRadiusEnd,
-            });
-        }
-
-        while (NewHybridSegments.Count > NewHybridSegmentCount)
-        {
-            NewHybridSegments.RemoveAt(NewHybridSegments.Count - 1);
+            SetStatus("Hybrid source requires at least one segment.", ApplicationLogLevel.Warning);
+            AddHybridSegment();
+            return;
         }
 
         SynchronizeHybridSegmentContinuity();
-        SetStatus($"Hybrid segment count set to {NewHybridSegments.Count}.", ApplicationLogLevel.Trace);
+        SelectedNewHybridSegment = NewHybridSegments.LastOrDefault();
+        SetStatus("Selected hybrid segment removed.", ApplicationLogLevel.Trace);
     }
 
     private void SynchronizeHybridSegmentContinuity()
@@ -534,6 +579,11 @@ public sealed class MainWindowViewModel : ObservableObject
             {
                 segment.RadiusStart = NewHybridSegments[i - 1].RadiusEnd;
             }
+
+            if (segment.SegmentKind == HybridAxisymmetricSourceSegmentKind.Cylinder)
+            {
+                segment.RadiusEnd = segment.RadiusStart;
+            }
         }
     }
 
@@ -544,6 +594,10 @@ public sealed class MainWindowViewModel : ObservableObject
             segments[i].RadiusStart = segments[i - 1].RadiusEnd;
             segments[i].IsRadiusStartEditable = false;
             segments[i].SegmentIndex = i + 1;
+            if (segments[i].SegmentKind == HybridAxisymmetricSourceSegmentKind.Cylinder)
+            {
+                segments[i].RadiusEnd = segments[i].RadiusStart;
+            }
         }
 
         if (segments.Count > 0)
@@ -1444,7 +1498,14 @@ public sealed class MainWindowViewModel : ObservableObject
             });
         }
 
-        NewHybridSegmentCount = Math.Max(1, NewHybridSegments.Count);
+        if (NewHybridSegments.Count == 0)
+        {
+            AddHybridSegment();
+        }
+        else
+        {
+            SynchronizeHybridSegmentContinuity();
+        }
         NewLightSourceRayCount = source.RayCount;
         NewLightSourceTiltWeight = source.TiltWeight;
         NewLightSourceTiltPointX = source.TiltPointX;
@@ -1514,6 +1575,11 @@ public sealed class MainWindowViewModel : ObservableObject
         if (RemoveSelectedLightSourceCommand is RelayCommand lightCommand)
         {
             lightCommand.RaiseCanExecuteChanged();
+        }
+
+        if (RemoveSelectedHybridSegmentCommand is RelayCommand removeHybridSegmentCommand)
+        {
+            removeHybridSegmentCommand.RaiseCanExecuteChanged();
         }
 
         if (RunCollisionCommand is RelayCommand runCollisionCommand)

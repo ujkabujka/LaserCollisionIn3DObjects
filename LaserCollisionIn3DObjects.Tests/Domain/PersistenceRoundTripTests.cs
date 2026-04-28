@@ -732,4 +732,40 @@ public class PersistenceRoundTripTests
         }
     }
 
+    [Fact]
+    public void ProjectionWorkspaceState_RoundTrip_PreservesGeometryKind()
+    {
+        var service = new JsonStateFileService();
+        var filePath = Path.Combine(Path.GetTempPath(), $"lc3d-geom-{Guid.NewGuid():N}.json");
+
+        try
+        {
+            var state = new ProjectState
+            {
+                ProjectionWorkspace = new ProjectionWorkspaceStateDto
+                {
+                    ProjectionGeometryKind = AxisymmetricSourceKind.CircularOgive,
+                    GeometryRadiusStart = 2.5,
+                    GeometryRadiusEnd = 1.25,
+                    GeometryLength = 11,
+                    GeometryArcRadius = 24,
+                },
+            };
+
+            service.SaveProject(filePath, state);
+            var restored = service.LoadProject(filePath);
+
+            Assert.Equal(AxisymmetricSourceKind.CircularOgive, restored.ProjectionWorkspace.ProjectionGeometryKind);
+            Assert.Equal(2.5, restored.ProjectionWorkspace.GeometryRadiusStart, 6);
+            Assert.Equal(1.25, restored.ProjectionWorkspace.GeometryRadiusEnd, 6);
+        }
+        finally
+        {
+            if (File.Exists(filePath))
+            {
+                File.Delete(filePath);
+            }
+        }
+    }
+
 }
