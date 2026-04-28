@@ -3,8 +3,10 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:behaviors="clr-namespace:LaserCollisionIn3DObjects.Wpf.Behaviors"
         xmlns:conv="clr-namespace:LaserCollisionIn3DObjects.Wpf.Converters"
         xmlns:vm="clr-namespace:LaserCollisionIn3DObjects.Wpf.ViewModels"
+        xmlns:services="clr-namespace:LaserCollisionIn3DObjects.Wpf.Services"
         xmlns:v="clr-namespace:LaserCollisionIn3DObjects.Wpf.Views"
         mc:Ignorable="d"
         Title="{Binding Title}"
@@ -81,6 +83,22 @@
                 </Setter.Value>
             </Setter>
         </Style>
+
+        <Style x:Key="ConsoleItemStyle" TargetType="ListBoxItem">
+            <Setter Property="Padding" Value="4,2"/>
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding Level}" Value="{x:Static services:ApplicationLogLevel.Warning}">
+                    <Setter Property="Foreground" Value="#B45309"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding Level}" Value="{x:Static services:ApplicationLogLevel.Error}">
+                    <Setter Property="Foreground" Value="#B91C1C"/>
+                    <Setter Property="FontWeight" Value="SemiBold"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding Level}" Value="{x:Static services:ApplicationLogLevel.Success}">
+                    <Setter Property="Foreground" Value="#166534"/>
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
     </Window.Resources>
 
     <DockPanel>
@@ -102,6 +120,44 @@
             <MenuItem Header="_Tools"/>
             <MenuItem Header="_Help"/>
         </Menu>
+
+        <Grid DockPanel.Dock="Bottom" Height="190" MinHeight="120" Background="#F8FAFC">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+            <Border Grid.Row="0" Background="#E2E8F0" BorderBrush="#CBD5E1" BorderThickness="0,1,0,1" Padding="8,4">
+                <DockPanel>
+                    <TextBlock Text="Console" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                        <Button Content="Copy" Command="{Binding CopyConsoleCommand}" Padding="10,2" Margin="0,0,6,0"/>
+                        <Button Content="Clear" Command="{Binding ClearConsoleCommand}" Padding="10,2"/>
+                    </StackPanel>
+                </DockPanel>
+            </Border>
+            <ListBox Grid.Row="1"
+                     ItemsSource="{Binding ConsoleEntries}"
+                     FontFamily="Consolas"
+                     FontSize="12"
+                     BorderThickness="0"
+                     ItemContainerStyle="{StaticResource ConsoleItemStyle}"
+                     behaviors:AutoScrollBehavior.AutoScrollToEnd="True">
+                <ListBox.ItemTemplate>
+                    <DataTemplate DataType="{x:Type services:ApplicationLogEntry}">
+                        <TextBlock TextWrapping="Wrap">
+                            <Run Text="["/>
+                            <Run Text="{Binding Timestamp, StringFormat=HH:mm:ss}"/>
+                            <Run Text="] ["/>
+                            <Run Text="{Binding Level}"/>
+                            <Run Text="] "/>
+                            <Run Text="{Binding Source, StringFormat=({0}) }"/>
+                            <Run Text="{Binding Message}"/>
+                            <Run Text="{Binding ExceptionText, StringFormat= | {0}}"/>
+                        </TextBlock>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+        </Grid>
 
         <Grid>
             <Grid.ColumnDefinitions>
