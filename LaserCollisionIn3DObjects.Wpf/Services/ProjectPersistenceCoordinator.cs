@@ -176,6 +176,15 @@ public sealed class ProjectPersistenceCoordinator
                 BaseOrientationY = source.BaseOrientation.Y,
                 BaseOrientationZ = source.BaseOrientation.Z,
                 BaseOrientationW = source.BaseOrientation.W,
+                Segments = source.HybridSegments.Select(segment => new AxisymmetricSourceSegmentStateDto
+                {
+                    SegmentKind = segment.SegmentKind,
+                    Length = segment.Length,
+                    RadiusStart = segment.RadiusStart,
+                    RadiusEnd = segment.RadiusEnd,
+                    ArcRadius = segment.IsOgive ? segment.ArcRadius : null,
+                    OgiveCurvatureDirection = segment.OgiveCurvatureDirection,
+                }).ToList(),
             }).ToList(),
             HolePoints = scene.HolePoints.ToList(),
             Projection = new SceneProjectionStateDto
@@ -351,6 +360,20 @@ public sealed class ProjectPersistenceCoordinator
                         source.BaseOrientationZ,
                         source.BaseOrientationW),
                 });
+
+                var restored = scene.LightSources.Last();
+                foreach (var segment in source.Segments)
+                {
+                    restored.HybridSegments.Add(new HybridSourceSegmentItemViewModel
+                    {
+                        SegmentKind = segment.SegmentKind,
+                        Length = segment.Length,
+                        RadiusStart = segment.RadiusStart,
+                        RadiusEnd = segment.RadiusEnd,
+                        ArcRadius = segment.ArcRadius ?? 20f,
+                        OgiveCurvatureDirection = segment.OgiveCurvatureDirection,
+                    });
+                }
             }
         }
         else
@@ -383,6 +406,20 @@ public sealed class ProjectPersistenceCoordinator
                         source.BaseOrientationZ,
                         source.BaseOrientationW),
                 });
+
+                var restored = scene.LightSources.Last();
+                foreach (var segment in source.Segments)
+                {
+                    restored.HybridSegments.Add(new HybridSourceSegmentItemViewModel
+                    {
+                        SegmentKind = segment.SegmentKind,
+                        Length = segment.Length,
+                        RadiusStart = segment.RadiusStart,
+                        RadiusEnd = segment.RadiusEnd,
+                        ArcRadius = segment.ArcRadius ?? 20f,
+                        OgiveCurvatureDirection = segment.OgiveCurvatureDirection,
+                    });
+                }
             }
         }
 

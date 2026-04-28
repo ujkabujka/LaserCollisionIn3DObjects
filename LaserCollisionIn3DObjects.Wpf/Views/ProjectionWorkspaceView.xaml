@@ -134,6 +134,38 @@
                         </StackPanel>
                     </GroupBox>
 
+
+                    <GroupBox Header="Hybrid Source Preview" Margin="0,0,0,8" Padding="8">
+                        <StackPanel>
+                            <Grid Margin="0,0,0,6">
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="130"/><ColumnDefinition Width="*"/><ColumnDefinition Width="100"/></Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="Segment Count" VerticalAlignment="Center"/>
+                                <TextBox Grid.Column="1" Text="{Binding ProjectionWorkspace.HybridSegmentCount}"/>
+                                <Button Grid.Column="2" Content="Apply" Command="{Binding ProjectionWorkspace.ApplyHybridSegmentCountCommand}" Margin="6,0,0,0"/>
+                            </Grid>
+                            <DataGrid ItemsSource="{Binding ProjectionWorkspace.HybridSegments}" AutoGenerateColumns="False" CanUserAddRows="False" Height="140" Margin="0,0,0,6">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="#" Binding="{Binding SegmentIndex}" Width="35" IsReadOnly="True"/>
+                                    <DataGridComboBoxColumn Header="Type" Width="110" SelectedItemBinding="{Binding SegmentKind}" ItemsSource="{Binding DataContext.ProjectionWorkspace.HybridSegmentKinds, RelativeSource={RelativeSource AncestorType=UserControl}}"/>
+                                    <DataGridTextColumn Header="Length" Binding="{Binding Length}" Width="65"/>
+                                    <DataGridTextColumn Header="R1" Binding="{Binding RadiusStart}" Width="55"/>
+                                    <DataGridTextColumn Header="R2" Binding="{Binding RadiusEnd}" Width="55"/>
+                                    <DataGridTextColumn Header="Arc" Binding="{Binding ArcRadius}" Width="60"/>
+                                    <DataGridComboBoxColumn Header="Curvature" Width="95" SelectedItemBinding="{Binding OgiveCurvatureDirection}" ItemsSource="{Binding DataContext.ProjectionWorkspace.OgiveCurvatureDirections, RelativeSource={RelativeSource AncestorType=UserControl}}"/>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                            <UniformGrid Columns="2" Margin="0,0,0,6">
+                                <StackPanel Margin="2"><TextBlock Text="Ray Count"/><TextBox Text="{Binding ProjectionWorkspace.HybridRayCount}"/></StackPanel>
+                                <StackPanel Margin="2"><TextBlock Text="Tilt Weight"/><TextBox Text="{Binding ProjectionWorkspace.HybridTiltWeight}"/></StackPanel>
+                            </UniformGrid>
+                            <UniformGrid Columns="3" Margin="0,0,0,6">
+                                <StackPanel Margin="2"><TextBlock Text="Tilt X"/><TextBox Text="{Binding ProjectionWorkspace.HybridTiltPointX}"/></StackPanel>
+                                <StackPanel Margin="2"><TextBlock Text="Tilt Y"/><TextBox Text="{Binding ProjectionWorkspace.HybridTiltPointY}"/></StackPanel>
+                                <StackPanel Margin="2"><TextBlock Text="Tilt Z"/><TextBox Text="{Binding ProjectionWorkspace.HybridTiltPointZ}"/></StackPanel>
+                            </UniformGrid>
+                            <Button Content="Add Hybrid to Collision Scene" Command="{Binding ProjectionWorkspace.AddHybridSourceToCollisionCommand}" Height="28"/>
+                        </StackPanel>
+                    </GroupBox>
                     <StackPanel Margin="0,0,0,8"
                                 Visibility="{Binding ProjectionWorkspace.IsProgressVisible, Converter={StaticResource BoolToVisibility}}">
                         <ProgressBar Minimum="0" Maximum="100" Height="18" Value="{Binding ProjectionWorkspace.ProjectionProgressPercent, Mode=OneWay}" />

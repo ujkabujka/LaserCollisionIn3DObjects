@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using System.Numerics;
 using LaserCollisionIn3DObjects.Domain.Geometry;
 using LaserCollisionIn3DObjects.Wpf.Infrastructure;
@@ -47,6 +48,9 @@ public sealed class CylindricalLightSourceItemViewModel : ObservableObject
     public float TiltPointX { get => _tiltPointX; set => SetProperty(ref _tiltPointX, value); }
     public float TiltPointY { get => _tiltPointY; set => SetProperty(ref _tiltPointY, value); }
     public float TiltPointZ { get => _tiltPointZ; set => SetProperty(ref _tiltPointZ, value); }
+
+
+    public ObservableCollection<HybridSourceSegmentItemViewModel> HybridSegments { get; } = new();
 
     public Quaternion BaseOrientation { get; set; } = Quaternion.Identity;
 

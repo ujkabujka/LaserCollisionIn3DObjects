@@ -19,9 +19,14 @@ public sealed class ProjectionRenderSyncService
         viewport.Children.Add(_dynamicVisualRoot);
     }
 
-    public void SyncProjectionScene(IReadOnlyList<Point3> holePoints, ProjectionComputationResult? projectionResult)
+    public void SyncProjectionScene(
+        IReadOnlyList<Point3> holePoints,
+        ProjectionComputationResult? projectionResult,
+        IAxisymmetricSourceProfile? previewProfile = null,
+        Frame3D? previewFrame = null,
+        bool previewAsGhost = true)
     {
-        var visuals = _sceneBuilder.BuildProjectionVisuals(holePoints, projectionResult);
+        var visuals = _sceneBuilder.BuildProjectionVisuals(holePoints, projectionResult, previewProfile, previewFrame, previewAsGhost);
         _dynamicVisualRoot.Children.Clear();
         foreach (var visual in visuals)
         {
