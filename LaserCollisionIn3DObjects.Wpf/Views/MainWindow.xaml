@@ -16,6 +16,7 @@
         MinHeight="760">
     <Window.Resources>
         <conv:FlexibleNumericConverter x:Key="FlexibleNumericConverter"/>
+        <BooleanToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
 
         <Style x:Key="NavigationButtonBaseStyle" TargetType="Button">
             <Setter Property="Background" Value="Transparent"/>
@@ -116,12 +117,18 @@
                 <Separator/>
                 <MenuItem Header="E_xit" Command="ApplicationCommands.Close" CommandTarget="{Binding RelativeSource={RelativeSource AncestorType=Window}}"/>
             </MenuItem>
-            <MenuItem Header="_View"/>
+            <MenuItem Header="_View">
+                <MenuItem Header="{Binding ConsoleVisibilityMenuText}" Command="{Binding ToggleConsoleCommand}"/>
+            </MenuItem>
             <MenuItem Header="_Tools"/>
             <MenuItem Header="_Help"/>
         </Menu>
 
-        <Grid DockPanel.Dock="Bottom" Height="190" MinHeight="120" Background="#F8FAFC">
+        <Grid DockPanel.Dock="Bottom"
+              Height="190"
+              MinHeight="120"
+              Background="#F8FAFC"
+              Visibility="{Binding IsConsoleVisible, Converter={StaticResource BoolToVisibilityConverter}}">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="*"/>
@@ -131,7 +138,8 @@
                     <TextBlock Text="Console" FontWeight="SemiBold" VerticalAlignment="Center"/>
                     <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
                         <Button Content="Copy" Command="{Binding CopyConsoleCommand}" Padding="10,2" Margin="0,0,6,0"/>
-                        <Button Content="Clear" Command="{Binding ClearConsoleCommand}" Padding="10,2"/>
+                        <Button Content="Clear" Command="{Binding ClearConsoleCommand}" Padding="10,2" Margin="0,0,6,0"/>
+                        <Button Content="Close" Command="{Binding HideConsoleCommand}" Padding="10,2"/>
                     </StackPanel>
                 </DockPanel>
             </Border>
