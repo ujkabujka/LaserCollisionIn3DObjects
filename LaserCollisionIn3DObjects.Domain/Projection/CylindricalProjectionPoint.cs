@@ -14,6 +14,8 @@ public sealed record CylindricalProjectionPoint(
     public double? UnwrappedU { get; init; }
     public double? UnwrappedV { get; init; }
     public double? FitError { get; init; }
+    public double? AlignmentError { get; init; }
+    public double? AngularErrorDegrees { get; init; }
 }
 
 public sealed class CylindricalProjectionState
@@ -30,6 +32,8 @@ public sealed class CylindricalProjectionState
 
     public SelfCalibratingCylindricalProjectionDiagnostics? Diagnostics { get; init; }
 
+    public LeastSquaresCylindricalAlignmentDiagnostics? LeastSquaresDiagnostics { get; init; }
+
     public required IReadOnlyList<CylindricalProjectionPoint> Points { get; init; }
 }
 
@@ -45,3 +49,25 @@ public sealed record SelfCalibratingCylindricalCandidateDiagnostics(
     double MeanFitError,
     double RegularityError,
     double Score);
+
+public sealed class LeastSquaresCylindricalAlignmentDiagnostics
+{
+    public double InitialLambda { get; init; }
+    public double RefinedLambda { get; init; }
+    public double InitialMeanAlignmentError { get; init; }
+    public double FinalMeanAlignmentError { get; init; }
+    public double FinalRmsAlignmentError { get; init; }
+    public double FinalMeanAngularErrorDegrees { get; init; }
+    public double FinalMaxAngularErrorDegrees { get; init; }
+    public int? MaxAngularErrorHoleIndex { get; init; }
+    public int Iterations { get; init; }
+    public bool Converged { get; init; }
+    public bool UsesRegularization { get; init; }
+    public IReadOnlyList<LeastSquaresCylindricalAlignmentIterationDiagnostics> IterationHistory { get; init; } = Array.Empty<LeastSquaresCylindricalAlignmentIterationDiagnostics>();
+}
+
+public sealed record LeastSquaresCylindricalAlignmentIterationDiagnostics(
+    int Iteration,
+    double Lambda,
+    double MeanAlignmentError,
+    double MeanAngularErrorDegrees);

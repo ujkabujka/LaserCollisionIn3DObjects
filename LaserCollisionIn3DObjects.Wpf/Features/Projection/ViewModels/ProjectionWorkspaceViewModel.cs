@@ -42,6 +42,7 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
             new PointSourceProjectionMethod(),
             new CylindricalSourceProjectionMethod(),
             new SelfCalibratingCylindricalProjectionMethod(),
+            new LeastSquaresCylindricalAlignmentProjectionMethod(),
         });
         _applicationLogService = applicationLogService;
 
@@ -94,7 +95,9 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
     public bool IsPointSourceMethodSelected => string.Equals(SelectedMethod?.Id, ProjectionMethodIds.PointSource, StringComparison.OrdinalIgnoreCase);
     public bool IsLegacyCylindricalMethodSelected => string.Equals(SelectedMethod?.Id, ProjectionMethodIds.CylindricalSource, StringComparison.OrdinalIgnoreCase);
     public bool IsSelfCalibratingCylindricalMethodSelected => string.Equals(SelectedMethod?.Id, ProjectionMethodIds.SelfCalibratingCylindricalSource, StringComparison.OrdinalIgnoreCase);
-    public bool IsAnyCylindricalMethodSelected => IsLegacyCylindricalMethodSelected || IsSelfCalibratingCylindricalMethodSelected;
+    public bool IsLeastSquaresCylindricalAlignmentMethodSelected => string.Equals(SelectedMethod?.Id, ProjectionMethodIds.LeastSquaresCylindricalAlignmentSource, StringComparison.OrdinalIgnoreCase);
+    public bool IsAnyCylindricalMethodSelected => IsLegacyCylindricalMethodSelected || IsSelfCalibratingCylindricalMethodSelected || IsLeastSquaresCylindricalAlignmentMethodSelected;
+    public bool IsTiltPointVisibleForSelectedMethod => IsSelfCalibratingCylindricalMethodSelected || IsLeastSquaresCylindricalAlignmentMethodSelected;
 
     public bool IsProjectionRunning
     {
@@ -182,7 +185,9 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
             RaisePropertyChanged(nameof(IsPointSourceMethodSelected));
             RaisePropertyChanged(nameof(IsLegacyCylindricalMethodSelected));
             RaisePropertyChanged(nameof(IsSelfCalibratingCylindricalMethodSelected));
+            RaisePropertyChanged(nameof(IsLeastSquaresCylindricalAlignmentMethodSelected));
             RaisePropertyChanged(nameof(IsAnyCylindricalMethodSelected));
+            RaisePropertyChanged(nameof(IsTiltPointVisibleForSelectedMethod));
             RaiseCanExecuteChanged();
         }
     }
@@ -489,6 +494,17 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
                 new Point3(TiltPointX, TiltPointY, TiltPointZ));
         }
 
+        if (method.Metadata.Id == ProjectionMethodIds.LeastSquaresCylindricalAlignmentSource)
+        {
+            return new LeastSquaresCylindricalAlignmentProjectionParameters(
+                new Point3(BeamOriginX, BeamOriginY, BeamOriginZ),
+                new Vector3D(SourceFrameXx, SourceFrameXy, SourceFrameXz),
+                new Vector3D(SourceFrameYx, SourceFrameYy, SourceFrameYz),
+                CylindricalRadius,
+                CylindricalLength,
+                new Point3(TiltPointX, TiltPointY, TiltPointZ));
+        }
+
         throw new InvalidOperationException($"Projection method '{method.Metadata.Id}' is not yet supported by the workspace UI parameter panel.");
     }
 
@@ -539,6 +555,22 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
             _applicationLogService.LogInfo($"RMS fit error: {rmsFitError:F6}", nameof(ProjectionWorkspaceViewModel));
             _applicationLogService.LogInfo($"Min fit error: {minFitErrorEntry.FitError:F6} at hole index {minFitErrorEntry.Index}", nameof(ProjectionWorkspaceViewModel));
             _applicationLogService.LogWarning($"Max fit error: {maxFitErrorEntry.FitError:F6} at hole index {maxFitErrorEntry.Index}", nameof(ProjectionWorkspaceViewModel));
+        }
+
+        if (result.MethodId == ProjectionMethodIds.LeastSquaresCylindricalAlignmentSource && cylindrical.LeastSquaresDiagnostics is not null)
+        {
+            var diagnostics = cylindrical.LeastSquaresDiagnostics;
+            _applicationLogService.LogSuccess("Least-squares cylindrical alignment completed.", nameof(ProjectionWorkspaceViewModel));
+            _applicationLogService.LogInfo($"Initial lambda: {diagnostics.InitialLambda:F6}", nameof(ProjectionWorkspaceViewModel));
+            _applicationLogService.LogInfo($"Refined lambda: {diagnostics.RefinedLambda:F6}", nameof(ProjectionWorkspaceViewModel));
+            _applicationLogService.LogInfo($"Initial mean alignment error: {diagnostics.InitialMeanAlignmentError:F6}", nameof(ProjectionWorkspaceViewModel));
+            _applicationLogService.LogInfo($"Final mean alignment error: {diagnostics.FinalMeanAlignmentError:F6}", nameof(ProjectionWorkspaceViewModel));
+            _applicationLogService.LogInfo($"Final RMS alignment error: {diagnostics.FinalRmsAlignmentError:F6}", nameof(ProjectionWorkspaceViewModel));
+            _applicationLogService.LogInfo($"Final mean angular error: {diagnostics.FinalMeanAngularErrorDegrees:F4} deg", nameof(ProjectionWorkspaceViewModel));
+            _applicationLogService.LogWarning($"Max angular error: {diagnostics.FinalMaxAngularErrorDegrees:F4} deg at hole index {diagnostics.MaxAngularErrorHoleIndex?.ToString() ?? "n/a"}", nameof(ProjectionWorkspaceViewModel));
+            _applicationLogService.LogInfo($"Iterations: {diagnostics.Iterations}", nameof(ProjectionWorkspaceViewModel));
+            _applicationLogService.LogInfo($"Converged: {diagnostics.Converged}", nameof(ProjectionWorkspaceViewModel));
+            return;
         }
 
         if (result.MethodId != ProjectionMethodIds.SelfCalibratingCylindricalSource)

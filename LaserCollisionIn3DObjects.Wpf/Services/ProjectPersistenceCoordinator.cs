@@ -233,6 +233,27 @@ public sealed class ProjectPersistenceCoordinator
                         Score = candidate.Score,
                     }).ToList(),
                 },
+                LeastSquaresDiagnostics = namedResult.Result.CylindricalSource.LeastSquaresDiagnostics is null ? null : new LeastSquaresCylindricalAlignmentDiagnosticsDto
+                {
+                    InitialLambda = namedResult.Result.CylindricalSource.LeastSquaresDiagnostics.InitialLambda,
+                    RefinedLambda = namedResult.Result.CylindricalSource.LeastSquaresDiagnostics.RefinedLambda,
+                    InitialMeanAlignmentError = namedResult.Result.CylindricalSource.LeastSquaresDiagnostics.InitialMeanAlignmentError,
+                    FinalMeanAlignmentError = namedResult.Result.CylindricalSource.LeastSquaresDiagnostics.FinalMeanAlignmentError,
+                    FinalRmsAlignmentError = namedResult.Result.CylindricalSource.LeastSquaresDiagnostics.FinalRmsAlignmentError,
+                    FinalMeanAngularErrorDegrees = namedResult.Result.CylindricalSource.LeastSquaresDiagnostics.FinalMeanAngularErrorDegrees,
+                    FinalMaxAngularErrorDegrees = namedResult.Result.CylindricalSource.LeastSquaresDiagnostics.FinalMaxAngularErrorDegrees,
+                    MaxAngularErrorHoleIndex = namedResult.Result.CylindricalSource.LeastSquaresDiagnostics.MaxAngularErrorHoleIndex,
+                    Iterations = namedResult.Result.CylindricalSource.LeastSquaresDiagnostics.Iterations,
+                    Converged = namedResult.Result.CylindricalSource.LeastSquaresDiagnostics.Converged,
+                    UsesRegularization = namedResult.Result.CylindricalSource.LeastSquaresDiagnostics.UsesRegularization,
+                    IterationHistory = namedResult.Result.CylindricalSource.LeastSquaresDiagnostics.IterationHistory.Select(iteration => new LeastSquaresCylindricalAlignmentIterationDiagnosticsDto
+                    {
+                        Iteration = iteration.Iteration,
+                        Lambda = iteration.Lambda,
+                        MeanAlignmentError = iteration.MeanAlignmentError,
+                        MeanAngularErrorDegrees = iteration.MeanAngularErrorDegrees,
+                    }).ToList(),
+                },
                 Points = namedResult.Result.CylindricalSource.Points.Select(point => new CylindricalProjectionPointStateDto
                 {
                     HolePoint = point.HolePoint,
@@ -245,6 +266,8 @@ public sealed class ProjectPersistenceCoordinator
                     UnwrappedU = point.UnwrappedU,
                     UnwrappedV = point.UnwrappedV,
                     FitError = point.FitError,
+                    AlignmentError = point.AlignmentError,
+                    AngularErrorDegrees = point.AngularErrorDegrees,
                 }).ToList(),
             },
         };
@@ -367,6 +390,26 @@ public sealed class ProjectPersistenceCoordinator
                                 candidate.RegularityError,
                                 candidate.Score)).ToList(),
                         },
+                        LeastSquaresDiagnostics = result.CylindricalSource.LeastSquaresDiagnostics is null ? null : new LeastSquaresCylindricalAlignmentDiagnostics
+                        {
+                            InitialLambda = result.CylindricalSource.LeastSquaresDiagnostics.InitialLambda,
+                            RefinedLambda = result.CylindricalSource.LeastSquaresDiagnostics.RefinedLambda,
+                            InitialMeanAlignmentError = result.CylindricalSource.LeastSquaresDiagnostics.InitialMeanAlignmentError,
+                            FinalMeanAlignmentError = result.CylindricalSource.LeastSquaresDiagnostics.FinalMeanAlignmentError,
+                            FinalRmsAlignmentError = result.CylindricalSource.LeastSquaresDiagnostics.FinalRmsAlignmentError,
+                            FinalMeanAngularErrorDegrees = result.CylindricalSource.LeastSquaresDiagnostics.FinalMeanAngularErrorDegrees,
+                            FinalMaxAngularErrorDegrees = result.CylindricalSource.LeastSquaresDiagnostics.FinalMaxAngularErrorDegrees,
+                            MaxAngularErrorHoleIndex = result.CylindricalSource.LeastSquaresDiagnostics.MaxAngularErrorHoleIndex,
+                            Iterations = result.CylindricalSource.LeastSquaresDiagnostics.Iterations,
+                            Converged = result.CylindricalSource.LeastSquaresDiagnostics.Converged,
+                            UsesRegularization = result.CylindricalSource.LeastSquaresDiagnostics.UsesRegularization,
+                            IterationHistory = result.CylindricalSource.LeastSquaresDiagnostics.IterationHistory.Select(iteration =>
+                                new LeastSquaresCylindricalAlignmentIterationDiagnostics(
+                                    iteration.Iteration,
+                                    iteration.Lambda,
+                                    iteration.MeanAlignmentError,
+                                    iteration.MeanAngularErrorDegrees)).ToList(),
+                        },
                         Points = result.CylindricalSource.Points.Select(point => new CylindricalProjectionPoint(
                             point.HolePoint,
                             point.SourceSurfacePoint,
@@ -379,6 +422,8 @@ public sealed class ProjectPersistenceCoordinator
                             UnwrappedU = point.UnwrappedU,
                             UnwrappedV = point.UnwrappedV,
                             FitError = point.FitError,
+                            AlignmentError = point.AlignmentError,
+                            AngularErrorDegrees = point.AngularErrorDegrees,
                         }).ToList(),
                     },
                 },
