@@ -408,6 +408,7 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
         }
 
         _sceneCollectionService.AddScene(scene, selectScene: false);
+        ApplyHybridSegmentCount();
         RefreshAvailableScenes();
         SelectedScene = scene;
 
@@ -541,6 +542,7 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
 
         var deletedName = SelectedScene.Name;
         _sceneCollectionService.RemoveScene(SelectedScene);
+        ApplyHybridSegmentCount();
         RefreshAvailableScenes();
         RefreshViewport();
         SetStatus($"Deleted projection scene '{deletedName}'.", ApplicationLogLevel.Success);
