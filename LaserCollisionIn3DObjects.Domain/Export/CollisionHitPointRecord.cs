@@ -5,6 +5,8 @@ namespace LaserCollisionIn3DObjects.Domain.Export;
 public enum CollisionRaySourceType
 {
     CylindricalGenerated,
+    ConicalFrustumGenerated,
+    CircularOgiveGenerated,
     Manual,
     ProjectionResult,
 }

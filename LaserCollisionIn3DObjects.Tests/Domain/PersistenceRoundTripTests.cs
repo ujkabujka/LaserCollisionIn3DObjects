@@ -612,4 +612,65 @@ public class PersistenceRoundTripTests
             }
         }
     }
+
+    [Fact]
+    public void AxisymmetricLightSources_RoundTrip_PreservesFrustumAndOgiveParameters()
+    {
+        var service = new JsonStateFileService();
+        var filePath = Path.Combine(Path.GetTempPath(), $"lc3d-axis-{Guid.NewGuid():N}.json");
+
+        try
+        {
+            var state = new ProjectState
+            {
+                Scenes =
+                [
+                    new SceneState
+                    {
+                        Name = "Scene A",
+                        LightSources =
+                        [
+                            new AxisymmetricLightSourceState
+                            {
+                                Name = "Frustum",
+                                SourceKind = AxisymmetricSourceKind.ConicalFrustum,
+                                RadiusStart = 2f,
+                                RadiusEnd = 3f,
+                                Length = 4f,
+                                RayCount = 25,
+                            },
+                            new AxisymmetricLightSourceState
+                            {
+                                Name = "Ogive",
+                                SourceKind = AxisymmetricSourceKind.CircularOgive,
+                                RadiusStart = 2f,
+                                RadiusEnd = 4f,
+                                Length = 5f,
+                                ArcRadius = 10f,
+                                OgiveCurvatureDirection = OgiveCurvatureDirection.Inward,
+                                RayCount = 36,
+                            },
+                        ],
+                    },
+                ],
+            };
+
+            service.SaveProject(filePath, state);
+            var restored = service.LoadProject(filePath);
+
+            Assert.Equal(2, restored.Scenes[0].LightSources.Count);
+            Assert.Equal(AxisymmetricSourceKind.ConicalFrustum, restored.Scenes[0].LightSources[0].SourceKind);
+            Assert.Equal(3f, restored.Scenes[0].LightSources[0].RadiusEnd, 3);
+            Assert.Equal(AxisymmetricSourceKind.CircularOgive, restored.Scenes[0].LightSources[1].SourceKind);
+            Assert.Equal(OgiveCurvatureDirection.Inward, restored.Scenes[0].LightSources[1].OgiveCurvatureDirection);
+        }
+        finally
+        {
+            if (File.Exists(filePath))
+            {
+                File.Delete(filePath);
+            }
+        }
+    }
+
 }

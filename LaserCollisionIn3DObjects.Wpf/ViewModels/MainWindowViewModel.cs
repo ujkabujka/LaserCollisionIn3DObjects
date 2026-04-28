@@ -56,8 +56,14 @@ public sealed class MainWindowViewModel : ObservableObject
     private PrismArrayPlacementMode _selectedPrismArrayPlacementMode = PrismArrayPlacementMode.Cylindrical;
     private float _newRayDirectionX = 1f;
     private string _newLightSourceName = "Light Source 1";
+    private AxisymmetricSourceKind _newLightSourceKind = AxisymmetricSourceKind.Cylinder;
     private float _newLightSourceRadius = 5f;
     private float _newLightSourceHeight = 10f;
+    private float _newLightSourceRadiusStart = 5f;
+    private float _newLightSourceRadiusEnd = 3f;
+    private float _newLightSourceLength = 10f;
+    private float _newLightSourceArcRadius = 20f;
+    private OgiveCurvatureDirection _newLightSourceOgiveCurvatureDirection = OgiveCurvatureDirection.Outward;
     private int _newLightSourceRayCount = 200;
     private float _newLightSourceTiltWeight = 0.1f;
     private float _newLightSourceTiltPointX;
@@ -162,6 +168,8 @@ public sealed class MainWindowViewModel : ObservableObject
 
     public PrismArrayPlacementMode[] PrismArrayPlacementModes { get; } = Enum.GetValues<PrismArrayPlacementMode>();
     public CollisionAlgorithmOption[] CollisionAlgorithms { get; } = Enum.GetValues<CollisionAlgorithmOption>();
+    public AxisymmetricSourceKind[] LightSourceKinds { get; } = Enum.GetValues<AxisymmetricSourceKind>();
+    public OgiveCurvatureDirection[] OgiveCurvatureDirections { get; } = Enum.GetValues<OgiveCurvatureDirection>();
 
     public ICommand CreateSceneCommand { get; }
     public ICommand DeleteSelectedSceneCommand { get; }
@@ -318,6 +326,7 @@ public sealed class MainWindowViewModel : ObservableObject
     public float NewRayDirectionZ { get; set; }
 
     public string NewLightSourceName { get => _newLightSourceName; set => SetProperty(ref _newLightSourceName, value); }
+    public AxisymmetricSourceKind NewLightSourceKind { get => _newLightSourceKind; set => SetProperty(ref _newLightSourceKind, value); }
     public float NewLightSourcePosX { get; set; }
     public float NewLightSourcePosY { get; set; }
     public float NewLightSourcePosZ { get; set; }
@@ -326,6 +335,11 @@ public sealed class MainWindowViewModel : ObservableObject
     public float NewLightSourceRotZ { get; set; }
     public float NewLightSourceRadius { get => _newLightSourceRadius; set => SetProperty(ref _newLightSourceRadius, value); }
     public float NewLightSourceHeight { get => _newLightSourceHeight; set => SetProperty(ref _newLightSourceHeight, value); }
+    public float NewLightSourceRadiusStart { get => _newLightSourceRadiusStart; set => SetProperty(ref _newLightSourceRadiusStart, value); }
+    public float NewLightSourceRadiusEnd { get => _newLightSourceRadiusEnd; set => SetProperty(ref _newLightSourceRadiusEnd, value); }
+    public float NewLightSourceLength { get => _newLightSourceLength; set => SetProperty(ref _newLightSourceLength, value); }
+    public float NewLightSourceArcRadius { get => _newLightSourceArcRadius; set => SetProperty(ref _newLightSourceArcRadius, value); }
+    public OgiveCurvatureDirection NewLightSourceOgiveCurvatureDirection { get => _newLightSourceOgiveCurvatureDirection; set => SetProperty(ref _newLightSourceOgiveCurvatureDirection, value); }
     public int NewLightSourceRayCount { get => _newLightSourceRayCount; set => SetProperty(ref _newLightSourceRayCount, value); }
     public float NewLightSourceTiltWeight { get => _newLightSourceTiltWeight; set => SetProperty(ref _newLightSourceTiltWeight, value); }
     public float NewLightSourceTiltPointX { get => _newLightSourceTiltPointX; set => SetProperty(ref _newLightSourceTiltPointX, value); }
@@ -480,7 +494,7 @@ public sealed class MainWindowViewModel : ObservableObject
             return;
         }
 
-        if (!ValidateLightSourceInputs(NewLightSourceRadius, NewLightSourceHeight, NewLightSourceRayCount, NewLightSourceTiltWeight, out var error))
+        if (!ValidateLightSourceInputs(NewLightSourceKind, NewLightSourceRadius, NewLightSourceHeight, NewLightSourceRadiusStart, NewLightSourceRadiusEnd, NewLightSourceLength, NewLightSourceArcRadius, NewLightSourceRayCount, NewLightSourceTiltWeight, out var error))
         {
             SetStatus(error, ApplicationLogLevel.Warning);
             return;
@@ -489,6 +503,7 @@ public sealed class MainWindowViewModel : ObservableObject
         scene.LightSources.Add(new CylindricalLightSourceItemViewModel
         {
             Name = string.IsNullOrWhiteSpace(NewLightSourceName) ? $"Light Source {scene.LightSources.Count + 1}" : NewLightSourceName,
+            SourceKind = NewLightSourceKind,
             PositionX = NewLightSourcePosX,
             PositionY = NewLightSourcePosY,
             PositionZ = NewLightSourcePosZ,
@@ -497,6 +512,11 @@ public sealed class MainWindowViewModel : ObservableObject
             RotationZ = NewLightSourceRotZ,
             Radius = NewLightSourceRadius,
             Height = NewLightSourceHeight,
+            RadiusStart = NewLightSourceRadiusStart,
+            RadiusEnd = NewLightSourceRadiusEnd,
+            Length = NewLightSourceLength,
+            ArcRadius = NewLightSourceArcRadius,
+            OgiveCurvatureDirection = NewLightSourceOgiveCurvatureDirection,
             RayCount = NewLightSourceRayCount,
             TiltWeight = NewLightSourceTiltWeight,
             TiltPointX = NewLightSourceTiltPointX,
@@ -509,6 +529,7 @@ public sealed class MainWindowViewModel : ObservableObject
         NewLightSourceName = $"Light Source {scene.LightSources.Count + 1}";
         RaiseCanExecuteChanges();
         RefreshViewport(false);
+        SetStatus($"Added {NewLightSourceKind} light source.");
     }
 
     private void RemoveSelectedPrism()
@@ -632,7 +653,7 @@ public sealed class MainWindowViewModel : ObservableObject
         }
 
         RefreshViewport(false);
-        SetStatus("Generated rays refreshed from cylindrical light sources.");
+        SetStatus("Generated rays refreshed from axisymmetric light sources.");
     }
 
     private void ResetDemoScene()
@@ -655,11 +676,17 @@ public sealed class MainWindowViewModel : ObservableObject
         scene.LightSources.Add(new CylindricalLightSourceItemViewModel
         {
             Name = "Light Source 1",
+            SourceKind = AxisymmetricSourceKind.Cylinder,
             PositionX = -10,
             PositionY = 0,
             PositionZ = 0,
             Radius = 4,
             Height = 10,
+            RadiusStart = 4,
+            RadiusEnd = 4,
+            Length = 10,
+            ArcRadius = 20,
+            OgiveCurvatureDirection = OgiveCurvatureDirection.Outward,
             RayCount = 120,
             TiltWeight = 0.1f,
             TiltPointX = 0f,
@@ -808,7 +835,7 @@ public sealed class MainWindowViewModel : ObservableObject
         for (var i = 0; i < LightSources.Count; i++)
         {
             var source = LightSources[i];
-            if (!ValidateLightSourceInputs(source.Radius, source.Height, source.RayCount, source.TiltWeight, out error))
+            if (!ValidateLightSourceInputs(source.SourceKind, source.Radius, source.Height, source.RadiusStart, source.RadiusEnd, source.Length, source.ArcRadius, source.RayCount, source.TiltWeight, out error))
             {
                 error = $"Light source {i + 1} invalid. {error}";
                 return false;
@@ -860,12 +887,39 @@ public sealed class MainWindowViewModel : ObservableObject
         return true;
     }
 
-    private static bool ValidateLightSourceInputs(float radius, float height, int rayCount, float tiltWeight, out string error)
+    private static bool ValidateLightSourceInputs(
+        AxisymmetricSourceKind sourceKind,
+        float radius,
+        float height,
+        float radiusStart,
+        float radiusEnd,
+        float length,
+        float arcRadius,
+        int rayCount,
+        float tiltWeight,
+        out string error)
     {
-        if (radius <= 0 || height <= 0)
+        if (sourceKind == AxisymmetricSourceKind.Cylinder)
         {
-            error = "Light source radius and height must be positive.";
-            return false;
+            if (radius <= 0 || height <= 0)
+            {
+                error = "Light source radius and height must be positive.";
+                return false;
+            }
+        }
+        else
+        {
+            if (radiusStart <= 0f || radiusEnd <= 0f || length <= 0f)
+            {
+                error = "Light source R1, R2, and length must be positive.";
+                return false;
+            }
+
+            if (sourceKind == AxisymmetricSourceKind.CircularOgive && arcRadius <= 0f)
+            {
+                error = "Circular ogive arc radius must be positive.";
+                return false;
+            }
         }
 
         if (rayCount <= 0)
@@ -1227,6 +1281,7 @@ public sealed class MainWindowViewModel : ObservableObject
         var (effectiveRotX, effectiveRotY, effectiveRotZ) = FrameOrientationBuilder.ToLocalEulerDegrees(effectiveOrientation);
 
         NewLightSourceName = source.Name;
+        NewLightSourceKind = source.SourceKind;
         NewLightSourcePosX = source.PositionX;
         NewLightSourcePosY = source.PositionY;
         NewLightSourcePosZ = source.PositionZ;
@@ -1235,6 +1290,11 @@ public sealed class MainWindowViewModel : ObservableObject
         NewLightSourceRotZ = effectiveRotZ;
         NewLightSourceRadius = source.Radius;
         NewLightSourceHeight = source.Height;
+        NewLightSourceRadiusStart = source.RadiusStart;
+        NewLightSourceRadiusEnd = source.RadiusEnd;
+        NewLightSourceLength = source.Length;
+        NewLightSourceArcRadius = source.ArcRadius;
+        NewLightSourceOgiveCurvatureDirection = source.OgiveCurvatureDirection;
         NewLightSourceRayCount = source.RayCount;
         NewLightSourceTiltWeight = source.TiltWeight;
         NewLightSourceTiltPointX = source.TiltPointX;

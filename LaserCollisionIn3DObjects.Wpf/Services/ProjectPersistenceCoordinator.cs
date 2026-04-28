@@ -150,9 +150,10 @@ public sealed class ProjectPersistenceCoordinator
                 DirectionY = ray.DirectionY,
                 DirectionZ = ray.DirectionZ,
             }).ToList(),
-            CylindricalLightSources = scene.LightSources.Select(source => new CylindricalLightSourceState
+            LightSources = scene.LightSources.Select(source => new AxisymmetricLightSourceState
             {
                 Name = source.Name,
+                SourceKind = source.SourceKind,
                 PositionX = source.PositionX,
                 PositionY = source.PositionY,
                 PositionZ = source.PositionZ,
@@ -161,6 +162,11 @@ public sealed class ProjectPersistenceCoordinator
                 RotationZ = source.RotationZ,
                 Radius = source.Radius,
                 Height = source.Height,
+                RadiusStart = source.RadiusStart,
+                RadiusEnd = source.RadiusEnd,
+                Length = source.Length,
+                ArcRadius = source.ArcRadius,
+                OgiveCurvatureDirection = source.OgiveCurvatureDirection,
                 RayCount = source.RayCount,
                 TiltWeight = source.TiltWeight,
                 TiltPointX = source.TiltPointX,
@@ -313,30 +319,71 @@ public sealed class ProjectPersistenceCoordinator
             });
         }
 
-        foreach (var source in sceneState.CylindricalLightSources)
+        if (sceneState.LightSources.Count > 0)
         {
-            scene.LightSources.Add(new CylindricalLightSourceItemViewModel
+            foreach (var source in sceneState.LightSources)
             {
-                Name = source.Name,
-                PositionX = source.PositionX,
-                PositionY = source.PositionY,
-                PositionZ = source.PositionZ,
-                RotationX = source.RotationX,
-                RotationY = source.RotationY,
-                RotationZ = source.RotationZ,
-                Radius = source.Radius,
-                Height = source.Height,
-                RayCount = source.RayCount,
-                TiltWeight = source.TiltWeight,
-                TiltPointX = source.TiltPointX,
-                TiltPointY = source.TiltPointY,
-                TiltPointZ = source.TiltPointZ,
-                BaseOrientation = BaseOrientationPersistence.FromComponents(
-                    source.BaseOrientationX,
-                    source.BaseOrientationY,
-                    source.BaseOrientationZ,
-                    source.BaseOrientationW),
-            });
+                scene.LightSources.Add(new CylindricalLightSourceItemViewModel
+                {
+                    Name = source.Name,
+                    SourceKind = source.SourceKind,
+                    PositionX = source.PositionX,
+                    PositionY = source.PositionY,
+                    PositionZ = source.PositionZ,
+                    RotationX = source.RotationX,
+                    RotationY = source.RotationY,
+                    RotationZ = source.RotationZ,
+                    Radius = source.Radius,
+                    Height = source.Height,
+                    RadiusStart = source.RadiusStart,
+                    RadiusEnd = source.RadiusEnd,
+                    Length = source.Length,
+                    ArcRadius = source.ArcRadius,
+                    OgiveCurvatureDirection = source.OgiveCurvatureDirection,
+                    RayCount = source.RayCount,
+                    TiltWeight = source.TiltWeight,
+                    TiltPointX = source.TiltPointX,
+                    TiltPointY = source.TiltPointY,
+                    TiltPointZ = source.TiltPointZ,
+                    BaseOrientation = BaseOrientationPersistence.FromComponents(
+                        source.BaseOrientationX,
+                        source.BaseOrientationY,
+                        source.BaseOrientationZ,
+                        source.BaseOrientationW),
+                });
+            }
+        }
+        else
+        {
+            foreach (var source in sceneState.CylindricalLightSources)
+            {
+                scene.LightSources.Add(new CylindricalLightSourceItemViewModel
+                {
+                    Name = source.Name,
+                    SourceKind = AxisymmetricSourceKind.Cylinder,
+                    PositionX = source.PositionX,
+                    PositionY = source.PositionY,
+                    PositionZ = source.PositionZ,
+                    RotationX = source.RotationX,
+                    RotationY = source.RotationY,
+                    RotationZ = source.RotationZ,
+                    Radius = source.Radius,
+                    Height = source.Height,
+                    RadiusStart = source.Radius,
+                    RadiusEnd = source.Radius,
+                    Length = source.Height,
+                    RayCount = source.RayCount,
+                    TiltWeight = source.TiltWeight,
+                    TiltPointX = source.TiltPointX,
+                    TiltPointY = source.TiltPointY,
+                    TiltPointZ = source.TiltPointZ,
+                    BaseOrientation = BaseOrientationPersistence.FromComponents(
+                        source.BaseOrientationX,
+                        source.BaseOrientationY,
+                        source.BaseOrientationZ,
+                        source.BaseOrientationW),
+                });
+            }
         }
 
         foreach (var hole in sceneState.HolePoints)

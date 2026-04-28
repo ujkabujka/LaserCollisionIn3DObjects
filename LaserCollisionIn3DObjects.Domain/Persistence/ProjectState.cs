@@ -38,6 +38,7 @@ public sealed class SceneState
     public List<PrismState> Prisms { get; set; } = new();
     public List<RayState> ManualRays { get; set; } = new();
     public List<CylindricalLightSourceState> CylindricalLightSources { get; set; } = new();
+    public List<AxisymmetricLightSourceState> LightSources { get; set; } = new();
     public List<Point3> HolePoints { get; set; } = new();
     public SceneProjectionStateDto Projection { get; set; } = new();
 }
@@ -70,6 +71,34 @@ public sealed class RayState
     public float DirectionZ { get; set; }
 }
 
+
+public sealed class AxisymmetricLightSourceState
+{
+    public string Name { get; set; } = string.Empty;
+    public AxisymmetricSourceKind SourceKind { get; set; } = AxisymmetricSourceKind.Cylinder;
+    public float PositionX { get; set; }
+    public float PositionY { get; set; }
+    public float PositionZ { get; set; }
+    public float RotationX { get; set; }
+    public float RotationY { get; set; }
+    public float RotationZ { get; set; }
+    public float Radius { get; set; }
+    public float Height { get; set; }
+    public float RadiusStart { get; set; }
+    public float RadiusEnd { get; set; }
+    public float Length { get; set; }
+    public float ArcRadius { get; set; }
+    public OgiveCurvatureDirection OgiveCurvatureDirection { get; set; } = OgiveCurvatureDirection.Outward;
+    public int RayCount { get; set; }
+    public float TiltWeight { get; set; } = 0.1f;
+    public float TiltPointX { get; set; }
+    public float TiltPointY { get; set; }
+    public float TiltPointZ { get; set; }
+    public float? BaseOrientationX { get; set; }
+    public float? BaseOrientationY { get; set; }
+    public float? BaseOrientationZ { get; set; }
+    public float? BaseOrientationW { get; set; }
+}
 public sealed class CylindricalLightSourceState
 {
     public string Name { get; set; } = string.Empty;
