@@ -118,6 +118,7 @@ public sealed class CylindricalProjectionStateDto
     public Point3? LocalTiltPoint { get; set; }
     public double? EstimatedTiltWeight { get; set; }
     public SelfCalibratingCylindricalProjectionDiagnosticsDto? Diagnostics { get; set; }
+    public LeastSquaresCylindricalAlignmentDiagnosticsDto? LeastSquaresDiagnostics { get; set; }
     public List<CylindricalProjectionPointStateDto> Points { get; set; } = new();
 }
 
@@ -133,6 +134,8 @@ public sealed class CylindricalProjectionPointStateDto
     public double? UnwrappedU { get; set; }
     public double? UnwrappedV { get; set; }
     public double? FitError { get; set; }
+    public double? AlignmentError { get; set; }
+    public double? AngularErrorDegrees { get; set; }
 }
 
 public sealed class SelfCalibratingCylindricalProjectionDiagnosticsDto
@@ -147,6 +150,30 @@ public sealed class SelfCalibratingCylindricalCandidateDiagnosticsDto
     public double MeanFitError { get; set; }
     public double RegularityError { get; set; }
     public double Score { get; set; }
+}
+
+public sealed class LeastSquaresCylindricalAlignmentDiagnosticsDto
+{
+    public double InitialLambda { get; set; }
+    public double RefinedLambda { get; set; }
+    public double InitialMeanAlignmentError { get; set; }
+    public double FinalMeanAlignmentError { get; set; }
+    public double FinalRmsAlignmentError { get; set; }
+    public double FinalMeanAngularErrorDegrees { get; set; }
+    public double FinalMaxAngularErrorDegrees { get; set; }
+    public int? MaxAngularErrorHoleIndex { get; set; }
+    public int Iterations { get; set; }
+    public bool Converged { get; set; }
+    public bool UsesRegularization { get; set; }
+    public List<LeastSquaresCylindricalAlignmentIterationDiagnosticsDto> IterationHistory { get; set; } = new();
+}
+
+public sealed class LeastSquaresCylindricalAlignmentIterationDiagnosticsDto
+{
+    public int Iteration { get; set; }
+    public double Lambda { get; set; }
+    public double MeanAlignmentError { get; set; }
+    public double MeanAngularErrorDegrees { get; set; }
 }
 
 public sealed class PointSourceFrameStateDto

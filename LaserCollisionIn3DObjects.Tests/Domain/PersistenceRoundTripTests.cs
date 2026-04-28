@@ -495,4 +495,121 @@ public class PersistenceRoundTripTests
             }
         }
     }
+
+    [Fact]
+    public void ProjectState_RoundTrip_PreservesLeastSquaresCylindricalAlignmentMetadata()
+    {
+        var service = new JsonStateFileService();
+        var filePath = Path.Combine(Path.GetTempPath(), $"lc3d-ls-align-{Guid.NewGuid():N}.json");
+
+        try
+        {
+            var state = new ProjectState
+            {
+                Scenes =
+                [
+                    new SceneState
+                    {
+                        Name = "Scene LS",
+                        Projection = new SceneProjectionStateDto
+                        {
+                            SelectedMethodId = ProjectionMethodIds.LeastSquaresCylindricalAlignmentSource,
+                            Results =
+                            [
+                                new ProjectionResultStateDto
+                                {
+                                    Key = "k-ls",
+                                    Name = "r-ls",
+                                    MethodId = ProjectionMethodIds.LeastSquaresCylindricalAlignmentSource,
+                                    SourceFrame = new PointSourceFrameStateDto
+                                    {
+                                        Origin = new Point3(0, 0, 0),
+                                        AxisX = new Vector3D(1, 0, 0),
+                                        AxisY = new Vector3D(0, 1, 0),
+                                        AxisZ = new Vector3D(0, 0, 1),
+                                    },
+                                    CylindricalSource = new CylindricalProjectionStateDto
+                                    {
+                                        SourceFrame = new PointSourceFrameStateDto
+                                        {
+                                            Origin = new Point3(0, 0, 0),
+                                            AxisX = new Vector3D(1, 0, 0),
+                                            AxisY = new Vector3D(0, 1, 0),
+                                            AxisZ = new Vector3D(0, 0, 1),
+                                        },
+                                        Radius = 1.5,
+                                        Length = 6,
+                                        LocalTiltPoint = new Point3(1, 2, 3),
+                                        EstimatedTiltWeight = 0.31,
+                                        LeastSquaresDiagnostics = new LeastSquaresCylindricalAlignmentDiagnosticsDto
+                                        {
+                                            InitialLambda = 0.34,
+                                            RefinedLambda = 0.31,
+                                            InitialMeanAlignmentError = 0.04,
+                                            FinalMeanAlignmentError = 0.01,
+                                            FinalRmsAlignmentError = 0.015,
+                                            FinalMeanAngularErrorDegrees = 1.1,
+                                            FinalMaxAngularErrorDegrees = 3.3,
+                                            MaxAngularErrorHoleIndex = 2,
+                                            Iterations = 7,
+                                            Converged = true,
+                                            UsesRegularization = false,
+                                            IterationHistory =
+                                            [
+                                                new LeastSquaresCylindricalAlignmentIterationDiagnosticsDto
+                                                {
+                                                    Iteration = 1,
+                                                    Lambda = 0.32,
+                                                    MeanAlignmentError = 0.02,
+                                                    MeanAngularErrorDegrees = 1.8,
+                                                },
+                                            ],
+                                        },
+                                        Points =
+                                        [
+                                            new CylindricalProjectionPointStateDto
+                                            {
+                                                HolePoint = new Point3(9, 9, 9),
+                                                SourceSurfacePoint = new Point3(1, 1, 1),
+                                                RayOrigin = new Point3(1, 1, 1),
+                                                RayDirection = new Vector3D(1, 0, 0),
+                                                ModeledRayDirection = new Vector3D(0, 1, 0),
+                                                LocalU = 2,
+                                                LocalTheta = 0.5,
+                                                UnwrappedU = 2,
+                                                UnwrappedV = 0.75,
+                                                AlignmentError = 0.03,
+                                                AngularErrorDegrees = 1.2,
+                                                FitError = 0.03,
+                                            },
+                                        ],
+                                    },
+                                },
+                            ],
+                        },
+                    },
+                ],
+            };
+
+            service.SaveProject(filePath, state);
+            var roundTrip = service.LoadProject(filePath);
+
+            var result = roundTrip.Scenes[0].Projection.Results[0].CylindricalSource!;
+            Assert.Equal(0.31, result.EstimatedTiltWeight ?? 0d, 6);
+            Assert.NotNull(result.LeastSquaresDiagnostics);
+            Assert.Equal(0.34, result.LeastSquaresDiagnostics!.InitialLambda, 6);
+            Assert.Equal(0.31, result.LeastSquaresDiagnostics.RefinedLambda, 6);
+            Assert.False(result.LeastSquaresDiagnostics.UsesRegularization);
+            Assert.Single(result.LeastSquaresDiagnostics.IterationHistory);
+            Assert.Equal(0.03, result.Points[0].AlignmentError ?? 0d, 6);
+            Assert.Equal(1.2, result.Points[0].AngularErrorDegrees ?? 0d, 6);
+        }
+        finally
+        {
+            if (File.Exists(filePath))
+            {
+                File.Delete(filePath);
+            }
+        }
+    }
 }
