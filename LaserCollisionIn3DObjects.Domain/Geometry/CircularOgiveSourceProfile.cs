@@ -13,10 +13,10 @@ public sealed class CircularOgiveSourceProfile : IAxisymmetricSourceProfile
 
     public CircularOgiveSourceProfile(float radiusStart, float radiusEnd, float length, float arcRadius, OgiveCurvatureDirection curvatureDirection)
     {
-        RadiusStart = CylindricalSourceProfile.EnsurePositive(radiusStart, nameof(radiusStart));
-        RadiusEnd = CylindricalSourceProfile.EnsurePositive(radiusEnd, nameof(radiusEnd));
-        Length = CylindricalSourceProfile.EnsurePositive(length, nameof(length));
-        ArcRadius = CylindricalSourceProfile.EnsurePositive(arcRadius, nameof(arcRadius));
+        RadiusStart = AxisymmetricSourceProfile.EnsurePositive(radiusStart, nameof(radiusStart));
+        RadiusEnd = AxisymmetricSourceProfile.EnsurePositive(radiusEnd, nameof(radiusEnd));
+        Length = AxisymmetricSourceProfile.EnsurePositive(length, nameof(length));
+        ArcRadius = AxisymmetricSourceProfile.EnsurePositive(arcRadius, nameof(arcRadius));
         CurvatureDirection = curvatureDirection;
 
         var deltaRadius = RadiusEnd - RadiusStart;
@@ -58,13 +58,13 @@ public sealed class CircularOgiveSourceProfile : IAxisymmetricSourceProfile
 
     public float RadiusAt(float u)
     {
-        CylindricalSourceProfile.EnsureUInRange(u, Length);
+        AxisymmetricSourceProfile.EnsureUInRange(u, Length);
         return EvaluateRadiusUnchecked(u);
     }
 
     public float RadiusDerivativeAt(float u)
     {
-        CylindricalSourceProfile.EnsureUInRange(u, Length);
+        AxisymmetricSourceProfile.EnsureUInRange(u, Length);
         var sqrtArg = EvaluateSqrtArgument(u);
         var denom = MathF.Sqrt(MathF.Max(sqrtArg, 0f));
         if (denom <= SampleTolerance)

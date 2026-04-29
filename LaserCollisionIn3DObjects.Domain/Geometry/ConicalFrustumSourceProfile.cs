@@ -8,9 +8,9 @@ public sealed class ConicalFrustumSourceProfile : IAxisymmetricSourceProfile
 
     public ConicalFrustumSourceProfile(float radiusStart, float radiusEnd, float length)
     {
-        RadiusStart = CylindricalSourceProfile.EnsurePositive(radiusStart, nameof(radiusStart));
-        RadiusEnd = CylindricalSourceProfile.EnsurePositive(radiusEnd, nameof(radiusEnd));
-        Length = CylindricalSourceProfile.EnsurePositive(length, nameof(length));
+        RadiusStart = AxisymmetricSourceProfile.EnsurePositive(radiusStart, nameof(radiusStart));
+        RadiusEnd = AxisymmetricSourceProfile.EnsurePositive(radiusEnd, nameof(radiusEnd));
+        Length = AxisymmetricSourceProfile.EnsurePositive(length, nameof(length));
         _radiusSlope = (RadiusEnd - RadiusStart) / Length;
     }
 
@@ -20,13 +20,13 @@ public sealed class ConicalFrustumSourceProfile : IAxisymmetricSourceProfile
 
     public float RadiusAt(float u)
     {
-        CylindricalSourceProfile.EnsureUInRange(u, Length);
+        AxisymmetricSourceProfile.EnsureUInRange(u, Length);
         return RadiusStart + (_radiusSlope * u);
     }
 
     public float RadiusDerivativeAt(float u)
     {
-        CylindricalSourceProfile.EnsureUInRange(u, Length);
+        AxisymmetricSourceProfile.EnsureUInRange(u, Length);
         return _radiusSlope;
     }
 

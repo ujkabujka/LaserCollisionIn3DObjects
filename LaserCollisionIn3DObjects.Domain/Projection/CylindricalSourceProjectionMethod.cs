@@ -3,12 +3,12 @@ using LaserCollisionIn3DObjects.Domain.Geometry;
 
 namespace LaserCollisionIn3DObjects.Domain.Projection;
 
-public sealed class CylindricalSourceProjectionMethod : IProjectionMethod
+public sealed class AxisymmetricSourceProjectionMethod : IProjectionMethod
 {
     private const double ZeroTolerance = 1e-9;
 
     public ProjectionMethodMetadata Metadata { get; } = new(
-        ProjectionMethodIds.CylindricalSource,
+        ProjectionMethodIds.AxisymmetricSource,
         "User-defined cylindrical source",
         "Reconstructs one source-surface point per hole by normalizing local X into source length and projecting local YZ onto radius.");
 
@@ -16,7 +16,7 @@ public sealed class CylindricalSourceProjectionMethod : IProjectionMethod
     {
         ArgumentNullException.ThrowIfNull(request);
 
-        if (request.Parameters is not CylindricalSourceProjectionParameters parameters)
+        if (request.Parameters is not AxisymmetricSourceProjectionParameters parameters)
         {
             throw new ArgumentException("Cylindrical-source projection requires cylindrical parameters.", nameof(request));
         }
@@ -53,7 +53,7 @@ public sealed class CylindricalSourceProjectionMethod : IProjectionMethod
             throw new ArgumentException("Hole points cannot be normalized: all transformed local X coordinates are equal.", nameof(request));
         }
 
-        var reconstructedPoints = new List<CylindricalProjectionPoint>(request.HolePoints.Count);
+        var reconstructedPoints = new List<AxisymmetricProjectionPoint>(request.HolePoints.Count);
         for (var i = 0; i < request.HolePoints.Count; i++)
         {
             var localHole = localHolePoints[i];
@@ -86,7 +86,7 @@ public sealed class CylindricalSourceProjectionMethod : IProjectionMethod
             }
 
             var direction = Vector3.Normalize(directionVector);
-            reconstructedPoints.Add(new CylindricalProjectionPoint(
+            reconstructedPoints.Add(new AxisymmetricProjectionPoint(
                 holeWorld,
                 surfaceWorld,
                 new Vector3D(direction.X, direction.Y, direction.Z),
@@ -98,7 +98,7 @@ public sealed class CylindricalSourceProjectionMethod : IProjectionMethod
             MethodId = Metadata.Id,
             SourceFrame = sourceFrame,
             Rays = Array.Empty<ProjectionRay>(),
-            CylindricalSource = new CylindricalProjectionState
+            AxisymmetricSource = new AxisymmetricProjectionState
             {
                 SourceFrame = sourceFrame,
                 Radius = parameters.Radius,

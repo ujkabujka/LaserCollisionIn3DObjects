@@ -200,7 +200,7 @@ public class PersistenceRoundTripTests
     }
 
     [Fact]
-    public void CylindricalSource_BaseOrientation_RoundTrip_PreservesQuaternionAndFinalOrientation()
+    public void AxisymmetricSource_BaseOrientation_RoundTrip_PreservesQuaternionAndFinalOrientation()
     {
         var baseOrientation = Quaternion.Normalize(Quaternion.CreateFromAxisAngle(Vector3.UnitY, 0.7f));
         const float rx = 10f;
@@ -272,7 +272,7 @@ public class PersistenceRoundTripTests
     }
 
     [Fact]
-    public void CylindricalSource_MissingTiltPointFields_DefaultsToOrigin()
+    public void AxisymmetricSource_MissingTiltPointFields_DefaultsToOrigin()
     {
         const string legacyJson = """
                                   {
@@ -315,14 +315,14 @@ public class PersistenceRoundTripTests
                     Name = "Projection Scene",
                     Projection = new SceneProjectionStateDto
                     {
-                        SelectedMethodId = ProjectionMethodIds.CylindricalSource,
+                        SelectedMethodId = ProjectionMethodIds.AxisymmetricSource,
                         Results =
                         [
                             new ProjectionResultStateDto
                             {
                                 Key = "proj-1",
                                 Name = "Cyl",
-                                MethodId = ProjectionMethodIds.CylindricalSource,
+                                MethodId = ProjectionMethodIds.AxisymmetricSource,
                                 SourceFrame = new PointSourceFrameStateDto
                                 {
                                     Origin = new Point3(1, 2, 3),
@@ -330,7 +330,7 @@ public class PersistenceRoundTripTests
                                     AxisY = new Vector3D(0, 1, 0),
                                     AxisZ = new Vector3D(0, 0, 1),
                                 },
-                                CylindricalSource = new CylindricalProjectionStateDto
+                                AxisymmetricSource = new AxisymmetricProjectionStateDto
                                 {
                                     SourceFrame = new PointSourceFrameStateDto
                                     {
@@ -343,7 +343,7 @@ public class PersistenceRoundTripTests
                                     Length = 12,
                                     Points =
                                     [
-                                        new CylindricalProjectionPointStateDto
+                                        new AxisymmetricProjectionPointStateDto
                                         {
                                             HolePoint = new Point3(4, 0, 0),
                                             SourceSurfacePoint = new Point3(0, 4, 0),
@@ -363,11 +363,11 @@ public class PersistenceRoundTripTests
         var restored = JsonSerializer.Deserialize<ProjectState>(json)!;
         var result = restored.Scenes[0].Projection.Results[0];
 
-        Assert.NotNull(result.CylindricalSource);
-        Assert.Equal(4d, result.CylindricalSource!.Radius, 6);
-        Assert.Equal(12d, result.CylindricalSource.Length, 6);
-        Assert.Single(result.CylindricalSource.Points);
-        Assert.Equal(new Point3(0, 4, 0), result.CylindricalSource.Points[0].SourceSurfacePoint);
+        Assert.NotNull(result.AxisymmetricSource);
+        Assert.Equal(4d, result.AxisymmetricSource!.Radius, 6);
+        Assert.Equal(12d, result.AxisymmetricSource.Length, 6);
+        Assert.Single(result.AxisymmetricSource.Points);
+        Assert.Equal(new Point3(0, 4, 0), result.AxisymmetricSource.Points[0].SourceSurfacePoint);
     }
 
     [Fact]
@@ -410,14 +410,14 @@ public class PersistenceRoundTripTests
                         Name = "Scene SC",
                         Projection = new SceneProjectionStateDto
                         {
-                            SelectedMethodId = ProjectionMethodIds.SelfCalibratingCylindricalSource,
+                            SelectedMethodId = ProjectionMethodIds.SelfCalibratingAxisymmetricSource,
                             Results =
                             [
                                 new ProjectionResultStateDto
                                 {
                                     Key = "k",
                                     Name = "r",
-                                    MethodId = ProjectionMethodIds.SelfCalibratingCylindricalSource,
+                                    MethodId = ProjectionMethodIds.SelfCalibratingAxisymmetricSource,
                                     SourceFrame = new PointSourceFrameStateDto
                                     {
                                         Origin = new Point3(0, 0, 0),
@@ -425,7 +425,7 @@ public class PersistenceRoundTripTests
                                         AxisY = new Vector3D(0, 1, 0),
                                         AxisZ = new Vector3D(0, 0, 1),
                                     },
-                                    CylindricalSource = new CylindricalProjectionStateDto
+                                    AxisymmetricSource = new AxisymmetricProjectionStateDto
                                     {
                                         SourceFrame = new PointSourceFrameStateDto
                                         {
@@ -438,12 +438,12 @@ public class PersistenceRoundTripTests
                                         Length = 6,
                                         LocalTiltPoint = new Point3(1, 2, 3),
                                         EstimatedTiltWeight = 0.42,
-                                        Diagnostics = new SelfCalibratingCylindricalProjectionDiagnosticsDto
+                                        Diagnostics = new SelfCalibratingAxisymmetricProjectionDiagnosticsDto
                                         {
                                             RegularityWeight = 0.1,
                                             CandidateScores =
                                             [
-                                                new SelfCalibratingCylindricalCandidateDiagnosticsDto
+                                                new SelfCalibratingAxisymmetricCandidateDiagnosticsDto
                                                 {
                                                     Lambda = 0.42,
                                                     MeanFitError = 0.01,
@@ -454,7 +454,7 @@ public class PersistenceRoundTripTests
                                         },
                                         Points =
                                         [
-                                            new CylindricalProjectionPointStateDto
+                                            new AxisymmetricProjectionPointStateDto
                                             {
                                                 HolePoint = new Point3(9, 9, 9),
                                                 SourceSurfacePoint = new Point3(1, 1, 1),
@@ -479,7 +479,7 @@ public class PersistenceRoundTripTests
             service.SaveProject(filePath, state);
             var roundTrip = service.LoadProject(filePath);
 
-            var result = roundTrip.Scenes[0].Projection.Results[0].CylindricalSource!;
+            var result = roundTrip.Scenes[0].Projection.Results[0].AxisymmetricSource!;
             Assert.Equal(0.42, result.EstimatedTiltWeight ?? 0d, 6);
             Assert.Equal(new Point3(1, 2, 3), result.LocalTiltPoint);
             Assert.NotNull(result.Diagnostics);
@@ -528,7 +528,7 @@ public class PersistenceRoundTripTests
                                         AxisY = new Vector3D(0, 1, 0),
                                         AxisZ = new Vector3D(0, 0, 1),
                                     },
-                                    CylindricalSource = new CylindricalProjectionStateDto
+                                    AxisymmetricSource = new AxisymmetricProjectionStateDto
                                     {
                                         SourceFrame = new PointSourceFrameStateDto
                                         {
@@ -541,7 +541,7 @@ public class PersistenceRoundTripTests
                                         Length = 6,
                                         LocalTiltPoint = new Point3(1, 2, 3),
                                         EstimatedTiltWeight = 0.31,
-                                        LeastSquaresDiagnostics = new LeastSquaresCylindricalAlignmentDiagnosticsDto
+                                        LeastSquaresDiagnostics = new LeastSquaresAxisymmetricAlignmentDiagnosticsDto
                                         {
                                             InitialLambda = 0.34,
                                             RefinedLambda = 0.31,
@@ -556,7 +556,7 @@ public class PersistenceRoundTripTests
                                             UsesRegularization = false,
                                             IterationHistory =
                                             [
-                                                new LeastSquaresCylindricalAlignmentIterationDiagnosticsDto
+                                                new LeastSquaresAxisymmetricAlignmentIterationDiagnosticsDto
                                                 {
                                                     Iteration = 1,
                                                     Lambda = 0.32,
@@ -567,7 +567,7 @@ public class PersistenceRoundTripTests
                                         },
                                         Points =
                                         [
-                                            new CylindricalProjectionPointStateDto
+                                            new AxisymmetricProjectionPointStateDto
                                             {
                                                 HolePoint = new Point3(9, 9, 9),
                                                 SourceSurfacePoint = new Point3(1, 1, 1),
@@ -594,7 +594,7 @@ public class PersistenceRoundTripTests
             service.SaveProject(filePath, state);
             var roundTrip = service.LoadProject(filePath);
 
-            var result = roundTrip.Scenes[0].Projection.Results[0].CylindricalSource!;
+            var result = roundTrip.Scenes[0].Projection.Results[0].AxisymmetricSource!;
             Assert.Equal(0.31, result.EstimatedTiltWeight ?? 0d, 6);
             Assert.NotNull(result.LeastSquaresDiagnostics);
             Assert.Equal(0.34, result.LeastSquaresDiagnostics!.InitialLambda, 6);

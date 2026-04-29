@@ -58,7 +58,7 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
         _methodRegistry = methodRegistry ?? new ProjectionMethodRegistry(new IProjectionMethod[]
         {
             new PointSourceProjectionMethod(),
-            new CylindricalSourceProjectionMethod(),
+            new AxisymmetricSourceProjectionMethod(),
             new SelfCalibratingCylindricalProjectionMethod(),
             new LeastSquaresCylindricalAlignmentProjectionMethod(),
         });
@@ -172,8 +172,8 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
     public float HybridTiltPointZ { get; set; }
 
     public bool IsPointSourceMethodSelected => string.Equals(SelectedMethod?.Id, ProjectionMethodIds.PointSource, StringComparison.OrdinalIgnoreCase);
-    public bool IsLegacyCylindricalMethodSelected => string.Equals(SelectedMethod?.Id, ProjectionMethodIds.CylindricalSource, StringComparison.OrdinalIgnoreCase);
-    public bool IsSelfCalibratingCylindricalMethodSelected => string.Equals(SelectedMethod?.Id, ProjectionMethodIds.SelfCalibratingCylindricalSource, StringComparison.OrdinalIgnoreCase);
+    public bool IsLegacyCylindricalMethodSelected => string.Equals(SelectedMethod?.Id, ProjectionMethodIds.AxisymmetricSource, StringComparison.OrdinalIgnoreCase);
+    public bool IsSelfCalibratingCylindricalMethodSelected => string.Equals(SelectedMethod?.Id, ProjectionMethodIds.SelfCalibratingAxisymmetricSource, StringComparison.OrdinalIgnoreCase);
     public bool IsLeastSquaresCylindricalAlignmentMethodSelected => string.Equals(SelectedMethod?.Id, ProjectionMethodIds.LeastSquaresCylindricalAlignmentSource, StringComparison.OrdinalIgnoreCase);
     public bool IsAnyCylindricalMethodSelected => IsLegacyCylindricalMethodSelected || IsSelfCalibratingCylindricalMethodSelected || IsLeastSquaresCylindricalAlignmentMethodSelected;
     public bool IsTiltPointVisibleForSelectedMethod => IsSelfCalibratingCylindricalMethodSelected || IsLeastSquaresCylindricalAlignmentMethodSelected;
@@ -515,9 +515,9 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
             scene.ProjectionState.SelectedMethodId = SelectedMethod.Id;
             SelectedResult = namedResult;
 
-            SetStatus(result.CylindricalSource is null
+            SetStatus(result.AxisymmetricSource is null
                 ? $"Projection completed and saved as '{namedResult.DisplayName}' ({result.Rays.Count} ray(s))."
-                : $"Cylindrical projection completed and saved as '{namedResult.DisplayName}' ({result.CylindricalSource.Points.Count} reconstructed source points).",
+                : $"Cylindrical projection completed and saved as '{namedResult.DisplayName}' ({result.AxisymmetricSource.Points.Count} reconstructed source points).",
                 ApplicationLogLevel.Success);
             LogProjectionSummary(result);
             _applicationLogService?.LogSuccess("Projection run completed.", nameof(ProjectionWorkspaceViewModel));
@@ -619,9 +619,9 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
                 new Vector3D(SourceFrameYx, SourceFrameYy, SourceFrameYz));
         }
 
-        if (method.Metadata.Id == ProjectionMethodIds.CylindricalSource)
+        if (method.Metadata.Id == ProjectionMethodIds.AxisymmetricSource)
         {
-            return new CylindricalSourceProjectionParameters(
+            return new AxisymmetricSourceProjectionParameters(
                 new Point3(BeamOriginX, BeamOriginY, BeamOriginZ),
                 new Vector3D(SourceFrameXx, SourceFrameXy, SourceFrameXz),
                 new Vector3D(SourceFrameYx, SourceFrameYy, SourceFrameYz),
@@ -629,7 +629,7 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
                 GeometryLength);
         }
 
-        if (method.Metadata.Id == ProjectionMethodIds.SelfCalibratingCylindricalSource)
+        if (method.Metadata.Id == ProjectionMethodIds.SelfCalibratingAxisymmetricSource)
         {
             return new SelfCalibratingCylindricalProjectionParameters(
                 new Point3(BeamOriginX, BeamOriginY, BeamOriginZ),
@@ -674,7 +674,7 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
             return;
         }
 
-        var cylindrical = result.CylindricalSource;
+        var cylindrical = result.AxisymmetricSource;
         if (cylindrical is null)
         {
             return;
@@ -719,7 +719,7 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
             return;
         }
 
-        if (result.MethodId != ProjectionMethodIds.SelfCalibratingCylindricalSource)
+        if (result.MethodId != ProjectionMethodIds.SelfCalibratingAxisymmetricSource)
         {
             return;
         }
@@ -897,8 +897,8 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
             return true;
         }
 
-        var requiresCylinder = method.Metadata.Id == ProjectionMethodIds.CylindricalSource
-            || method.Metadata.Id == ProjectionMethodIds.SelfCalibratingCylindricalSource
+        var requiresCylinder = method.Metadata.Id == ProjectionMethodIds.AxisymmetricSource
+            || method.Metadata.Id == ProjectionMethodIds.SelfCalibratingAxisymmetricSource
             || method.Metadata.Id == ProjectionMethodIds.LeastSquaresCylindricalAlignmentSource;
 
         return !requiresCylinder || SelectedAxisymmetricSourceKind == AxisymmetricSourceKind.Cylinder;
@@ -910,7 +910,7 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
         {
             return SelectedAxisymmetricSourceKind switch
             {
-                AxisymmetricSourceKind.Cylinder => new CylindricalSourceProfile((float)GeometryRadiusStart, (float)GeometryLength),
+                AxisymmetricSourceKind.Cylinder => new AxisymmetricSourceProfile((float)GeometryRadiusStart, (float)GeometryLength),
                 AxisymmetricSourceKind.ConicalFrustum => new ConicalFrustumSourceProfile((float)GeometryRadiusStart, (float)GeometryRadiusEnd, (float)GeometryLength),
                 AxisymmetricSourceKind.CircularOgive => new CircularOgiveSourceProfile((float)GeometryRadiusStart, (float)GeometryRadiusEnd, (float)GeometryLength, (float)GeometryArcRadius, GeometryOgiveCurvatureDirection),
                 AxisymmetricSourceKind.Hybrid => BuildHybridPreviewProfile(),

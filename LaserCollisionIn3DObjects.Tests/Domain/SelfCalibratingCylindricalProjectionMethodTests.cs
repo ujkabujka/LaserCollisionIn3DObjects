@@ -11,12 +11,12 @@ public sealed class SelfCalibratingCylindricalProjectionMethodTests
         var registry = new ProjectionMethodRegistry(new IProjectionMethod[]
         {
             new PointSourceProjectionMethod(),
-            new CylindricalSourceProjectionMethod(),
+            new AxisymmetricSourceProjectionMethod(),
             new SelfCalibratingCylindricalProjectionMethod(),
         });
 
-        var method = registry.GetRequired(ProjectionMethodIds.SelfCalibratingCylindricalSource);
-        Assert.Equal(ProjectionMethodIds.SelfCalibratingCylindricalSource, method.Metadata.Id);
+        var method = registry.GetRequired(ProjectionMethodIds.SelfCalibratingAxisymmetricSource);
+        Assert.Equal(ProjectionMethodIds.SelfCalibratingAxisymmetricSource, method.Metadata.Id);
     }
 
     [Fact]
@@ -95,7 +95,7 @@ public sealed class SelfCalibratingCylindricalProjectionMethodTests
             Parameters = parameters,
         });
 
-        var cylindrical = Assert.IsType<CylindricalProjectionState>(result.CylindricalSource);
+        var cylindrical = Assert.IsType<AxisymmetricProjectionState>(result.AxisymmetricSource);
         Assert.Equal(holes.Count, cylindrical.Points.Count);
         Assert.NotNull(cylindrical.EstimatedTiltWeight);
         Assert.NotNull(cylindrical.Diagnostics);
@@ -116,7 +116,7 @@ public sealed class SelfCalibratingCylindricalProjectionMethodTests
     {
         var result = new ProjectionComputationResult
         {
-            MethodId = ProjectionMethodIds.SelfCalibratingCylindricalSource,
+            MethodId = ProjectionMethodIds.SelfCalibratingAxisymmetricSource,
             SourceFrame = new PointSourceFrameState
             {
                 Origin = new Point3(0, 0, 0),
@@ -125,7 +125,7 @@ public sealed class SelfCalibratingCylindricalProjectionMethodTests
                 AxisZ = new Vector3D(0, 0, 1),
             },
             Rays = Array.Empty<ProjectionRay>(),
-            CylindricalSource = new CylindricalProjectionState
+            AxisymmetricSource = new AxisymmetricProjectionState
             {
                 SourceFrame = new PointSourceFrameState
                 {
@@ -138,7 +138,7 @@ public sealed class SelfCalibratingCylindricalProjectionMethodTests
                 Length = 1,
                 Points =
                 [
-                    new CylindricalProjectionPoint(new Point3(1, 0, 0), new Point3(0, 0, 0), new Vector3D(1, 0, 0), new Point3(0, 0, 0)),
+                    new AxisymmetricProjectionPoint(new Point3(1, 0, 0), new Point3(0, 0, 0), new Vector3D(1, 0, 0), new Point3(0, 0, 0)),
                 ],
             },
         };

@@ -3,9 +3,9 @@ using LaserCollisionIn3DObjects.Domain.Projection;
 
 namespace LaserCollisionIn3DObjects.Tests.Domain;
 
-public sealed class CylindricalSourceProjectionMethodTests
+public sealed class AxisymmetricSourceProjectionMethodTests
 {
-    private readonly CylindricalSourceProjectionMethod _method = new();
+    private readonly AxisymmetricSourceProjectionMethod _method = new();
 
     [Fact]
     public void Execute_BuildsFrameFromOriginXAndY()
@@ -51,7 +51,7 @@ public sealed class CylindricalSourceProjectionMethodTests
             radius: 2,
             length: 12));
 
-        var points = result.CylindricalSource!.Points;
+        var points = result.AxisymmetricSource!.Points;
         Assert.Equal(0d, points[0].SourceSurfacePoint.X, 6);
         Assert.Equal(6d, points[1].SourceSurfacePoint.X, 6);
         Assert.Equal(12d, points[2].SourceSurfacePoint.X, 6);
@@ -82,7 +82,7 @@ public sealed class CylindricalSourceProjectionMethodTests
             radius: 10,
             length: 20));
 
-        foreach (var point in result.CylindricalSource!.Points)
+        foreach (var point in result.AxisymmetricSource!.Points)
         {
             var yzRadius = Math.Sqrt(
                 (point.SourceSurfacePoint.Y * point.SourceSurfacePoint.Y) +
@@ -110,12 +110,12 @@ public sealed class CylindricalSourceProjectionMethodTests
             length: 10));
 
         Assert.Empty(result.Rays);
-        Assert.NotNull(result.CylindricalSource);
-        Assert.Equal(holes.Length, result.CylindricalSource!.Points.Count);
-        Assert.Equal(holes[0], result.CylindricalSource.Points[0].HolePoint);
-        Assert.Equal(holes[1], result.CylindricalSource.Points[1].HolePoint);
-        Assert.Equal(4d, result.CylindricalSource.Radius, 6);
-        Assert.Equal(10d, result.CylindricalSource.Length, 6);
+        Assert.NotNull(result.AxisymmetricSource);
+        Assert.Equal(holes.Length, result.AxisymmetricSource!.Points.Count);
+        Assert.Equal(holes[0], result.AxisymmetricSource.Points[0].HolePoint);
+        Assert.Equal(holes[1], result.AxisymmetricSource.Points[1].HolePoint);
+        Assert.Equal(4d, result.AxisymmetricSource.Radius, 6);
+        Assert.Equal(10d, result.AxisymmetricSource.Length, 6);
     }
 
     [Fact]
@@ -124,11 +124,11 @@ public sealed class CylindricalSourceProjectionMethodTests
         var registry = new ProjectionMethodRegistry(new IProjectionMethod[]
         {
             new PointSourceProjectionMethod(),
-            new CylindricalSourceProjectionMethod(),
+            new AxisymmetricSourceProjectionMethod(),
         });
 
-        var method = registry.GetRequired(ProjectionMethodIds.CylindricalSource);
-        Assert.Equal(ProjectionMethodIds.CylindricalSource, method.Metadata.Id);
+        var method = registry.GetRequired(ProjectionMethodIds.AxisymmetricSource);
+        Assert.Equal(ProjectionMethodIds.AxisymmetricSource, method.Metadata.Id);
     }
 
     private static ProjectionRequest BuildRequest(
@@ -142,7 +142,7 @@ public sealed class CylindricalSourceProjectionMethodTests
         return new ProjectionRequest
         {
             HolePoints = holes,
-            Parameters = new CylindricalSourceProjectionParameters(origin, axisX, axisY, radius, length),
+            Parameters = new AxisymmetricSourceProjectionParameters(origin, axisX, axisY, radius, length),
         };
     }
 }

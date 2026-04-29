@@ -21,7 +21,7 @@ public sealed class GraphSourceExtractionService
 
         foreach (var scene in scenes)
         {
-            foreach (var source in scene.CylindricalSources)
+            foreach (var source in scene.AxisymmetricSources)
             {
                 var rays = _rayGenerator.Generate(source).ToList();
                 sources.Add(new GraphableSourceData
@@ -51,7 +51,7 @@ public sealed class GraphSourceExtractionService
                     AxisY = new Vector3((float)pointLaserSource.AxisY.X, (float)pointLaserSource.AxisY.Y, (float)pointLaserSource.AxisY.Z),
                     AxisZ = new Vector3((float)pointLaserSource.AxisZ.X, (float)pointLaserSource.AxisZ.Y, (float)pointLaserSource.AxisZ.Z),
                     FrameOrigin = new Vector3((float)pointLaserSource.Origin.X, (float)pointLaserSource.Origin.Y, (float)pointLaserSource.Origin.Z),
-                    SourceLength = result.Result.CylindricalSource?.Length,
+                    SourceLength = result.Result.AxisymmetricSource?.Length,
                     Rays = pointLaserSource.Rays.Select(projectionRay => projectionRay.Ray).ToList(),
                 });
             }

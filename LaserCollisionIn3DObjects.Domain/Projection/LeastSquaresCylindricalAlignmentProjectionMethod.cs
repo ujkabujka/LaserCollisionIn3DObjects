@@ -57,7 +57,7 @@ public sealed class LeastSquaresCylindricalAlignmentProjectionMethod : IProjecti
             MethodId = Metadata.Id,
             SourceFrame = sourceFrame,
             Rays = Array.Empty<ProjectionRay>(),
-            CylindricalSource = new CylindricalProjectionState
+            AxisymmetricSource = new AxisymmetricProjectionState
             {
                 SourceFrame = sourceFrame,
                 Radius = parameters.Radius,

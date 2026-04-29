@@ -128,7 +128,7 @@ public sealed class HelixSceneBuilder
             visuals.AddRange(_frameVisualizer.CreateFrameVisualsBatch(new[] { (previewFrame, 1.5f) }));
         }
 
-        if (projectionResult?.CylindricalSource is { } cylindrical)
+        if (projectionResult?.AxisymmetricSource is { } cylindrical)
         {
             var cylindricalFrame = ToFrame3D(cylindrical.SourceFrame);
             visuals.Add(_meshFactory.CreateCylindricalLightSourceBatch(

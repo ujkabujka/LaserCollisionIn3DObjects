@@ -5,7 +5,7 @@ namespace LaserCollisionIn3DObjects.Domain.Projection;
 public sealed class SelfCalibratingCylindricalProjectionMethod : IProjectionMethod
 {
     public ProjectionMethodMetadata Metadata { get; } = new(
-        ProjectionMethodIds.SelfCalibratingCylindricalSource,
+        ProjectionMethodIds.SelfCalibratingAxisymmetricSource,
         "Self-calibrating cylindrical inverse projection",
         "Fits source-surface points on a cylinder and estimates one global tilt weight from all hole points.");
 
@@ -57,7 +57,7 @@ public sealed class SelfCalibratingCylindricalProjectionMethod : IProjectionMeth
             MethodId = Metadata.Id,
             SourceFrame = sourceFrame,
             Rays = Array.Empty<ProjectionRay>(),
-            CylindricalSource = new CylindricalProjectionState
+            AxisymmetricSource = new AxisymmetricProjectionState
             {
                 SourceFrame = sourceFrame,
                 Radius = parameters.Radius,
