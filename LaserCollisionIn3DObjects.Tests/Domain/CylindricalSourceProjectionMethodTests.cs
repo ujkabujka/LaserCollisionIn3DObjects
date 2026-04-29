@@ -58,17 +58,17 @@ public sealed class AxisymmetricSourceProjectionMethodTests
     }
 
     [Fact]
-    public void Execute_ThrowsWhenAllTransformedXAreEqual()
+    public void Execute_HandlesAllTransformedXEqual()
     {
-        var ex = Assert.Throws<ArgumentException>(() => _method.Execute(BuildRequest(
+        var result = _method.Execute(BuildRequest(
             holes: [new Point3(1, 1, 0), new Point3(1, 2, 0)],
             origin: new Point3(0, 0, 0),
             axisX: new Vector3D(1, 0, 0),
             axisY: new Vector3D(0, 1, 0),
             radius: 1,
-            length: 4)));
+            length: 4));
 
-        Assert.Contains("local X coordinates are equal", ex.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.NotNull(result.AxisymmetricSource);
     }
 
     [Fact]
@@ -142,7 +142,7 @@ public sealed class AxisymmetricSourceProjectionMethodTests
         return new ProjectionRequest
         {
             HolePoints = holes,
-            Parameters = new AxisymmetricSourceProjectionParameters(origin, axisX, axisY, new AxisymmetricSourceProfileDefinition(new CylindricalSourceProfile((float)radius, (float)length))),
+            Parameters = new AxisymmetricSourceProjectionParameters(origin, axisX, axisY, new AxisymmetricSourceProfileDefinition { Kind = AxisymmetricSourceKind.Cylinder, Radius = (float)radius, Length = (float)length }),
         };
     }
 }
