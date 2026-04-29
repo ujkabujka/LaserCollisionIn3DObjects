@@ -534,13 +534,15 @@ public sealed class MainWindowViewModel : ObservableObject
     {
         var previous = NewHybridSegments.LastOrDefault();
         var radius = previous?.RadiusEnd ?? NewLightSourceRadiusStart;
-        NewHybridSegments.Add(new HybridSourceSegmentItemViewModel
+        var segment = new HybridSourceSegmentItemViewModel
         {
             SegmentIndex = NewHybridSegments.Count + 1,
             IsRadiusStartEditable = NewHybridSegments.Count == 0,
             RadiusStart = radius,
             RadiusEnd = radius,
-        });
+        };
+        AttachHybridSegment(segment);
+        NewHybridSegments.Add(segment);
 
         SynchronizeHybridSegmentContinuity();
         SelectedNewHybridSegment = NewHybridSegments.LastOrDefault();
@@ -555,6 +557,7 @@ public sealed class MainWindowViewModel : ObservableObject
             return;
         }
 
+        DetachHybridSegment(SelectedNewHybridSegment);
         NewHybridSegments.Remove(SelectedNewHybridSegment);
         if (NewHybridSegments.Count == 0)
         {
@@ -582,8 +585,32 @@ public sealed class MainWindowViewModel : ObservableObject
 
             if (segment.SegmentKind == HybridAxisymmetricSourceSegmentKind.Cylinder)
             {
-                segment.RadiusEnd = segment.RadiusStart;
+                if (segment.RadiusEnd != segment.RadiusStart)
+                {
+                    segment.RadiusEnd = segment.RadiusStart;
+                }
             }
+        }
+    }
+
+    private void AttachHybridSegment(HybridSourceSegmentItemViewModel segment)
+    {
+        segment.PropertyChanged += OnHybridSegmentPropertyChanged;
+    }
+
+    private void DetachHybridSegment(HybridSourceSegmentItemViewModel segment)
+    {
+        segment.PropertyChanged -= OnHybridSegmentPropertyChanged;
+    }
+
+    private void OnHybridSegmentPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is nameof(HybridSourceSegmentItemViewModel.SegmentKind)
+            or nameof(HybridSourceSegmentItemViewModel.Radius)
+            or nameof(HybridSourceSegmentItemViewModel.RadiusStart)
+            or nameof(HybridSourceSegmentItemViewModel.RadiusEnd))
+        {
+            SynchronizeHybridSegmentContinuity();
         }
     }
 
@@ -963,7 +990,6 @@ public sealed class MainWindowViewModel : ObservableObject
             return;
         }
 
-        var cylindricalHitPoints = CollisionHitPointExportSelector.ForCylindricalGeneratedHits(_lastCollisionHitPointRecords);
         var dialog = new SaveFileDialog
         {
             Filter = "CSV Files (*.csv)|*.csv|All Files (*.*)|*.*",
@@ -977,8 +1003,8 @@ public sealed class MainWindowViewModel : ObservableObject
             return;
         }
 
-        _collisionHitPointCsvExportService.Export(dialog.FileName, cylindricalHitPoints);
-        SetStatus($"Exported {cylindricalHitPoints.Count} cylindrical hit points to '{dialog.FileName}'.", ApplicationLogLevel.Success);
+        _collisionHitPointCsvExportService.Export(dialog.FileName, _lastCollisionHitPointRecords);
+        SetStatus($"Exported {_lastCollisionHitPointRecords.Count} collision hit points to '{dialog.FileName}'.", ApplicationLogLevel.Success);
     }
 
     private bool ValidateAllSceneItems(out string error)
@@ -1482,10 +1508,15 @@ public sealed class MainWindowViewModel : ObservableObject
         NewLightSourceLength = source.Length;
         NewLightSourceArcRadius = source.ArcRadius;
         NewLightSourceOgiveCurvatureDirection = source.OgiveCurvatureDirection;
+        foreach (var existingSegment in NewHybridSegments)
+        {
+            DetachHybridSegment(existingSegment);
+        }
+
         NewHybridSegments.Clear();
         foreach (var segment in source.HybridSegments)
         {
-            NewHybridSegments.Add(new HybridSourceSegmentItemViewModel
+            var cloned = new HybridSourceSegmentItemViewModel
             {
                 SegmentIndex = segment.SegmentIndex,
                 SegmentKind = segment.SegmentKind,
@@ -1495,7 +1526,9 @@ public sealed class MainWindowViewModel : ObservableObject
                 ArcRadius = segment.ArcRadius,
                 OgiveCurvatureDirection = segment.OgiveCurvatureDirection,
                 IsRadiusStartEditable = segment.IsRadiusStartEditable,
-            });
+            };
+            AttachHybridSegment(cloned);
+            NewHybridSegments.Add(cloned);
         }
 
         if (NewHybridSegments.Count == 0)

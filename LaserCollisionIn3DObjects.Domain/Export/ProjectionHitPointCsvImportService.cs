@@ -21,14 +21,26 @@ public sealed class ProjectionHitPointCsvImportService
         }
 
         var header = ParseCsvLine(lines[0]);
-        if (header.Count < 4 ||
-            !string.Equals(header[0], "SceneName", StringComparison.Ordinal) ||
-            !string.Equals(header[1], "HitX", StringComparison.Ordinal) ||
-            !string.Equals(header[2], "HitY", StringComparison.Ordinal) ||
-            !string.Equals(header[3], "HitZ", StringComparison.Ordinal))
+        var supportsOld = header.Count >= 4
+            && string.Equals(header[0], "SceneName", StringComparison.Ordinal)
+            && string.Equals(header[1], "HitX", StringComparison.Ordinal)
+            && string.Equals(header[2], "HitY", StringComparison.Ordinal)
+            && string.Equals(header[3], "HitZ", StringComparison.Ordinal);
+
+        var supportsNew = header.Count >= 5
+            && string.Equals(header[0], "SceneName", StringComparison.Ordinal)
+            && string.Equals(header[1], "SourceType", StringComparison.Ordinal)
+            && string.Equals(header[2], "HitX", StringComparison.Ordinal)
+            && string.Equals(header[3], "HitY", StringComparison.Ordinal)
+            && string.Equals(header[4], "HitZ", StringComparison.Ordinal);
+
+        if (!supportsOld && !supportsNew)
         {
-            throw new ArgumentException("CSV header must be exactly: SceneName,HitX,HitY,HitZ");
+            throw new ArgumentException("CSV header must be either: SceneName,HitX,HitY,HitZ or SceneName,SourceType,HitX,HitY,HitZ");
         }
+        var xIndex = supportsNew ? 2 : 1;
+        var yIndex = supportsNew ? 3 : 2;
+        var zIndex = supportsNew ? 4 : 3;
 
         var points = new List<Point3>();
         var skipped = 0;
@@ -44,7 +56,7 @@ public sealed class ProjectionHitPointCsvImportService
             }
 
             var parts = ParseCsvLine(line);
-            if (parts.Count < 4)
+            if (parts.Count <= zIndex)
             {
                 skipped++;
                 continue;
@@ -57,9 +69,9 @@ public sealed class ProjectionHitPointCsvImportService
                 continue;
             }
 
-            if (!double.TryParse(parts[1], NumberStyles.Float | NumberStyles.AllowThousands, CultureInfo.InvariantCulture, out var x) ||
-                !double.TryParse(parts[2], NumberStyles.Float | NumberStyles.AllowThousands, CultureInfo.InvariantCulture, out var y) ||
-                !double.TryParse(parts[3], NumberStyles.Float | NumberStyles.AllowThousands, CultureInfo.InvariantCulture, out var z))
+            if (!double.TryParse(parts[xIndex], NumberStyles.Float | NumberStyles.AllowThousands, CultureInfo.InvariantCulture, out var x) ||
+                !double.TryParse(parts[yIndex], NumberStyles.Float | NumberStyles.AllowThousands, CultureInfo.InvariantCulture, out var y) ||
+                !double.TryParse(parts[zIndex], NumberStyles.Float | NumberStyles.AllowThousands, CultureInfo.InvariantCulture, out var z))
             {
                 skipped++;
                 continue;

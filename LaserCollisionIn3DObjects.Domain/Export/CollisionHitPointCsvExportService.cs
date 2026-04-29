@@ -10,11 +10,11 @@ public sealed class CollisionHitPointCsvExportService
         ArgumentException.ThrowIfNullOrWhiteSpace(filePath);
         ArgumentNullException.ThrowIfNull(records);
 
-        var lines = new List<string> { "SceneName,HitX,HitY,HitZ" };
+        var lines = new List<string> { "SceneName,SourceType,HitX,HitY,HitZ" };
         lines.AddRange(records.Select(record =>
             string.Create(
                 CultureInfo.InvariantCulture,
-                $"{EscapeCsv(record.SceneName)},{record.HitPoint.X},{record.HitPoint.Y},{record.HitPoint.Z}")));
+                $"{EscapeCsv(record.SceneName)},{EscapeCsv(record.SourceType.ToString())},{record.HitPoint.X},{record.HitPoint.Y},{record.HitPoint.Z}")));
 
         File.WriteAllLines(filePath, lines, Encoding.UTF8);
     }
