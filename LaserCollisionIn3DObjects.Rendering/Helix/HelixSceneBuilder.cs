@@ -130,7 +130,7 @@ public sealed class HelixSceneBuilder
 
             if (previewTiltPointLocal is Point3 tiltLocal)
             {
-                var tiltWorld = previewFrame.LocalToWorld(new Vector3((float)tiltLocal.X, (float)tiltLocal.Y, (float)tiltLocal.Z));
+                var tiltWorld = previewFrame.TransformPointToWorld(new Vector3((float)tiltLocal.X, (float)tiltLocal.Y, (float)tiltLocal.Z));
                 visuals.Add(_rayVisualizer.CreatePoints(new[] { new Point3(tiltWorld.X, tiltWorld.Y, tiltWorld.Z) }, Colors.Orange, size: 8));
             }
         }
