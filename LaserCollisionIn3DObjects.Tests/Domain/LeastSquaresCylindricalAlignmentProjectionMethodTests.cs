@@ -195,4 +195,32 @@ public sealed class LeastSquaresCylindricalAlignmentProjectionMethodTests
 
         return holes;
     }
+
+    [Fact]
+    public void Registry_DisplayNames_AreAxisymmetricAndNonCylindricalSpecific()
+    {
+        Assert.Contains("source", new SelfCalibratingCylindricalProjectionMethod().Metadata.DisplayName, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("alignment", new LeastSquaresCylindricalAlignmentProjectionMethod().Metadata.DisplayName, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Theory]
+    [InlineData(AxisymmetricSourceKind.Cylinder)]
+    [InlineData(AxisymmetricSourceKind.ConicalFrustum)]
+    [InlineData(AxisymmetricSourceKind.CircularOgive)]
+    [InlineData(AxisymmetricSourceKind.Hybrid)]
+    public void LeastSquares_Diagnostics_AreFinite_AndUnregularized(AxisymmetricSourceKind geometryKind)
+    {
+        var holes = CreateSyntheticHoles(geometryKind == AxisymmetricSourceKind.Cylinder ? 0.08 : 0.05, out _, out _, out var radius, out var length);
+        var result = new LeastSquaresCylindricalAlignmentProjectionMethod().Execute(new ProjectionRequest
+        {
+            HolePoints = holes,
+            Parameters = new LeastSquaresCylindricalAlignmentProjectionParameters(new Point3(0, 0, 0), new Vector3D(1, 0, 0), new Vector3D(0, 1, 0), radius, length, new Point3(0.2, -0.3, 0.1)),
+        });
+
+        var diagnostics = Assert.IsType<CylindricalProjectionState>(result.CylindricalSource).LeastSquaresDiagnostics!;
+        Assert.False(diagnostics.UsesRegularization);
+        Assert.True(double.IsFinite(diagnostics.RefinedLambda));
+        Assert.True(double.IsFinite(diagnostics.FinalMeanAlignmentError));
+        Assert.True(double.IsFinite(diagnostics.FinalMeanAngularErrorDegrees));
+    }
 }
