@@ -1,4 +1,3 @@
-using System.Linq;
 using System.Numerics;
 using LaserCollisionIn3DObjects.Domain.Geometry;
 
@@ -7,20 +6,10 @@ namespace LaserCollisionIn3DObjects.Domain.Projection;
 public sealed class ProjectionComputationResult
 {
     public required string MethodId { get; init; }
-
     public Point3? PointSourceOrigin { get; init; }
-
     public required PointSourceFrameState SourceFrame { get; init; }
-
     public required IReadOnlyList<ProjectionRay> Rays { get; init; }
-
     public AxisymmetricProjectionState? AxisymmetricSource { get; init; }
-
-    public CylindricalProjectionState? AxisymmetricSource
-    {
-        get => CylindricalSource;
-        init => CylindricalSource = value;
-    }
 
     public IReadOnlyList<ProjectionRay> GetEffectiveRays()
     {
@@ -41,24 +30,13 @@ public sealed class ProjectionComputationResult
             point.HolePoint)).ToList();
     }
 
-    public PointLaserSourceState ToPointLaserSource()
+    public PointLaserSourceState ToPointLaserSource() => new()
     {
-        return new PointLaserSourceState
-        {
-            Origin = SourceFrame.Origin,
-            AxisX = SourceFrame.AxisX,
-            AxisY = SourceFrame.AxisY,
-            AxisZ = SourceFrame.AxisZ,
-            Rays = GetEffectiveRays(),
-        };
-    }
+        Origin = SourceFrame.Origin,
+        AxisX = SourceFrame.AxisX,
+        AxisY = SourceFrame.AxisY,
+        AxisZ = SourceFrame.AxisZ,
+        Rays = GetEffectiveRays(),
+    };
 }
 
-public sealed class AxisymmetricProjectionState
-{
-    public required PointSourceFrameState SourceFrame { get; init; }
-
-    public required AxisymmetricProfileDefinition ProfileDefinition { get; init; }
-
-    public required IReadOnlyList<CylindricalProjectionPoint> Points { get; init; }
-}

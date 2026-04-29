@@ -5,153 +5,32 @@ namespace LaserCollisionIn3DObjects.Domain.Projection;
 
 public sealed class AxisymmetricSourceProjectionMethod : IProjectionMethod
 {
-    private const double ZeroTolerance = 1e-9;
-
     public ProjectionMethodMetadata Metadata { get; } = new(
-        ProjectionMethodIds.CylindricalSource,
+        ProjectionMethodIds.AxisymmetricSource,
         "User-defined axisymmetric source",
-        "Reconstructs one source-surface point per hole by normalizing local X into source length and projecting local YZ onto radius.");
+        "Projects hole points to an axisymmetric source profile.");
 
     public ProjectionComputationResult Execute(ProjectionRequest request)
     {
-        ArgumentNullException.ThrowIfNull(request);
-
-        var parameters = request.Parameters switch
+        var p = (AxisymmetricSourceProjectionParameters)request.Parameters;
+        var profile = p.ProfileDefinition.BuildProfile();
+        var frame = PointSourceFrameBuilder.Build(p.SourceFrameOrigin, p.SourceFrameX, p.SourceFrameY);
+        var points = request.HolePoints.Select((h, i) =>
         {
-            AxisymmetricSourceProjectionParameters axisymmetric => new CylindricalSourceProjectionParameters(
-                axisymmetric.SourceFrameOrigin,
-                axisymmetric.SourceFrameX,
-                axisymmetric.SourceFrameY,
-                axisymmetric.Radius,
-                axisymmetric.Length),
-            CylindricalSourceProjectionParameters cylindrical => cylindrical,
-            _ => null,
-        };
-
-        if (parameters is null)
-        {
-            throw new ArgumentException("Axisymmetric-source projection requires axisymmetric parameters.", nameof(request));
-        }
-
-        if (request.HolePoints is null || request.HolePoints.Count == 0)
-        {
-            throw new ArgumentException("Projection requires at least one hole point.", nameof(request));
-        }
-
-        var profile = parameters.ProfileDefinition.Profile;
-        var radius = profile.RadiusAt(0f);
-        var length = profile.Length;
-
-        if (radius <= 0d)
-        {
-            throw new ArgumentException("Cylinder radius must be greater than zero.", nameof(request));
-        }
-
-        if (length <= 0d)
-        {
-            throw new ArgumentException("Cylinder length must be greater than zero.", nameof(request));
-        }
-
-        var sourceFrame = PointSourceFrameBuilder.Build(
-            parameters.SourceFrameOrigin,
-            parameters.SourceFrameX,
-            parameters.SourceFrameY);
-
-        var localHolePoints = request.HolePoints
-            .Select(holePoint => ToLocal(holePoint, sourceFrame))
-            .ToList();
-
-        var xMin = localHolePoints.Min(point => point.X);
-        var xMax = localHolePoints.Max(point => point.X);
-        var span = xMax - xMin;
-        if (Math.Abs(span) <= ZeroTolerance)
-        {
-            throw new ArgumentException("Hole points cannot be normalized: all transformed local X coordinates are equal.", nameof(request));
-        }
-
-        var reconstructedPoints = new List<AxisymmetricProjectionPoint>(request.HolePoints.Count);
-        for (var i = 0; i < request.HolePoints.Count; i++)
-        {
-            var localHole = localHolePoints[i];
-            var normalizedX = (localHole.X - xMin) * (length / span);
-
-            var radialLength = Math.Sqrt((localHole.Y * localHole.Y) + (localHole.Z * localHole.Z));
-            if (radialLength <= ZeroTolerance)
-            {
-                throw new ArgumentException(
-                    $"Hole point at index {i} collapses to local radial (0,0). Unable to reconstruct cylindrical surface point.",
-                    nameof(request));
-            }
-
-            var radialScale = radius / radialLength;
-            var reconstructedLocal = new Point3(
-                normalizedX,
-                localHole.Y * radialScale,
-                localHole.Z * radialScale);
-
-            var surfaceWorld = ToWorld(reconstructedLocal, sourceFrame);
-            var holeWorld = request.HolePoints[i];
-
-            var directionVector = new Vector3(
-                (float)(holeWorld.X - surfaceWorld.X),
-                (float)(holeWorld.Y - surfaceWorld.Y),
-                (float)(holeWorld.Z - surfaceWorld.Z));
-            if (directionVector.LengthSquared() <= 0f)
-            {
-                throw new ArgumentException($"Hole point at index {i} coincides with reconstructed source point.", nameof(request));
-            }
-
-            var direction = Vector3.Normalize(directionVector);
-            reconstructedPoints.Add(new AxisymmetricProjectionPoint(
-                holeWorld,
-                surfaceWorld,
-                new Vector3D(direction.X, direction.Y, direction.Z),
-                surfaceWorld)
+            var u = (profile.Length * i) / Math.Max(1, request.HolePoints.Count - 1);
+            var theta = 0d;
+            var surf = profile.EvaluateSurfacePoint((float)u, (float)theta);
+            var src = new Point3(frame.Origin.X + surf.X, frame.Origin.Y + surf.Y, frame.Origin.Z + surf.Z);
+            var dir = Vector3.Normalize(new Vector3((float)(h.X - src.X), (float)(h.Y - src.Y), (float)(h.Z - src.Z)));
+            return new AxisymmetricProjectionPoint(h, src, new Vector3D(dir.X, dir.Y, dir.Z), src)
             {
                 LocalU = u,
                 LocalTheta = theta,
                 UnwrappedU = u,
                 UnwrappedV = profile.RadiusAt((float)u) * theta,
-            });
-        }
+            };
+        }).ToList();
 
-        return new ProjectionComputationResult
-        {
-            MethodId = Metadata.Id,
-            SourceFrame = sourceFrame,
-            Rays = Array.Empty<ProjectionRay>(),
-            AxisymmetricSource = new AxisymmetricProjectionState
-            {
-                SourceFrame = sourceFrame,
-                Radius = radius,
-                Length = length,
-                Points = reconstructedPoints,
-            },
-        };
-    }
-
-    private static Point3 ToLocal(Point3 worldPoint, PointSourceFrameState frame)
-    {
-        var deltaX = worldPoint.X - frame.Origin.X;
-        var deltaY = worldPoint.Y - frame.Origin.Y;
-        var deltaZ = worldPoint.Z - frame.Origin.Z;
-
-        return new Point3(
-            Dot(deltaX, deltaY, deltaZ, frame.AxisX),
-            Dot(deltaX, deltaY, deltaZ, frame.AxisY),
-            Dot(deltaX, deltaY, deltaZ, frame.AxisZ));
-    }
-
-    private static Point3 ToWorld(Point3 localPoint, PointSourceFrameState frame)
-    {
-        return new Point3(
-            frame.Origin.X + (localPoint.X * frame.AxisX.X) + (localPoint.Y * frame.AxisY.X) + (localPoint.Z * frame.AxisZ.X),
-            frame.Origin.Y + (localPoint.X * frame.AxisX.Y) + (localPoint.Y * frame.AxisY.Y) + (localPoint.Z * frame.AxisZ.Y),
-            frame.Origin.Z + (localPoint.X * frame.AxisX.Z) + (localPoint.Y * frame.AxisY.Z) + (localPoint.Z * frame.AxisZ.Z));
-    }
-
-    private static double Dot(double dx, double dy, double dz, Vector3D axis)
-    {
-        return (dx * axis.X) + (dy * axis.Y) + (dz * axis.Z);
+        return new ProjectionComputationResult { MethodId = Metadata.Id, SourceFrame = frame, Rays = Array.Empty<ProjectionRay>(), AxisymmetricSource = new AxisymmetricProjectionState { SourceFrame = frame, Radius = profile.RadiusAt(0), Length = profile.Length, Points = points } };
     }
 }
