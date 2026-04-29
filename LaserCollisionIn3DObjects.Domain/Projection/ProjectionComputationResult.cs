@@ -14,7 +14,7 @@ public sealed class ProjectionComputationResult
 
     public required IReadOnlyList<ProjectionRay> Rays { get; init; }
 
-    public CylindricalProjectionState? CylindricalSource { get; init; }
+    public AxisymmetricProjectionState? AxisymmetricSource { get; init; }
 
     public CylindricalProjectionState? AxisymmetricSource
     {

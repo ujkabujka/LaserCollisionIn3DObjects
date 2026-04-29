@@ -58,7 +58,7 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
         _methodRegistry = methodRegistry ?? new ProjectionMethodRegistry(new IProjectionMethod[]
         {
             new PointSourceProjectionMethod(),
-            new CylindricalSourceProjectionMethod(),
+            new AxisymmetricSourceProjectionMethod(),
             new SelfCalibratingCylindricalProjectionMethod(),
             new LeastSquaresCylindricalAlignmentProjectionMethod(),
         });
@@ -509,7 +509,7 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
             scene.ProjectionState.SelectedMethodId = SelectedMethod.Id;
             SelectedResult = namedResult;
 
-            SetStatus(result.CylindricalSource is null
+            SetStatus(result.AxisymmetricSource is null
                 ? $"Projection completed and saved as '{namedResult.DisplayName}' ({result.Rays.Count} ray(s))."
                 : $"Axisymmetric projection completed and saved as '{namedResult.DisplayName}' ({result.CylindricalSource.Points.Count} reconstructed source points).",
                 ApplicationLogLevel.Success);
@@ -676,7 +676,7 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
             return;
         }
 
-        var cylindrical = result.CylindricalSource;
+        var cylindrical = result.AxisymmetricSource;
         if (cylindrical is null)
         {
             return;
@@ -914,7 +914,7 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
         {
             return SelectedAxisymmetricSourceKind switch
             {
-                AxisymmetricSourceKind.Cylinder => new CylindricalSourceProfile((float)GeometryRadiusStart, (float)GeometryLength),
+                AxisymmetricSourceKind.Cylinder => new AxisymmetricSourceProfile((float)GeometryRadiusStart, (float)GeometryLength),
                 AxisymmetricSourceKind.ConicalFrustum => new ConicalFrustumSourceProfile((float)GeometryRadiusStart, (float)GeometryRadiusEnd, (float)GeometryLength),
                 AxisymmetricSourceKind.CircularOgive => new CircularOgiveSourceProfile((float)GeometryRadiusStart, (float)GeometryRadiusEnd, (float)GeometryLength, (float)GeometryArcRadius, GeometryOgiveCurvatureDirection),
                 AxisymmetricSourceKind.Hybrid => BuildHybridPreviewProfile(),

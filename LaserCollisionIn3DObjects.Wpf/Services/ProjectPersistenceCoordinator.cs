@@ -229,10 +229,10 @@ public sealed class ProjectPersistenceCoordinator
                 MethodId = namedResult.Result.MethodId,
                 SourceFrame = new PointSourceFrameStateDto
                 {
-                    Origin = namedResult.Result.CylindricalSource.SourceFrame.Origin,
-                    AxisX = namedResult.Result.CylindricalSource.SourceFrame.AxisX,
-                    AxisY = namedResult.Result.CylindricalSource.SourceFrame.AxisY,
-                    AxisZ = namedResult.Result.CylindricalSource.SourceFrame.AxisZ,
+                    Origin = namedResult.Result.AxisymmetricSource.SourceFrame.Origin,
+                    AxisX = namedResult.Result.AxisymmetricSource.SourceFrame.AxisX,
+                    AxisY = namedResult.Result.AxisymmetricSource.SourceFrame.AxisY,
+                    AxisZ = namedResult.Result.AxisymmetricSource.SourceFrame.AxisZ,
                 },
                 Profile = new AxisymmetricProfileDefinitionDto
                 {

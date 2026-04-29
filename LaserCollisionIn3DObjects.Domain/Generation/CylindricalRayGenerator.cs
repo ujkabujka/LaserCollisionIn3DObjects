@@ -20,7 +20,7 @@ public sealed class CylindricalRayGenerator
             source.Name,
             source.Frame,
             AxisymmetricSourceKind.Cylinder,
-            new CylindricalSourceProfile(source.Radius, source.Height),
+            new AxisymmetricSourceProfile(source.Radius, source.Height),
             source.RayCount,
             source.TiltWeight,
             source.TiltPointLocal);

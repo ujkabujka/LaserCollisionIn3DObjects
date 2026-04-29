@@ -151,24 +151,17 @@ public sealed class ProjectionResultStateDto
     public PointSourceFrameStateDto SourceFrame { get; set; } = new();
     public List<ProjectionRayStateDto> Rays { get; set; } = new();
     public AxisymmetricProjectionStateDto? AxisymmetricSource { get; set; }
-    public CylindricalProjectionStateDto? CylindricalSource { get; set; }
-}
-
-public sealed class AxisymmetricProfileDefinitionDto
-{
-    public double Radius { get; set; }
-    public double Length { get; set; }
 }
 
 public sealed class AxisymmetricProjectionStateDto
 {
-    public string MethodId { get; set; } = string.Empty;
     public PointSourceFrameStateDto SourceFrame { get; set; } = new();
-    public AxisymmetricProfileDefinitionDto Profile { get; set; } = new();
+    public double Radius { get; set; }
+    public double Length { get; set; }
     public Point3? LocalTiltPoint { get; set; }
-    public double? EstimatedLambda { get; set; }
-    public AxisymmetricSelfCalibrationDiagnosticsDto? Diagnostics { get; set; }
-    public AxisymmetricLeastSquaresDiagnosticsDto? LeastSquaresDiagnostics { get; set; }
+    public double? EstimatedTiltWeight { get; set; }
+    public SelfCalibratingAxisymmetricProjectionDiagnosticsDto? Diagnostics { get; set; }
+    public LeastSquaresAxisymmetricAlignmentDiagnosticsDto? LeastSquaresDiagnostics { get; set; }
     public List<AxisymmetricProjectionPointStateDto> Points { get; set; } = new();
 }
 
@@ -188,13 +181,13 @@ public sealed class AxisymmetricProjectionPointStateDto
     public double? AngularErrorDegrees { get; set; }
 }
 
-public sealed class AxisymmetricSelfCalibrationDiagnosticsDto
+public sealed class SelfCalibratingAxisymmetricProjectionDiagnosticsDto
 {
     public double RegularityWeight { get; set; }
-    public List<AxisymmetricSelfCalibrationCandidateDiagnosticsDto> CandidateScores { get; set; } = new();
+    public List<SelfCalibratingAxisymmetricCandidateDiagnosticsDto> CandidateScores { get; set; } = new();
 }
 
-public sealed class AxisymmetricSelfCalibrationCandidateDiagnosticsDto
+public sealed class SelfCalibratingAxisymmetricCandidateDiagnosticsDto
 {
     public double Lambda { get; set; }
     public double MeanFitError { get; set; }
@@ -202,7 +195,7 @@ public sealed class AxisymmetricSelfCalibrationCandidateDiagnosticsDto
     public double Score { get; set; }
 }
 
-public sealed class AxisymmetricLeastSquaresDiagnosticsDto
+public sealed class LeastSquaresAxisymmetricAlignmentDiagnosticsDto
 {
     public double InitialLambda { get; set; }
     public double RefinedLambda { get; set; }
@@ -215,76 +208,10 @@ public sealed class AxisymmetricLeastSquaresDiagnosticsDto
     public int Iterations { get; set; }
     public bool Converged { get; set; }
     public bool UsesRegularization { get; set; }
-    public List<AxisymmetricLeastSquaresIterationDiagnosticsDto> IterationHistory { get; set; } = new();
+    public List<LeastSquaresAxisymmetricAlignmentIterationDiagnosticsDto> IterationHistory { get; set; } = new();
 }
 
-public sealed class AxisymmetricLeastSquaresIterationDiagnosticsDto
-{
-    public int Iteration { get; set; }
-    public double Lambda { get; set; }
-    public double MeanAlignmentError { get; set; }
-    public double MeanAngularErrorDegrees { get; set; }
-}
-
-public sealed class CylindricalProjectionStateDto
-{
-    public PointSourceFrameStateDto SourceFrame { get; set; } = new();
-    public double Radius { get; set; }
-    public double Length { get; set; }
-    public Point3? LocalTiltPoint { get; set; }
-    public double? EstimatedTiltWeight { get; set; }
-    public SelfCalibratingCylindricalProjectionDiagnosticsDto? Diagnostics { get; set; }
-    public LeastSquaresCylindricalAlignmentDiagnosticsDto? LeastSquaresDiagnostics { get; set; }
-    public List<CylindricalProjectionPointStateDto> Points { get; set; } = new();
-}
-
-public sealed class CylindricalProjectionPointStateDto
-{
-    public Point3 HolePoint { get; set; }
-    public Point3 SourceSurfacePoint { get; set; }
-    public Point3 RayOrigin { get; set; }
-    public Vector3D RayDirection { get; set; }
-    public Vector3D? ModeledRayDirection { get; set; }
-    public double? LocalU { get; set; }
-    public double? LocalTheta { get; set; }
-    public double? UnwrappedU { get; set; }
-    public double? UnwrappedV { get; set; }
-    public double? FitError { get; set; }
-    public double? AlignmentError { get; set; }
-    public double? AngularErrorDegrees { get; set; }
-}
-
-public sealed class SelfCalibratingCylindricalProjectionDiagnosticsDto
-{
-    public double RegularityWeight { get; set; }
-    public List<SelfCalibratingCylindricalCandidateDiagnosticsDto> CandidateScores { get; set; } = new();
-}
-
-public sealed class SelfCalibratingCylindricalCandidateDiagnosticsDto
-{
-    public double Lambda { get; set; }
-    public double MeanFitError { get; set; }
-    public double RegularityError { get; set; }
-    public double Score { get; set; }
-}
-
-public sealed class LeastSquaresCylindricalAlignmentDiagnosticsDto
-{
-    public double InitialLambda { get; set; }
-    public double RefinedLambda { get; set; }
-    public double InitialMeanAlignmentError { get; set; }
-    public double FinalMeanAlignmentError { get; set; }
-    public double FinalRmsAlignmentError { get; set; }
-    public double FinalMeanAngularErrorDegrees { get; set; }
-    public double FinalMaxAngularErrorDegrees { get; set; }
-    public int? MaxAngularErrorHoleIndex { get; set; }
-    public int Iterations { get; set; }
-    public bool Converged { get; set; }
-    public bool UsesRegularization { get; set; }
-    public List<LeastSquaresCylindricalAlignmentIterationDiagnosticsDto> IterationHistory { get; set; } = new();
-}
-
-public sealed class LeastSquaresCylindricalAlignmentIterationDiagnosticsDto
+public sealed class LeastSquaresAxisymmetricAlignmentIterationDiagnosticsDto
 {
     public int Iteration { get; set; }
     public double Lambda { get; set; }

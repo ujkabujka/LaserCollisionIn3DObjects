@@ -13,7 +13,7 @@ public enum GraphableSourceKind
 public sealed class GraphSceneData
 {
     public required string SceneName { get; init; }
-    public required IReadOnlyList<CylindricalLightSource> CylindricalSources { get; init; }
+    public required IReadOnlyList<CylindricalLightSource> AxisymmetricSources { get; init; }
     public required IReadOnlyList<NamedProjectionResultState> ProjectionResults { get; init; }
 }
 

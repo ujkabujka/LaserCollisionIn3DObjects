@@ -2,9 +2,9 @@ using System.Numerics;
 
 namespace LaserCollisionIn3DObjects.Domain.Geometry;
 
-public sealed class CylindricalSourceProfile : IAxisymmetricSourceProfile
+public sealed class AxisymmetricSourceProfile : IAxisymmetricSourceProfile
 {
-    public CylindricalSourceProfile(float radius, float length)
+    public AxisymmetricSourceProfile(float radius, float length)
     {
         Radius = EnsurePositive(radius, nameof(radius));
         Length = EnsurePositive(length, nameof(length));

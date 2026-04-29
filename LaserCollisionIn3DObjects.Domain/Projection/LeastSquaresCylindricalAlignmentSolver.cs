@@ -54,7 +54,7 @@ public sealed class LeastSquaresCylindricalAlignmentSolver
 
         progress?.Report(new ProjectionProgress(20d, "Starting nonlinear alignment refinement..."));
 
-        var iterationHistory = new List<LeastSquaresCylindricalAlignmentIterationDiagnostics>();
+        var iterationHistory = new List<LeastSquaresAxisymmetricAlignmentIterationDiagnostics>();
         var initialMetrics = ComputeMetrics(localHolePoints, a, theta, beta, radius, length, localTiltPoint, scale);
         var previousCost = initialMetrics.TotalAlignmentError;
         var converged = false;
@@ -71,7 +71,7 @@ public sealed class LeastSquaresCylindricalAlignmentSolver
 
             var metrics = ComputeMetrics(localHolePoints, a, theta, beta, radius, length, localTiltPoint, scale);
             var lambda = Softplus(beta) / scale;
-            iterationHistory.Add(new LeastSquaresCylindricalAlignmentIterationDiagnostics(iter, lambda, metrics.MeanAlignmentError, metrics.MeanAngularErrorDegrees));
+            iterationHistory.Add(new LeastSquaresAxisymmetricAlignmentIterationDiagnostics(iter, lambda, metrics.MeanAlignmentError, metrics.MeanAngularErrorDegrees));
             iterationsCompleted = iter;
 
             progress?.Report(new ProjectionProgress(20d + ((80d * iter) / Settings.MaxIterations),
@@ -96,7 +96,7 @@ public sealed class LeastSquaresCylindricalAlignmentSolver
             init.EstimatedTiltWeight,
             refinedLambda,
             points,
-            new LeastSquaresCylindricalAlignmentDiagnostics
+            new LeastSquaresAxisymmetricAlignmentDiagnostics
             {
                 InitialLambda = init.EstimatedTiltWeight,
                 RefinedLambda = refinedLambda,
@@ -113,7 +113,7 @@ public sealed class LeastSquaresCylindricalAlignmentSolver
             });
     }
 
-    private List<CylindricalProjectionPoint> BuildPoints(
+    private List<AxisymmetricProjectionPoint> BuildPoints(
         IReadOnlyList<Point3> localHolePoints,
         IReadOnlyList<Point3> worldHolePoints,
         PointSourceFrameState frame,
@@ -124,7 +124,7 @@ public sealed class LeastSquaresCylindricalAlignmentSolver
         double length,
         Point3 localTiltPoint)
     {
-        var points = new List<CylindricalProjectionPoint>(localHolePoints.Count);
+        var points = new List<AxisymmetricProjectionPoint>(localHolePoints.Count);
 
         for (var i = 0; i < localHolePoints.Count; i++)
         {
@@ -139,7 +139,7 @@ public sealed class LeastSquaresCylindricalAlignmentSolver
             var alignmentError = VectorError(actualWorld, modeledWorld);
             var angularError = AngularErrorDegrees(actualWorld, modeledWorld);
 
-            points.Add(new CylindricalProjectionPoint(
+            points.Add(new AxisymmetricProjectionPoint(
                 worldHolePoints[i],
                 sourceWorld,
                 actualWorld,
@@ -493,5 +493,5 @@ public sealed class LeastSquaresCylindricalAlignmentSolver
 public sealed record LeastSquaresCylindricalAlignmentSolveResult(
     double InitialLambda,
     double RefinedLambda,
-    IReadOnlyList<CylindricalProjectionPoint> Points,
-    LeastSquaresCylindricalAlignmentDiagnostics Diagnostics);
+    IReadOnlyList<AxisymmetricProjectionPoint> Points,
+    LeastSquaresAxisymmetricAlignmentDiagnostics Diagnostics);

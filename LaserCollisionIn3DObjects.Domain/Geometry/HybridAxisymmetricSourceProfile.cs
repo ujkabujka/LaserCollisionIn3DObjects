@@ -76,7 +76,7 @@ public sealed class HybridAxisymmetricSourceProfile : IAxisymmetricSourceProfile
 
     private (HybridAxisymmetricSourceSegment Segment, float LocalU) ResolveSegment(float u)
     {
-        CylindricalSourceProfile.EnsureUInRange(u, Length);
+        AxisymmetricSourceProfile.EnsureUInRange(u, Length);
 
         if (u == 0f)
         {
@@ -132,7 +132,7 @@ public sealed class HybridAxisymmetricSourceProfile : IAxisymmetricSourceProfile
         {
             return definition.Kind switch
             {
-                HybridAxisymmetricSourceSegmentKind.Cylinder => new CylindricalSourceProfile(definition.RadiusStart, definition.Length),
+                HybridAxisymmetricSourceSegmentKind.Cylinder => new AxisymmetricSourceProfile(definition.RadiusStart, definition.Length),
                 HybridAxisymmetricSourceSegmentKind.ConicalFrustum => new ConicalFrustumSourceProfile(definition.RadiusStart, definition.RadiusEnd, definition.Length),
                 HybridAxisymmetricSourceSegmentKind.CircularOgive => new CircularOgiveSourceProfile(definition.RadiusStart, definition.RadiusEnd, definition.Length, definition.ArcRadius!.Value, definition.OgiveCurvatureDirection),
                 _ => throw new ArgumentOutOfRangeException(nameof(definition.Kind), definition.Kind, "Unsupported hybrid segment kind."),

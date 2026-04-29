@@ -11,7 +11,7 @@ public sealed class LeastSquaresCylindricalAlignmentProjectionMethodTests
         var registry = new ProjectionMethodRegistry(new IProjectionMethod[]
         {
             new PointSourceProjectionMethod(),
-            new CylindricalSourceProjectionMethod(),
+            new AxisymmetricSourceProjectionMethod(),
             new SelfCalibratingCylindricalProjectionMethod(),
             new LeastSquaresCylindricalAlignmentProjectionMethod(),
         });
@@ -76,7 +76,7 @@ public sealed class LeastSquaresCylindricalAlignmentProjectionMethodTests
                 new Point3(0.2, -0.3, 0.1)),
         });
 
-        var diagnostics = Assert.IsType<CylindricalProjectionState>(result.CylindricalSource).LeastSquaresDiagnostics;
+        var diagnostics = Assert.IsType<AxisymmetricProjectionState>(result.AxisymmetricSource).LeastSquaresDiagnostics;
         Assert.NotNull(diagnostics);
         Assert.False(diagnostics!.UsesRegularization);
     }
@@ -98,8 +98,8 @@ public sealed class LeastSquaresCylindricalAlignmentProjectionMethodTests
                 new Point3(0.2, -0.3, 0.1)),
         });
 
-        var cylindrical = Assert.IsType<CylindricalProjectionState>(result.CylindricalSource);
-        var diagnostics = Assert.IsType<LeastSquaresCylindricalAlignmentDiagnostics>(cylindrical.LeastSquaresDiagnostics);
+        var cylindrical = Assert.IsType<AxisymmetricProjectionState>(result.AxisymmetricSource);
+        var diagnostics = Assert.IsType<LeastSquaresAxisymmetricAlignmentDiagnostics>(cylindrical.LeastSquaresDiagnostics);
 
         Assert.InRange(diagnostics.RefinedLambda, trueLambda - 0.08, trueLambda + 0.08);
         Assert.True(diagnostics.FinalMeanAngularErrorDegrees < 1.0);
@@ -127,7 +127,7 @@ public sealed class LeastSquaresCylindricalAlignmentProjectionMethodTests
                 new Point3(0.2, -0.3, 0.1)),
         });
 
-        var diagnostics = Assert.IsType<CylindricalProjectionState>(result.CylindricalSource).LeastSquaresDiagnostics!;
+        var diagnostics = Assert.IsType<AxisymmetricProjectionState>(result.AxisymmetricSource).LeastSquaresDiagnostics!;
         Assert.True(diagnostics.FinalMeanAlignmentError <= diagnostics.InitialMeanAlignmentError + 1e-8);
     }
 
@@ -146,7 +146,7 @@ public sealed class LeastSquaresCylindricalAlignmentProjectionMethodTests
                 new Point3(0.2, -0.3, 0.1)),
         });
 
-        var points = Assert.IsType<CylindricalProjectionState>(result.CylindricalSource).Points;
+        var points = Assert.IsType<AxisymmetricProjectionState>(result.AxisymmetricSource).Points;
         Assert.Equal(holes.Count, points.Count);
         Assert.All(points, point =>
         {

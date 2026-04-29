@@ -25,7 +25,7 @@ public sealed class SelfCalibratingCylindricalProjectionSolver
         IProgress<ProjectionProgress>? progress = null)
     {
         var scale = Math.Max(Math.Max(radius, length), Math.Max(Math.Sqrt(Math.Pow(localTiltPoint.X - (length * 0.5d), 2d) + Math.Pow(localTiltPoint.Y, 2d) + Math.Pow(localTiltPoint.Z, 2d)), Epsilon));
-        var candidateDiagnostics = new List<SelfCalibratingCylindricalCandidateDiagnostics>(Settings.KappaCandidates.Count);
+        var candidateDiagnostics = new List<SelfCalibratingAxisymmetricCandidateDiagnostics>(Settings.KappaCandidates.Count);
 
         CandidateResult? best = null;
 
@@ -34,7 +34,7 @@ public sealed class SelfCalibratingCylindricalProjectionSolver
             var lambda = Settings.KappaCandidates[c] / scale;
             progress?.Report(new ProjectionProgress((100d * c) / Math.Max(Settings.KappaCandidates.Count, 1), $"Testing tilt candidate {c + 1}/{Settings.KappaCandidates.Count}..."));
 
-            var points = new List<CylindricalProjectionPoint>(localHolePoints.Count);
+            var points = new List<AxisymmetricProjectionPoint>(localHolePoints.Count);
             var fitErrorSum = 0d;
 
             for (var i = 0; i < localHolePoints.Count; i++)
@@ -53,7 +53,7 @@ public sealed class SelfCalibratingCylindricalProjectionSolver
                 var modeledWorld = LocalDirectionToWorld(solved.ModeledLocalDirection, frame);
                 var actualWorld = BuildNormalizedDirection(sourceWorld, worldHolePoints[i], $"Hole point at index {i} coincides with reconstructed source point.");
 
-                points.Add(new CylindricalProjectionPoint(
+                points.Add(new AxisymmetricProjectionPoint(
                     worldHolePoints[i],
                     sourceWorld,
                     actualWorld,
@@ -71,7 +71,7 @@ public sealed class SelfCalibratingCylindricalProjectionSolver
             var meanFit = fitErrorSum / Math.Max(localHolePoints.Count, 1);
             var regularity = ComputeRegularity(points);
             var score = meanFit + (Settings.RegularityWeight * regularity);
-            candidateDiagnostics.Add(new SelfCalibratingCylindricalCandidateDiagnostics(lambda, meanFit, regularity, score));
+            candidateDiagnostics.Add(new SelfCalibratingAxisymmetricCandidateDiagnostics(lambda, meanFit, regularity, score));
 
             if (best is null || score < best.Score)
             {
@@ -89,7 +89,7 @@ public sealed class SelfCalibratingCylindricalProjectionSolver
         return new SelfCalibratingSolveResult(
             best.Lambda,
             best.Points,
-            new SelfCalibratingCylindricalProjectionDiagnostics
+            new SelfCalibratingAxisymmetricProjectionDiagnostics
             {
                 CandidateScores = candidateDiagnostics,
                 RegularityWeight = Settings.RegularityWeight,
@@ -196,7 +196,7 @@ public sealed class SelfCalibratingCylindricalProjectionSolver
         return (rx * rx) + (ry * ry) + (rz * rz);
     }
 
-    private static double ComputeRegularity(IReadOnlyList<CylindricalProjectionPoint> points)
+    private static double ComputeRegularity(IReadOnlyList<AxisymmetricProjectionPoint> points)
     {
         if (points.Count <= 1)
         {
@@ -270,11 +270,11 @@ public sealed class SelfCalibratingCylindricalProjectionSolver
         return wrapped;
     }
 
-    private sealed record CandidateResult(double Lambda, double Score, IReadOnlyList<CylindricalProjectionPoint> Points);
+    private sealed record CandidateResult(double Lambda, double Score, IReadOnlyList<AxisymmetricProjectionPoint> Points);
     private sealed record SolvedPoint(double U, double Theta, Point3 SourceLocal, Vector3D ModeledLocalDirection, double FitError);
 }
 
 public sealed record SelfCalibratingSolveResult(
     double EstimatedTiltWeight,
-    IReadOnlyList<CylindricalProjectionPoint> Points,
-    SelfCalibratingCylindricalProjectionDiagnostics Diagnostics);
+    IReadOnlyList<AxisymmetricProjectionPoint> Points,
+    SelfCalibratingAxisymmetricProjectionDiagnostics Diagnostics);
