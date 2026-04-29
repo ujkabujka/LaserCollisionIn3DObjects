@@ -248,7 +248,7 @@ public sealed class ProjectPersistenceCoordinator
                         Score = candidate.Score,
                     }).ToList(),
                 },
-                LeastSquaresDiagnostics = namedResult.Result.CylindricalSource.LeastSquaresDiagnostics is null ? null : new LeastSquaresCylindricalAlignmentDiagnosticsDto
+                LeastSquaresDiagnostics = namedResult.Result.CylindricalSource.LeastSquaresDiagnostics is null ? null : new LeastSquaresAxisymmetricAlignmentDiagnosticsDto
                 {
                     InitialLambda = namedResult.Result.CylindricalSource.LeastSquaresDiagnostics.InitialLambda,
                     RefinedLambda = namedResult.Result.CylindricalSource.LeastSquaresDiagnostics.RefinedLambda,
@@ -261,7 +261,7 @@ public sealed class ProjectPersistenceCoordinator
                     Iterations = namedResult.Result.CylindricalSource.LeastSquaresDiagnostics.Iterations,
                     Converged = namedResult.Result.CylindricalSource.LeastSquaresDiagnostics.Converged,
                     UsesRegularization = namedResult.Result.CylindricalSource.LeastSquaresDiagnostics.UsesRegularization,
-                    IterationHistory = namedResult.Result.CylindricalSource.LeastSquaresDiagnostics.IterationHistory.Select(iteration => new LeastSquaresCylindricalAlignmentIterationDiagnosticsDto
+                    IterationHistory = namedResult.Result.CylindricalSource.LeastSquaresDiagnostics.IterationHistory.Select(iteration => new LeastSquaresAxisymmetricAlignmentIterationDiagnosticsDto
                     {
                         Iteration = iteration.Iteration,
                         Lambda = iteration.Lambda,
@@ -474,7 +474,7 @@ public sealed class ProjectPersistenceCoordinator
                                 candidate.RegularityError,
                                 candidate.Score)).ToList(),
                         },
-                        LeastSquaresDiagnostics = result.CylindricalSource.LeastSquaresDiagnostics is null ? null : new LeastSquaresCylindricalAlignmentDiagnostics
+                        LeastSquaresDiagnostics = result.CylindricalSource.LeastSquaresDiagnostics is null ? null : new LeastSquaresAxisymmetricAlignmentDiagnostics
                         {
                             InitialLambda = result.CylindricalSource.LeastSquaresDiagnostics.InitialLambda,
                             RefinedLambda = result.CylindricalSource.LeastSquaresDiagnostics.RefinedLambda,
@@ -488,7 +488,7 @@ public sealed class ProjectPersistenceCoordinator
                             Converged = result.CylindricalSource.LeastSquaresDiagnostics.Converged,
                             UsesRegularization = result.CylindricalSource.LeastSquaresDiagnostics.UsesRegularization,
                             IterationHistory = result.CylindricalSource.LeastSquaresDiagnostics.IterationHistory.Select(iteration =>
-                                new LeastSquaresCylindricalAlignmentIterationDiagnostics(
+                                new LeastSquaresAxisymmetricAlignmentIterationDiagnostics(
                                     iteration.Iteration,
                                     iteration.Lambda,
                                     iteration.MeanAlignmentError,

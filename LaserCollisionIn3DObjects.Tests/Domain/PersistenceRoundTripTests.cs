@@ -513,14 +513,14 @@ public class PersistenceRoundTripTests
                         Name = "Scene LS",
                         Projection = new SceneProjectionStateDto
                         {
-                            SelectedMethodId = ProjectionMethodIds.LeastSquaresCylindricalAlignmentSource,
+                            SelectedMethodId = ProjectionMethodIds.LeastSquaresAxisymmetricAlignmentSource,
                             Results =
                             [
                                 new ProjectionResultStateDto
                                 {
                                     Key = "k-ls",
                                     Name = "r-ls",
-                                    MethodId = ProjectionMethodIds.LeastSquaresCylindricalAlignmentSource,
+                                    MethodId = ProjectionMethodIds.LeastSquaresAxisymmetricAlignmentSource,
                                     SourceFrame = new PointSourceFrameStateDto
                                     {
                                         Origin = new Point3(0, 0, 0),
@@ -541,7 +541,7 @@ public class PersistenceRoundTripTests
                                         Length = 6,
                                         LocalTiltPoint = new Point3(1, 2, 3),
                                         EstimatedTiltWeight = 0.31,
-                                        LeastSquaresDiagnostics = new LeastSquaresCylindricalAlignmentDiagnosticsDto
+                                        LeastSquaresDiagnostics = new LeastSquaresAxisymmetricAlignmentDiagnosticsDto
                                         {
                                             InitialLambda = 0.34,
                                             RefinedLambda = 0.31,
@@ -556,7 +556,7 @@ public class PersistenceRoundTripTests
                                             UsesRegularization = false,
                                             IterationHistory =
                                             [
-                                                new LeastSquaresCylindricalAlignmentIterationDiagnosticsDto
+                                                new LeastSquaresAxisymmetricAlignmentIterationDiagnosticsDto
                                                 {
                                                     Iteration = 1,
                                                     Lambda = 0.32,

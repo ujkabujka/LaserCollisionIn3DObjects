@@ -32,7 +32,7 @@ public sealed class CylindricalProjectionState
 
     public SelfCalibratingCylindricalProjectionDiagnostics? Diagnostics { get; init; }
 
-    public LeastSquaresCylindricalAlignmentDiagnostics? LeastSquaresDiagnostics { get; init; }
+    public LeastSquaresAxisymmetricAlignmentDiagnostics? LeastSquaresDiagnostics { get; init; }
 
     public required IReadOnlyList<CylindricalProjectionPoint> Points { get; init; }
 }
@@ -50,7 +50,7 @@ public sealed record SelfCalibratingCylindricalCandidateDiagnostics(
     double RegularityError,
     double Score);
 
-public sealed class LeastSquaresCylindricalAlignmentDiagnostics
+public sealed class LeastSquaresAxisymmetricAlignmentDiagnostics
 {
     public double InitialLambda { get; init; }
     public double RefinedLambda { get; init; }
@@ -63,10 +63,10 @@ public sealed class LeastSquaresCylindricalAlignmentDiagnostics
     public int Iterations { get; init; }
     public bool Converged { get; init; }
     public bool UsesRegularization { get; init; }
-    public IReadOnlyList<LeastSquaresCylindricalAlignmentIterationDiagnostics> IterationHistory { get; init; } = Array.Empty<LeastSquaresCylindricalAlignmentIterationDiagnostics>();
+    public IReadOnlyList<LeastSquaresAxisymmetricAlignmentIterationDiagnostics> IterationHistory { get; init; } = Array.Empty<LeastSquaresAxisymmetricAlignmentIterationDiagnostics>();
 }
 
-public sealed record LeastSquaresCylindricalAlignmentIterationDiagnostics(
+public sealed record LeastSquaresAxisymmetricAlignmentIterationDiagnostics(
     int Iteration,
     double Lambda,
     double MeanAlignmentError,

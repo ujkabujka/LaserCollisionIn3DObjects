@@ -2,25 +2,25 @@ using LaserCollisionIn3DObjects.Domain.Geometry;
 
 namespace LaserCollisionIn3DObjects.Domain.Projection;
 
-public sealed class LeastSquaresCylindricalAlignmentProjectionMethod : IProjectionMethod
+public sealed class LeastSquaresAxisymmetricAlignmentProjectionMethod : IProjectionMethod
 {
     public ProjectionMethodMetadata Metadata { get; } = new(
-        ProjectionMethodIds.LeastSquaresCylindricalAlignmentSource,
+        ProjectionMethodIds.LeastSquaresAxisymmetricAlignmentSource,
         "Least-squares cylindrical alignment",
         "Refines cylindrical source-surface points by minimizing direction-alignment error between modeled cylindrical rays and source-to-hole directions.");
 
-    private readonly LeastSquaresCylindricalAlignmentSolver _solver;
+    private readonly LeastSquaresAxisymmetricAlignmentSolver _solver;
 
-    public LeastSquaresCylindricalAlignmentProjectionMethod(LeastSquaresCylindricalAlignmentSolver? solver = null)
+    public LeastSquaresAxisymmetricAlignmentProjectionMethod(LeastSquaresAxisymmetricAlignmentSolver? solver = null)
     {
-        _solver = solver ?? new LeastSquaresCylindricalAlignmentSolver();
+        _solver = solver ?? new LeastSquaresAxisymmetricAlignmentSolver();
     }
 
     public ProjectionComputationResult Execute(ProjectionRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);
 
-        if (request.Parameters is not LeastSquaresCylindricalAlignmentProjectionParameters parameters)
+        if (request.Parameters is not LeastSquaresAxisymmetricAlignmentProjectionParameters parameters)
         {
             throw new ArgumentException("Least-squares cylindrical alignment projection requires least-squares cylindrical alignment parameters.", nameof(request));
         }
