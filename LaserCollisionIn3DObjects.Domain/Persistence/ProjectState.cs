@@ -251,6 +251,9 @@ public sealed class ProjectionWorkspaceStateDto
     public List<AxisymmetricSourceSegmentStateDto> HybridSegments { get; set; } = new();
     public int HybridRayCount { get; set; } = 200;
     public float HybridTiltWeight { get; set; } = 0.1f;
+    public double TiltPointX { get; set; }
+    public double TiltPointY { get; set; }
+    public double TiltPointZ { get; set; }
     public float HybridTiltPointX { get; set; }
     public float HybridTiltPointY { get; set; }
     public float HybridTiltPointZ { get; set; }

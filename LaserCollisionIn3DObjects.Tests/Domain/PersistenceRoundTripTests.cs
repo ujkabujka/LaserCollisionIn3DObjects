@@ -83,6 +83,12 @@ public class PersistenceRoundTripTests
                 {
                     SelectedSceneName = "Scene A",
                     SelectedMethodId = "point-source",
+                    TiltPointX = 12.5,
+                    TiltPointY = -6.25,
+                    TiltPointZ = 3.75,
+                    HybridTiltPointX = 12.5f,
+                    HybridTiltPointY = -6.25f,
+                    HybridTiltPointZ = 3.75f,
                 },
             };
 
@@ -102,6 +108,9 @@ public class PersistenceRoundTripTests
             Assert.Equal(2f, roundTrip.Scenes[0].CylindricalLightSources[0].TiltPointZ, 3);
             Assert.False(roundTrip.AnnotationWorkspace.IsFolderResolved);
             Assert.Equal("/missing/path", roundTrip.AnnotationWorkspace.FolderPath);
+            Assert.Equal(12.5, roundTrip.ProjectionWorkspace.TiltPointX, 6);
+            Assert.Equal(-6.25, roundTrip.ProjectionWorkspace.TiltPointY, 6);
+            Assert.Equal(3.75, roundTrip.ProjectionWorkspace.TiltPointZ, 6);
         }
         finally
         {
