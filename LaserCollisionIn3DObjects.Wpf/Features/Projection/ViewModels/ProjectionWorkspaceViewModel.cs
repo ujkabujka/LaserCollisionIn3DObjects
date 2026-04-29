@@ -29,6 +29,21 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
     private string _projectionProgressMessage = string.Empty;
     private int _lastLoggedProgressBucket = -1;
     private AxisymmetricSourceKind _selectedAxisymmetricSourceKind = AxisymmetricSourceKind.Cylinder;
+    private double _beamOriginX;
+    private double _beamOriginY;
+    private double _beamOriginZ;
+    private double _sourceFrameXx = 1;
+    private double _sourceFrameXy;
+    private double _sourceFrameXz;
+    private double _sourceFrameYx;
+    private double _sourceFrameYy = 1;
+    private double _sourceFrameYz;
+    private double _geometryRadiusStart = 1;
+    private double _geometryRadiusEnd = 1;
+    private double _geometryLength = 10;
+    private double _geometryArcRadius = 20;
+    private OgiveCurvatureDirection _geometryOgiveCurvatureDirection = OgiveCurvatureDirection.Outward;
+    private HybridSourceSegmentItemViewModel? _selectedHybridSegment;
     private int _hybridRayCount = 200;
     private float _hybridTiltWeight = 0.1f;
 
@@ -84,17 +99,17 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
     public double PointSourceY { get; set; }
     public double PointSourceZ { get; set; }
 
-    public double BeamOriginX { get; set; }
-    public double BeamOriginY { get; set; }
-    public double BeamOriginZ { get; set; }
+    public double BeamOriginX { get => _beamOriginX; set => SetGeometryProperty(ref _beamOriginX, value); }
+    public double BeamOriginY { get => _beamOriginY; set => SetGeometryProperty(ref _beamOriginY, value); }
+    public double BeamOriginZ { get => _beamOriginZ; set => SetGeometryProperty(ref _beamOriginZ, value); }
 
-    public double SourceFrameXx { get; set; } = 1;
-    public double SourceFrameXy { get; set; }
-    public double SourceFrameXz { get; set; }
+    public double SourceFrameXx { get => _sourceFrameXx; set => SetGeometryProperty(ref _sourceFrameXx, value); }
+    public double SourceFrameXy { get => _sourceFrameXy; set => SetGeometryProperty(ref _sourceFrameXy, value); }
+    public double SourceFrameXz { get => _sourceFrameXz; set => SetGeometryProperty(ref _sourceFrameXz, value); }
 
-    public double SourceFrameYx { get; set; }
-    public double SourceFrameYy { get; set; } = 1;
-    public double SourceFrameYz { get; set; }
+    public double SourceFrameYx { get => _sourceFrameYx; set => SetGeometryProperty(ref _sourceFrameYx, value); }
+    public double SourceFrameYy { get => _sourceFrameYy; set => SetGeometryProperty(ref _sourceFrameYy, value); }
+    public double SourceFrameYz { get => _sourceFrameYz; set => SetGeometryProperty(ref _sourceFrameYz, value); }
 
     public double CylindricalRadius { get; set; } = 1;
     public double CylindricalLength { get; set; } = 10;
@@ -130,14 +145,24 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
     public bool IsProjectionGeometryCircularOgive => SelectedAxisymmetricSourceKind == AxisymmetricSourceKind.CircularOgive;
     public bool IsProjectionGeometryHybrid => SelectedAxisymmetricSourceKind == AxisymmetricSourceKind.Hybrid;
 
-    public double GeometryRadiusStart { get; set; } = 1;
-    public double GeometryRadiusEnd { get; set; } = 1;
-    public double GeometryLength { get; set; } = 10;
-    public double GeometryArcRadius { get; set; } = 20;
-    public OgiveCurvatureDirection GeometryOgiveCurvatureDirection { get; set; } = OgiveCurvatureDirection.Outward;
+    public double GeometryRadiusStart { get => _geometryRadiusStart; set => SetGeometryProperty(ref _geometryRadiusStart, value); }
+    public double GeometryRadiusEnd { get => _geometryRadiusEnd; set => SetGeometryProperty(ref _geometryRadiusEnd, value); }
+    public double GeometryLength { get => _geometryLength; set => SetGeometryProperty(ref _geometryLength, value); }
+    public double GeometryArcRadius { get => _geometryArcRadius; set => SetGeometryProperty(ref _geometryArcRadius, value); }
+    public OgiveCurvatureDirection GeometryOgiveCurvatureDirection { get => _geometryOgiveCurvatureDirection; set => SetGeometryProperty(ref _geometryOgiveCurvatureDirection, value); }
 
     public ObservableCollection<HybridSourceSegmentItemViewModel> HybridSegments { get; } = new();
-    public HybridSourceSegmentItemViewModel? SelectedHybridSegment { get; set; }
+    public HybridSourceSegmentItemViewModel? SelectedHybridSegment
+    {
+        get => _selectedHybridSegment;
+        set
+        {
+            if (SetProperty(ref _selectedHybridSegment, value))
+            {
+                RaiseCanExecuteChanged();
+            }
+        }
+    }
     public HybridAxisymmetricSourceSegmentKind[] HybridSegmentKinds { get; } = Enum.GetValues<HybridAxisymmetricSourceSegmentKind>();
     public OgiveCurvatureDirection[] OgiveCurvatureDirections { get; } = Enum.GetValues<OgiveCurvatureDirection>();
     public int HybridRayCount { get => _hybridRayCount; set => SetProperty(ref _hybridRayCount, value); }
@@ -332,12 +357,16 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
         GeometryArcRadius = state.GeometryArcRadius;
         GeometryOgiveCurvatureDirection = state.GeometryOgiveCurvatureDirection;
 
+        foreach (var segment in HybridSegments)
+        {
+            DetachHybridSegment(segment);
+        }
         HybridSegments.Clear();
         if (state.HybridSegments.Count > 0)
         {
             foreach (var segment in state.HybridSegments)
             {
-                HybridSegments.Add(new HybridSourceSegmentItemViewModel
+                var newSegment = new HybridSourceSegmentItemViewModel
                 {
                     SegmentKind = segment.SegmentKind,
                     Length = segment.Length,
@@ -345,11 +374,14 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
                     RadiusEnd = segment.RadiusEnd,
                     ArcRadius = segment.ArcRadius ?? 20f,
                     OgiveCurvatureDirection = segment.OgiveCurvatureDirection,
-                });
+                };
+                AttachHybridSegment(newSegment);
+                HybridSegments.Add(newSegment);
             }
 
             SynchronizeHybridSegmentContinuity();
         }
+        SelectedHybridSegment = HybridSegments.FirstOrDefault();
 
         HybridRayCount = state.HybridRayCount > 0 ? state.HybridRayCount : HybridRayCount;
         HybridTiltWeight = state.HybridTiltWeight;
@@ -768,13 +800,15 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
     {
         var previous = HybridSegments.LastOrDefault();
         var radius = previous?.RadiusEnd ?? (float)GeometryRadiusStart;
-        HybridSegments.Add(new HybridSourceSegmentItemViewModel
+        var segment = new HybridSourceSegmentItemViewModel
         {
             SegmentIndex = HybridSegments.Count + 1,
             IsRadiusStartEditable = HybridSegments.Count == 0,
             RadiusStart = radius,
             RadiusEnd = radius,
-        });
+        };
+        AttachHybridSegment(segment);
+        HybridSegments.Add(segment);
 
         SynchronizeHybridSegmentContinuity();
         SelectedHybridSegment = HybridSegments.LastOrDefault();
@@ -789,6 +823,7 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
             return;
         }
 
+        DetachHybridSegment(SelectedHybridSegment);
         HybridSegments.Remove(SelectedHybridSegment);
         if (HybridSegments.Count == 0)
         {
@@ -811,10 +846,35 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
                 HybridSegments[i].RadiusStart = HybridSegments[i - 1].RadiusEnd;
             }
 
-            if (HybridSegments[i].SegmentKind == HybridAxisymmetricSourceSegmentKind.Cylinder)
+            if (HybridSegments[i].SegmentKind == HybridAxisymmetricSourceSegmentKind.Cylinder && HybridSegments[i].RadiusEnd != HybridSegments[i].RadiusStart)
             {
                 HybridSegments[i].RadiusEnd = HybridSegments[i].RadiusStart;
             }
+        }
+    }
+
+    private void AttachHybridSegment(HybridSourceSegmentItemViewModel segment) => segment.PropertyChanged += OnHybridSegmentPropertyChanged;
+    private void DetachHybridSegment(HybridSourceSegmentItemViewModel segment) => segment.PropertyChanged -= OnHybridSegmentPropertyChanged;
+    private void OnHybridSegmentPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is nameof(HybridSourceSegmentItemViewModel.SegmentKind)
+            or nameof(HybridSourceSegmentItemViewModel.Radius)
+            or nameof(HybridSourceSegmentItemViewModel.RadiusStart)
+            or nameof(HybridSourceSegmentItemViewModel.RadiusEnd)
+            or nameof(HybridSourceSegmentItemViewModel.Length)
+            or nameof(HybridSourceSegmentItemViewModel.ArcRadius)
+            or nameof(HybridSourceSegmentItemViewModel.OgiveCurvatureDirection))
+        {
+            SynchronizeHybridSegmentContinuity();
+            RefreshViewport();
+        }
+    }
+
+    private void SetGeometryProperty<T>(ref T field, T value)
+    {
+        if (SetProperty(ref field, value))
+        {
+            RefreshViewport();
         }
     }
 
