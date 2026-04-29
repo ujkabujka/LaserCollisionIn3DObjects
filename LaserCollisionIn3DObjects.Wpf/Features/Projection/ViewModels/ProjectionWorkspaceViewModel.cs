@@ -617,7 +617,7 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
 
         if (method.Metadata.Id == ProjectionMethodIds.CylindricalSource)
         {
-            return new CylindricalSourceProjectionParameters(
+            return new AxisymmetricSourceProjectionParameters(
                 new Point3(BeamOriginX, BeamOriginY, BeamOriginZ),
                 new Vector3D(SourceFrameXx, SourceFrameXy, SourceFrameXz),
                 new Vector3D(SourceFrameYx, SourceFrameYy, SourceFrameYz),
@@ -625,9 +625,9 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
                 profileDefinition.Length);
         }
 
-        if (method.Metadata.Id == ProjectionMethodIds.SelfCalibratingCylindricalSource)
+        if (method.Metadata.Id == ProjectionMethodIds.SelfCalibratingAxisymmetricSource)
         {
-            return new SelfCalibratingCylindricalProjectionParameters(
+            return new SelfCalibratingAxisymmetricProjectionParameters(
                 new Point3(BeamOriginX, BeamOriginY, BeamOriginZ),
                 new Vector3D(SourceFrameXx, SourceFrameXy, SourceFrameXz),
                 new Vector3D(SourceFrameYx, SourceFrameYy, SourceFrameYz),
@@ -636,9 +636,9 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
                 new Point3(TiltPointX, TiltPointY, TiltPointZ));
         }
 
-        if (method.Metadata.Id == ProjectionMethodIds.LeastSquaresCylindricalAlignmentSource)
+        if (method.Metadata.Id == ProjectionMethodIds.LeastSquaresAxisymmetricAlignmentSource)
         {
-            return new LeastSquaresCylindricalAlignmentProjectionParameters(
+            return new LeastSquaresAxisymmetricAlignmentProjectionParameters(
                 new Point3(BeamOriginX, BeamOriginY, BeamOriginZ),
                 new Vector3D(SourceFrameXx, SourceFrameXy, SourceFrameXz),
                 new Vector3D(SourceFrameYx, SourceFrameYy, SourceFrameYz),
@@ -648,6 +648,12 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
         }
 
         throw new InvalidOperationException($"Projection method '{method.Metadata.Id}' is not yet supported by the workspace UI parameter panel.");
+    }
+
+    private IAxisymmetricSourceProfile RequireProjectionGeometryProfile()
+    {
+        return BuildSelectedProjectionGeometryProfile()
+            ?? throw new InvalidOperationException("Projection geometry profile is required for axisymmetric projection methods.");
     }
 
     private void LogProjectionSummary(ProjectionComputationResult result)
@@ -699,7 +705,7 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
             _applicationLogService.LogWarning($"Max fit error: {maxFitErrorEntry.FitError:F6} at hole index {maxFitErrorEntry.Index}", nameof(ProjectionWorkspaceViewModel));
         }
 
-        if (result.MethodId == ProjectionMethodIds.LeastSquaresCylindricalAlignmentSource && cylindrical.LeastSquaresDiagnostics is not null)
+        if (result.MethodId == ProjectionMethodIds.LeastSquaresAxisymmetricAlignmentSource && cylindrical.LeastSquaresDiagnostics is not null)
         {
             var diagnostics = cylindrical.LeastSquaresDiagnostics;
             _applicationLogService.LogSuccess("Least-squares axisymmetric alignment completed.", nameof(ProjectionWorkspaceViewModel));
@@ -715,7 +721,7 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
             return;
         }
 
-        if (result.MethodId != ProjectionMethodIds.SelfCalibratingCylindricalSource)
+        if (result.MethodId != ProjectionMethodIds.SelfCalibratingAxisymmetricSource)
         {
             return;
         }

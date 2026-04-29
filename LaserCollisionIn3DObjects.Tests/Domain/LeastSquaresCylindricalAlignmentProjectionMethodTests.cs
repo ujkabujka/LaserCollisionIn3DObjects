@@ -17,9 +17,9 @@ public sealed class LeastSquaresCylindricalAlignmentProjectionMethodTests
         });
 
         Assert.Equal(ProjectionMethodIds.PointSource, registry.GetRequired(ProjectionMethodIds.PointSource).Metadata.Id);
-        Assert.Equal(ProjectionMethodIds.CylindricalSource, registry.GetRequired(ProjectionMethodIds.CylindricalSource).Metadata.Id);
-        Assert.Equal(ProjectionMethodIds.SelfCalibratingCylindricalSource, registry.GetRequired(ProjectionMethodIds.SelfCalibratingCylindricalSource).Metadata.Id);
-        Assert.Equal(ProjectionMethodIds.LeastSquaresCylindricalAlignmentSource, registry.GetRequired(ProjectionMethodIds.LeastSquaresCylindricalAlignmentSource).Metadata.Id);
+        Assert.Equal(ProjectionMethodIds.AxisymmetricSource, registry.GetRequired(ProjectionMethodIds.AxisymmetricSource).Metadata.Id);
+        Assert.Equal(ProjectionMethodIds.SelfCalibratingAxisymmetricSource, registry.GetRequired(ProjectionMethodIds.SelfCalibratingAxisymmetricSource).Metadata.Id);
+        Assert.Equal(ProjectionMethodIds.LeastSquaresAxisymmetricAlignmentSource, registry.GetRequired(ProjectionMethodIds.LeastSquaresAxisymmetricAlignmentSource).Metadata.Id);
     }
 
     [Fact]
@@ -68,12 +68,11 @@ public sealed class LeastSquaresCylindricalAlignmentProjectionMethodTests
         var result = method.Execute(new ProjectionRequest
         {
             HolePoints = holes,
-            Parameters = new LeastSquaresCylindricalAlignmentProjectionParameters(
+            Parameters = new LeastSquaresAxisymmetricAlignmentProjectionParameters(
                 new Point3(0, 0, 0),
                 new Vector3D(1, 0, 0),
                 new Vector3D(0, 1, 0),
-                1,
-                10,
+                new AxisymmetricSourceProfileDefinition(new CylindricalSourceProfile(1f, 10f)),
                 new Point3(0.2, -0.3, 0.1)),
         });
 
@@ -91,12 +90,11 @@ public sealed class LeastSquaresCylindricalAlignmentProjectionMethodTests
         var result = new LeastSquaresCylindricalAlignmentProjectionMethod().Execute(new ProjectionRequest
         {
             HolePoints = holes,
-            Parameters = new LeastSquaresCylindricalAlignmentProjectionParameters(
+            Parameters = new LeastSquaresAxisymmetricAlignmentProjectionParameters(
                 new Point3(0, 0, 0),
                 new Vector3D(1, 0, 0),
                 new Vector3D(0, 1, 0),
-                radius,
-                length,
+                new AxisymmetricSourceProfileDefinition(new CylindricalSourceProfile((float)radius, (float)length)),
                 new Point3(0.2, -0.3, 0.1)),
         });
 
@@ -121,12 +119,11 @@ public sealed class LeastSquaresCylindricalAlignmentProjectionMethodTests
         var result = new LeastSquaresCylindricalAlignmentProjectionMethod().Execute(new ProjectionRequest
         {
             HolePoints = holes,
-            Parameters = new LeastSquaresCylindricalAlignmentProjectionParameters(
+            Parameters = new LeastSquaresAxisymmetricAlignmentProjectionParameters(
                 new Point3(0, 0, 0),
                 new Vector3D(1, 0, 0),
                 new Vector3D(0, 1, 0),
-                1,
-                10,
+                new AxisymmetricSourceProfileDefinition(new CylindricalSourceProfile(1f, 10f)),
                 new Point3(0.2, -0.3, 0.1)),
         });
 
@@ -141,12 +138,11 @@ public sealed class LeastSquaresCylindricalAlignmentProjectionMethodTests
         var result = new LeastSquaresCylindricalAlignmentProjectionMethod().Execute(new ProjectionRequest
         {
             HolePoints = holes,
-            Parameters = new LeastSquaresCylindricalAlignmentProjectionParameters(
+            Parameters = new LeastSquaresAxisymmetricAlignmentProjectionParameters(
                 new Point3(0, 0, 0),
                 new Vector3D(1, 0, 0),
                 new Vector3D(0, 1, 0),
-                1,
-                10,
+                new AxisymmetricSourceProfileDefinition(new CylindricalSourceProfile(1f, 10f)),
                 new Point3(0.2, -0.3, 0.1)),
         });
 

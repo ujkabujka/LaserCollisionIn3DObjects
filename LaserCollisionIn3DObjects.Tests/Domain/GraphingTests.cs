@@ -253,7 +253,7 @@ public sealed class GraphingTests
             DisplayName = "Cyl Projection",
             Result = new ProjectionComputationResult
             {
-                MethodId = ProjectionMethodIds.CylindricalSource,
+                MethodId = ProjectionMethodIds.AxisymmetricSource,
                 SourceFrame = new PointSourceFrameState
                 {
                     Origin = new Point3(0, 0, 0),

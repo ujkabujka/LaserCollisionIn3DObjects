@@ -5,9 +5,9 @@ namespace LaserCollisionIn3DObjects.Domain.Projection;
 public sealed class LeastSquaresCylindricalAlignmentProjectionMethod : IProjectionMethod
 {
     public ProjectionMethodMetadata Metadata { get; } = new(
-        ProjectionMethodIds.LeastSquaresCylindricalAlignmentSource,
-        "Least-squares cylindrical alignment",
-        "Refines cylindrical source-surface points by minimizing direction-alignment error between modeled cylindrical rays and source-to-hole directions.");
+        ProjectionMethodIds.LeastSquaresAxisymmetricAlignmentSource,
+        "Least-squares axisymmetric alignment",
+        "Refines axisymmetric source-surface points by minimizing direction-alignment error between modeled axisymmetric rays and source-to-hole directions for cylinder, conical frustum, circular ogive, and hybrid profiles.");
 
     private readonly LeastSquaresCylindricalAlignmentSolver _solver;
 
@@ -20,7 +20,7 @@ public sealed class LeastSquaresCylindricalAlignmentProjectionMethod : IProjecti
     {
         ArgumentNullException.ThrowIfNull(request);
 
-        if (request.Parameters is not LeastSquaresCylindricalAlignmentProjectionParameters parameters)
+        if (request.Parameters is not LeastSquaresAxisymmetricAlignmentProjectionParameters parameters)
         {
             throw new ArgumentException("Least-squares cylindrical alignment projection requires least-squares cylindrical alignment parameters.", nameof(request));
         }
@@ -30,12 +30,16 @@ public sealed class LeastSquaresCylindricalAlignmentProjectionMethod : IProjecti
             throw new ArgumentException("Projection requires at least one hole point.", nameof(request));
         }
 
-        if (parameters.Radius <= 0d)
+        var profile = parameters.ProfileDefinition.Profile;
+        var radius = profile.RadiusAt(0f);
+        var length = profile.Length;
+
+        if (radius <= 0d)
         {
             throw new ArgumentException("Cylinder radius must be greater than zero.", nameof(request));
         }
 
-        if (parameters.Length <= 0d)
+        if (length <= 0d)
         {
             throw new ArgumentException("Cylinder length must be greater than zero.", nameof(request));
         }
@@ -46,8 +50,8 @@ public sealed class LeastSquaresCylindricalAlignmentProjectionMethod : IProjecti
         var solveResult = _solver.Solve(
             localHolePoints,
             sourceFrame,
-            parameters.Radius,
-            parameters.Length,
+            radius,
+            length,
             parameters.LocalTiltPoint,
             request.HolePoints,
             request.Progress);
@@ -60,8 +64,8 @@ public sealed class LeastSquaresCylindricalAlignmentProjectionMethod : IProjecti
             CylindricalSource = new CylindricalProjectionState
             {
                 SourceFrame = sourceFrame,
-                Radius = parameters.Radius,
-                Length = parameters.Length,
+                Radius = radius,
+                Length = length,
                 LocalTiltPoint = parameters.LocalTiltPoint,
                 EstimatedTiltWeight = solveResult.RefinedLambda,
                 LeastSquaresDiagnostics = solveResult.Diagnostics,

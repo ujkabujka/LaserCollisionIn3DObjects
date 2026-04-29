@@ -127,8 +127,8 @@ public sealed class CylindricalSourceProjectionMethodTests
             new CylindricalSourceProjectionMethod(),
         });
 
-        var method = registry.GetRequired(ProjectionMethodIds.CylindricalSource);
-        Assert.Equal(ProjectionMethodIds.CylindricalSource, method.Metadata.Id);
+        var method = registry.GetRequired(ProjectionMethodIds.AxisymmetricSource);
+        Assert.Equal(ProjectionMethodIds.AxisymmetricSource, method.Metadata.Id);
     }
 
     private static ProjectionRequest BuildRequest(
@@ -142,7 +142,7 @@ public sealed class CylindricalSourceProjectionMethodTests
         return new ProjectionRequest
         {
             HolePoints = holes,
-            Parameters = new CylindricalSourceProjectionParameters(origin, axisX, axisY, radius, length),
+            Parameters = new AxisymmetricSourceProjectionParameters(origin, axisX, axisY, new AxisymmetricSourceProfileDefinition(new CylindricalSourceProfile((float)radius, (float)length))),
         };
     }
 }

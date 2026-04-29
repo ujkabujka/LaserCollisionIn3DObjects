@@ -15,8 +15,8 @@ public sealed class SelfCalibratingCylindricalProjectionMethodTests
             new SelfCalibratingCylindricalProjectionMethod(),
         });
 
-        var method = registry.GetRequired(ProjectionMethodIds.SelfCalibratingCylindricalSource);
-        Assert.Equal(ProjectionMethodIds.SelfCalibratingCylindricalSource, method.Metadata.Id);
+        var method = registry.GetRequired(ProjectionMethodIds.SelfCalibratingAxisymmetricSource);
+        Assert.Equal(ProjectionMethodIds.SelfCalibratingAxisymmetricSource, method.Metadata.Id);
     }
 
     [Fact]
@@ -26,12 +26,11 @@ public sealed class SelfCalibratingCylindricalProjectionMethodTests
         var ex = Assert.Throws<ArgumentException>(() => method.Execute(new ProjectionRequest
         {
             HolePoints = [new Point3(1, 1, 1)],
-            Parameters = new SelfCalibratingCylindricalProjectionParameters(
+            Parameters = new SelfCalibratingAxisymmetricProjectionParameters(
                 new Point3(0, 0, 0),
                 new Vector3D(1, 0, 0),
                 new Vector3D(2, 0, 0),
-                1,
-                2,
+                new AxisymmetricSourceProfileDefinition(new CylindricalSourceProfile(1f, 2f)),
                 new Point3(0, 0, 0)),
         }));
 
@@ -73,12 +72,11 @@ public sealed class SelfCalibratingCylindricalProjectionMethodTests
     public void Method_ProducesPerHoleMetadata_AndEstimatedLambda()
     {
         var frameOrigin = new Point3(0, 0, 0);
-        var parameters = new SelfCalibratingCylindricalProjectionParameters(
+        var parameters = new SelfCalibratingAxisymmetricProjectionParameters(
             frameOrigin,
             new Vector3D(1, 0, 0),
             new Vector3D(0, 1, 0),
-            1d,
-            8d,
+            new AxisymmetricSourceProfileDefinition(new CylindricalSourceProfile(1f, 8f)),
             new Point3(0, 0, 0));
 
         var holes = new List<Point3>();
@@ -116,7 +114,7 @@ public sealed class SelfCalibratingCylindricalProjectionMethodTests
     {
         var result = new ProjectionComputationResult
         {
-            MethodId = ProjectionMethodIds.SelfCalibratingCylindricalSource,
+            MethodId = ProjectionMethodIds.SelfCalibratingAxisymmetricSource,
             SourceFrame = new PointSourceFrameState
             {
                 Origin = new Point3(0, 0, 0),
