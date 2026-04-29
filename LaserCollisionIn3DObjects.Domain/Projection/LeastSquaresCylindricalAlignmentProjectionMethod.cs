@@ -6,7 +6,7 @@ public sealed class LeastSquaresCylindricalAlignmentProjectionMethod : IProjecti
 {
     public ProjectionMethodMetadata Metadata { get; } = new(
         ProjectionMethodIds.LeastSquaresCylindricalAlignmentSource,
-        "Least-squares cylindrical alignment",
+        "Least-squares axisymmetric alignment",
         "Refines cylindrical source-surface points by minimizing direction-alignment error between modeled cylindrical rays and source-to-hole directions.");
 
     private readonly LeastSquaresCylindricalAlignmentSolver _solver;
@@ -20,9 +20,22 @@ public sealed class LeastSquaresCylindricalAlignmentProjectionMethod : IProjecti
     {
         ArgumentNullException.ThrowIfNull(request);
 
-        if (request.Parameters is not LeastSquaresCylindricalAlignmentProjectionParameters parameters)
+        var parameters = request.Parameters switch
         {
-            throw new ArgumentException("Least-squares cylindrical alignment projection requires least-squares cylindrical alignment parameters.", nameof(request));
+            LeastSquaresAxisymmetricAlignmentProjectionParameters axisymmetric => new LeastSquaresCylindricalAlignmentProjectionParameters(
+                axisymmetric.SourceFrameOrigin,
+                axisymmetric.SourceFrameX,
+                axisymmetric.SourceFrameY,
+                axisymmetric.Radius,
+                axisymmetric.Length,
+                axisymmetric.LocalTiltPoint),
+            LeastSquaresCylindricalAlignmentProjectionParameters cylindrical => cylindrical,
+            _ => null,
+        };
+
+        if (parameters is null)
+        {
+            throw new ArgumentException("Least-squares axisymmetric alignment projection requires least-squares axisymmetric alignment parameters.", nameof(request));
         }
 
         if (request.HolePoints is null || request.HolePoints.Count == 0)

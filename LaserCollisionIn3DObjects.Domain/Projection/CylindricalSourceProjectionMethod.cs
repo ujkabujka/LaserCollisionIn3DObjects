@@ -9,16 +9,28 @@ public sealed class CylindricalSourceProjectionMethod : IProjectionMethod
 
     public ProjectionMethodMetadata Metadata { get; } = new(
         ProjectionMethodIds.CylindricalSource,
-        "User-defined cylindrical source",
+        "User-defined axisymmetric source",
         "Reconstructs one source-surface point per hole by normalizing local X into source length and projecting local YZ onto radius.");
 
     public ProjectionComputationResult Execute(ProjectionRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);
 
-        if (request.Parameters is not CylindricalSourceProjectionParameters parameters)
+        var parameters = request.Parameters switch
         {
-            throw new ArgumentException("Cylindrical-source projection requires cylindrical parameters.", nameof(request));
+            AxisymmetricSourceProjectionParameters axisymmetric => new CylindricalSourceProjectionParameters(
+                axisymmetric.SourceFrameOrigin,
+                axisymmetric.SourceFrameX,
+                axisymmetric.SourceFrameY,
+                axisymmetric.Radius,
+                axisymmetric.Length),
+            CylindricalSourceProjectionParameters cylindrical => cylindrical,
+            _ => null,
+        };
+
+        if (parameters is null)
+        {
+            throw new ArgumentException("Axisymmetric-source projection requires axisymmetric parameters.", nameof(request));
         }
 
         if (request.HolePoints is null || request.HolePoints.Count == 0)
