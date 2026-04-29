@@ -128,24 +128,24 @@ public sealed class HelixSceneBuilder
             visuals.AddRange(_frameVisualizer.CreateFrameVisualsBatch(new[] { (previewFrame, 1.5f) }));
         }
 
-        if (projectionResult?.AxisymmetricSource is { } cylindrical)
+        if (projectionResult?.AxisymmetricSource is { } axisymmetric)
         {
-            var cylindricalFrame = ToFrame3D(cylindrical.SourceFrame);
+            var axisymmetricFrame = ToFrame3D(axisymmetric.SourceFrame);
             visuals.Add(_meshFactory.CreateCylindricalLightSourceBatch(
                 new[]
                 {
                     new CylindricalLightSource(
                         "Projected Cylindrical Source",
-                        cylindricalFrame,
-                        (float)cylindrical.Radius,
-                        (float)cylindrical.Length,
+                        axisymmetricFrame,
+                        (float)axisymmetric.Radius,
+                        (float)axisymmetric.Length,
                         rayCount: 1)
                 },
                 Colors.Goldenrod));
 
-            if (cylindrical.Points.Count > 0)
+            if (axisymmetric.Points.Count > 0)
             {
-                visuals.Add(_rayVisualizer.CreatePoints(cylindrical.Points.Select(point => point.SourceSurfacePoint).ToList(), Colors.MediumPurple, size: 4));
+                visuals.Add(_rayVisualizer.CreatePoints(axisymmetric.Points.Select(point => point.SourceSurfacePoint).ToList(), Colors.MediumPurple, size: 4));
             }
         }
         else

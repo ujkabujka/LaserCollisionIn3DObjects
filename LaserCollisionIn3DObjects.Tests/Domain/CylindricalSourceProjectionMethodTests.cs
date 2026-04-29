@@ -142,7 +142,7 @@ public sealed class AxisymmetricSourceProjectionMethodTests
         return new ProjectionRequest
         {
             HolePoints = holes,
-            Parameters = new AxisymmetricSourceProjectionParameters(origin, axisX, axisY, radius, length),
+            Parameters = new AxisymmetricSourceProjectionParameters(origin, axisX, axisY, new AxisymmetricSourceProfileDefinition(new CylindricalSourceProfile((float)radius, (float)length))),
         };
     }
 }

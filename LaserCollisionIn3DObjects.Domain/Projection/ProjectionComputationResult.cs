@@ -16,6 +16,12 @@ public sealed class ProjectionComputationResult
 
     public AxisymmetricProjectionState? AxisymmetricSource { get; init; }
 
+    public CylindricalProjectionState? AxisymmetricSource
+    {
+        get => CylindricalSource;
+        init => CylindricalSource = value;
+    }
+
     public IReadOnlyList<ProjectionRay> GetEffectiveRays()
     {
         if (Rays.Count > 0)
