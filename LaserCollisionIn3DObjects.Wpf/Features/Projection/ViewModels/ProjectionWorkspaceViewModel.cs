@@ -381,7 +381,7 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
 
             SynchronizeHybridSegmentContinuity();
         }
-        SelectedHybridSegment = HybridSegments.FirstOrDefault();
+        EnsureDefaultHybridSegment();
 
         HybridRayCount = state.HybridRayCount > 0 ? state.HybridRayCount : HybridRayCount;
         HybridTiltWeight = state.HybridTiltWeight;
@@ -440,7 +440,7 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
         }
 
         _sceneCollectionService.AddScene(scene, selectScene: false);
-        ApplyHybridSegmentCount();
+        EnsureDefaultHybridSegment();
         RefreshAvailableScenes();
         SelectedScene = scene;
 
@@ -574,7 +574,7 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
 
         var deletedName = SelectedScene.Name;
         _sceneCollectionService.RemoveScene(SelectedScene);
-        ApplyHybridSegmentCount();
+        EnsureDefaultHybridSegment();
         RefreshAvailableScenes();
         RefreshViewport();
         SetStatus($"Deleted projection scene '{deletedName}'.", ApplicationLogLevel.Success);
@@ -851,6 +851,18 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
                 HybridSegments[i].RadiusEnd = HybridSegments[i].RadiusStart;
             }
         }
+    }
+
+    private void EnsureDefaultHybridSegment()
+    {
+        if (HybridSegments.Count == 0)
+        {
+            AddHybridSegment();
+            return;
+        }
+
+        SynchronizeHybridSegmentContinuity();
+        SelectedHybridSegment ??= HybridSegments.FirstOrDefault();
     }
 
     private void AttachHybridSegment(HybridSourceSegmentItemViewModel segment) => segment.PropertyChanged += OnHybridSegmentPropertyChanged;
