@@ -12,7 +12,7 @@ public sealed class SelfCalibratingAxisymmetricProjectionMethodTests
         {
             new PointSourceProjectionMethod(),
             new AxisymmetricSourceProjectionMethod(),
-            new SelfCalibratingCylindricalProjectionMethod(),
+            new SelfCalibratingAxisymmetricProjectionMethod(),
         });
 
         var method = registry.GetRequired(ProjectionMethodIds.SelfCalibratingAxisymmetricSource);
@@ -30,7 +30,7 @@ public sealed class SelfCalibratingAxisymmetricProjectionMethodTests
                 new Point3(0, 0, 0),
                 new Vector3D(1, 0, 0),
                 new Vector3D(2, 0, 0),
-                new AxisymmetricSourceProfileDefinition(new CylindricalSourceProfile(1f, 2f)),
+                new AxisymmetricSourceProfileDefinition { Kind = AxisymmetricSourceKind.Cylinder, Radius = 1f, Length = 2f },
                 new Point3(0, 0, 0)),
         }));
 
@@ -40,7 +40,7 @@ public sealed class SelfCalibratingAxisymmetricProjectionMethodTests
     [Fact]
     public void Parameterization_WrapsTheta_AndClampsU()
     {
-        var point = SelfCalibratingAxisymmetricProjectionSolver.ParameterizeSurface(12, -Math.PI / 2d, 2, 10);
+        var point = SelfCalibratingAxisymmetricProjectionSolver.ParameterizeSurface(new CylindricalSourceProfile(2f, 10f), 12, -Math.PI / 2d);
 
         Assert.Equal(10d, point.X, 6);
         Assert.Equal(0d, point.Y, 6);
@@ -50,7 +50,7 @@ public sealed class SelfCalibratingAxisymmetricProjectionMethodTests
     [Fact]
     public void ModeledDirection_WithZeroLambda_IsPureRadial()
     {
-        var direction = SelfCalibratingAxisymmetricProjectionSolver.BuildModeledDirection(1, Math.PI / 3d, 0d, 2d, new Point3(0, 0, 0));
+        var direction = SelfCalibratingAxisymmetricProjectionSolver.BuildModeledDirection(new CylindricalSourceProfile(2f, 10f), 1, Math.PI / 3d, 0d, new Point3(0, 0, 0));
 
         Assert.Equal(0d, direction.X, 6);
         Assert.Equal(Math.Cos(Math.PI / 3d), direction.Y, 6);
@@ -61,8 +61,8 @@ public sealed class SelfCalibratingAxisymmetricProjectionMethodTests
     public void PointToRayError_IsNearZeroForOnRayPoint_AndTClamped()
     {
         var tilt = new Point3(0, 0, 0);
-        var errOn = SelfCalibratingAxisymmetricProjectionSolver.PointToRayError(new Point3(2, 5, 0), 2, 0, 0, 1, tilt);
-        var errBehind = SelfCalibratingAxisymmetricProjectionSolver.PointToRayError(new Point3(2, 0, 0), 2, 0, 0, 1, tilt);
+        var errOn = SelfCalibratingAxisymmetricProjectionSolver.PointToRayError(new Point3(2, 5, 0), 2, 0, 0, new CylindricalSourceProfile(1f, 8f), tilt);
+        var errBehind = SelfCalibratingAxisymmetricProjectionSolver.PointToRayError(new Point3(2, 0, 0), 2, 0, 0, new CylindricalSourceProfile(1f, 8f), tilt);
 
         Assert.True(errOn < 1e-6);
         Assert.True(errBehind > errOn);
@@ -76,14 +76,14 @@ public sealed class SelfCalibratingAxisymmetricProjectionMethodTests
             frameOrigin,
             new Vector3D(1, 0, 0),
             new Vector3D(0, 1, 0),
-            new AxisymmetricSourceProfileDefinition(new CylindricalSourceProfile(1f, 8f)),
+            new AxisymmetricSourceProfileDefinition { Kind = AxisymmetricSourceKind.Cylinder, Radius = 1f, Length = 8f },
             new Point3(0, 0, 0));
 
         var holes = new List<Point3>();
         foreach (var (u, theta) in new[] { (1d, 0.1d), (3d, 1.4d), (5d, 2.1d), (7d, 4.0d) })
         {
             var source = new Point3(u, Math.Cos(theta), Math.Sin(theta));
-            var direction = SelfCalibratingAxisymmetricProjectionSolver.BuildModeledDirection(u, theta, 0.1d, 1d, parameters.LocalTiltPoint);
+            var direction = SelfCalibratingAxisymmetricProjectionSolver.BuildModeledDirection(new CylindricalSourceProfile(1f, 8f), u, theta, 0.1d, parameters.LocalTiltPoint);
             holes.Add(new Point3(source.X + (direction.X * 6d), source.Y + (direction.Y * 6d), source.Z + (direction.Z * 6d)));
         }
 
@@ -153,13 +153,13 @@ public sealed class SelfCalibratingAxisymmetricProjectionMethodTests
     public void Method_ProducesFiniteFitErrorAcrossGeometries(AxisymmetricSourceKind geometryKind)
     {
         var holes = BuildAxisymmetricHoles(geometryKind);
-        var result = new SelfCalibratingCylindricalProjectionMethod().Execute(new ProjectionRequest
+        var result = new SelfCalibratingAxisymmetricProjectionMethod().Execute(new ProjectionRequest
         {
             HolePoints = holes,
-            Parameters = new SelfCalibratingCylindricalProjectionParameters(new Point3(0, 0, 0), new Vector3D(1, 0, 0), new Vector3D(0, 1, 0), 1d, 8d, new Point3(0, 0, 0)),
+            Parameters = new SelfCalibratingAxisymmetricProjectionParameters(new Point3(0, 0, 0), new Vector3D(1, 0, 0), new Vector3D(0, 1, 0), new AxisymmetricSourceProfileDefinition { Kind = AxisymmetricSourceKind.Cylinder, Radius = 1f, Length = 8f }, new Point3(0, 0, 0)),
         });
 
-        var points = Assert.IsType<CylindricalProjectionState>(result.CylindricalSource).Points;
+        var points = Assert.IsType<AxisymmetricProjectionState>(result.AxisymmetricSource).Points;
         Assert.All(points, point => Assert.True(double.IsFinite(point.FitError ?? double.NaN)));
     }
 
@@ -169,8 +169,8 @@ public sealed class SelfCalibratingAxisymmetricProjectionMethodTests
         foreach (var (u, theta) in new[] { (1d, 0.2d), (3d, 1.1d), (5d, 2.2d), (7d, 4.1d) })
         {
             var lambda = kind == AxisymmetricSourceKind.Cylinder ? 0.08d : 0.12d;
-            var source = SelfCalibratingCylindricalProjectionSolver.ParameterizeSurface(u, theta, 1d, 8d);
-            var direction = SelfCalibratingCylindricalProjectionSolver.BuildModeledDirection(u, theta, lambda, 1d, new Point3(0, 0, 0));
+            var source = SelfCalibratingAxisymmetricProjectionSolver.ParameterizeSurface(new CylindricalSourceProfile(1f, 8f), u, theta);
+            var direction = SelfCalibratingAxisymmetricProjectionSolver.BuildModeledDirection(new CylindricalSourceProfile(1f, 8f), u, theta, lambda, new Point3(0, 0, 0));
             holes.Add(new Point3(source.X + (direction.X * 6d), source.Y + (direction.Y * 6d), source.Z + (direction.Z * 6d)));
         }
 

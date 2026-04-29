@@ -339,8 +339,7 @@ public class PersistenceRoundTripTests
                                         AxisY = new Vector3D(0, 1, 0),
                                         AxisZ = new Vector3D(0, 0, 1),
                                     },
-                                    Radius = 4,
-                                    Length = 12,
+                                    ProfileDefinition = new AxisymmetricSourceProfileDefinition { Kind = AxisymmetricSourceKind.Cylinder, Radius = 4, Length = 12 },
                                     Points =
                                     [
                                         new AxisymmetricProjectionPointStateDto
@@ -364,8 +363,8 @@ public class PersistenceRoundTripTests
         var result = restored.Scenes[0].Projection.Results[0];
 
         Assert.NotNull(result.AxisymmetricSource);
-        Assert.Equal(4d, result.AxisymmetricSource!.Radius, 6);
-        Assert.Equal(12d, result.AxisymmetricSource.Length, 6);
+        Assert.Equal(4d, result.AxisymmetricSource!.ProfileDefinition.Radius, 6);
+        Assert.Equal(12d, result.AxisymmetricSource.ProfileDefinition.Length, 6);
         Assert.Single(result.AxisymmetricSource.Points);
         Assert.Equal(new Point3(0, 4, 0), result.AxisymmetricSource.Points[0].SourceSurfacePoint);
     }
@@ -434,8 +433,7 @@ public class PersistenceRoundTripTests
                                             AxisY = new Vector3D(0, 1, 0),
                                             AxisZ = new Vector3D(0, 0, 1),
                                         },
-                                        Radius = 1.5,
-                                        Length = 6,
+                                        ProfileDefinition = new AxisymmetricSourceProfileDefinition { Kind = AxisymmetricSourceKind.Cylinder, Radius = 1.5f, Length = 6f },
                                         LocalTiltPoint = new Point3(1, 2, 3),
                                         EstimatedTiltWeight = 0.42,
                                         Diagnostics = new SelfCalibratingAxisymmetricProjectionDiagnosticsDto
@@ -537,8 +535,7 @@ public class PersistenceRoundTripTests
                                             AxisY = new Vector3D(0, 1, 0),
                                             AxisZ = new Vector3D(0, 0, 1),
                                         },
-                                        Radius = 1.5,
-                                        Length = 6,
+                                        ProfileDefinition = new AxisymmetricSourceProfileDefinition { Kind = AxisymmetricSourceKind.Cylinder, Radius = 1.5f, Length = 6f },
                                         LocalTiltPoint = new Point3(1, 2, 3),
                                         EstimatedTiltWeight = 0.31,
                                         LeastSquaresDiagnostics = new LeastSquaresAxisymmetricAlignmentDiagnosticsDto
@@ -556,7 +553,7 @@ public class PersistenceRoundTripTests
                                             UsesRegularization = false,
                                             IterationHistory =
                                             [
-                                                new LeastSquaresAxisymmetricAlignmentIterationDiagnosticsDto
+                                                new AxisymmetricLeastSquaresIterationDiagnosticsDto
                                                 {
                                                     Iteration = 1,
                                                     Lambda = 0.32,

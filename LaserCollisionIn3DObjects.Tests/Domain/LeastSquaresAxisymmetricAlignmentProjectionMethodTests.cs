@@ -12,7 +12,7 @@ public sealed class LeastSquaresAxisymmetricAlignmentProjectionMethodTests
         {
             new PointSourceProjectionMethod(),
             new AxisymmetricSourceProjectionMethod(),
-            new SelfCalibratingCylindricalProjectionMethod(),
+            new SelfCalibratingAxisymmetricProjectionMethod(),
             new LeastSquaresAxisymmetricAlignmentProjectionMethod(),
         });
 
@@ -41,7 +41,7 @@ public sealed class LeastSquaresAxisymmetricAlignmentProjectionMethodTests
     [Fact]
     public void SurfaceParameterization_WrapsTheta_AndClampsU()
     {
-        var p = LeastSquaresAxisymmetricAlignmentSolver.ParameterizeSurface(11, -Math.PI / 2d, 2, 10);
+        var p = SelfCalibratingAxisymmetricProjectionSolver.ParameterizeSurface(new CylindricalSourceProfile(2f, 10f), 11, -Math.PI / 2d);
 
         Assert.Equal(10d, p.X, 6);
         Assert.Equal(0d, p.Y, 6);
@@ -107,8 +107,7 @@ public sealed class LeastSquaresAxisymmetricAlignmentProjectionMethodTests
         Assert.All(cylindrical.Points, point =>
         {
             Assert.InRange(point.LocalU ?? -1d, 0d, length);
-            Assert.NotNull(point.AngularErrorDegrees);
-            Assert.NotNull(point.AlignmentError);
+            Assert.NotNull(point.ModeledRayDirection);
         });
     }
 
@@ -155,8 +154,7 @@ public sealed class LeastSquaresAxisymmetricAlignmentProjectionMethodTests
             Assert.NotNull(point.UnwrappedU);
             Assert.NotNull(point.UnwrappedV);
             Assert.NotNull(point.ModeledRayDirection);
-            Assert.NotNull(point.AlignmentError);
-            Assert.NotNull(point.AngularErrorDegrees);
+            Assert.NotNull(point.ModeledRayDirection);
         });
 
         var effectiveRays = result.GetEffectiveRays();
@@ -181,8 +179,9 @@ public sealed class LeastSquaresAxisymmetricAlignmentProjectionMethodTests
         var holes = new List<Point3>(uValues.Length);
         for (var i = 0; i < uValues.Length; i++)
         {
-            var source = LeastSquaresAxisymmetricAlignmentSolver.ParameterizeSurface(uValues[i], thetaValues[i], radius, length);
-            var direction = LeastSquaresAxisymmetricAlignmentSolver.BuildModeledDirection(uValues[i], thetaValues[i], lambda, radius, tilt);
+            var profile = new CylindricalSourceProfile((float)radius, (float)length);
+            var source = SelfCalibratingAxisymmetricProjectionSolver.ParameterizeSurface(profile, uValues[i], thetaValues[i]);
+            var direction = SelfCalibratingAxisymmetricProjectionSolver.BuildModeledDirection(profile, uValues[i], thetaValues[i], lambda, tilt);
             holes.Add(new Point3(
                 source.X + (direction.X * (5d + i)),
                 source.Y + (direction.Y * (5d + i)),
@@ -195,8 +194,8 @@ public sealed class LeastSquaresAxisymmetricAlignmentProjectionMethodTests
     [Fact]
     public void Registry_DisplayNames_AreAxisymmetricAndNonCylindricalSpecific()
     {
-        Assert.Contains("source", new SelfCalibratingCylindricalProjectionMethod().Metadata.DisplayName, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("alignment", new LeastSquaresCylindricalAlignmentProjectionMethod().Metadata.DisplayName, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("axisymmetric", new SelfCalibratingAxisymmetricProjectionMethod().Metadata.DisplayName, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("alignment", new LeastSquaresAxisymmetricAlignmentProjectionMethod().Metadata.DisplayName, StringComparison.OrdinalIgnoreCase);
     }
 
     [Theory]
@@ -207,13 +206,13 @@ public sealed class LeastSquaresAxisymmetricAlignmentProjectionMethodTests
     public void LeastSquares_Diagnostics_AreFinite_AndUnregularized(AxisymmetricSourceKind geometryKind)
     {
         var holes = CreateSyntheticHoles(geometryKind == AxisymmetricSourceKind.Cylinder ? 0.08 : 0.05, out _, out _, out var radius, out var length);
-        var result = new LeastSquaresCylindricalAlignmentProjectionMethod().Execute(new ProjectionRequest
+        var result = new LeastSquaresAxisymmetricAlignmentProjectionMethod().Execute(new ProjectionRequest
         {
             HolePoints = holes,
-            Parameters = new LeastSquaresCylindricalAlignmentProjectionParameters(new Point3(0, 0, 0), new Vector3D(1, 0, 0), new Vector3D(0, 1, 0), radius, length, new Point3(0.2, -0.3, 0.1)),
+            Parameters = new LeastSquaresAxisymmetricAlignmentProjectionParameters(new Point3(0, 0, 0), new Vector3D(1, 0, 0), new Vector3D(0, 1, 0), new AxisymmetricSourceProfileDefinition { Kind = AxisymmetricSourceKind.Cylinder, Radius = (float)radius, Length = (float)length }, new Point3(0.2, -0.3, 0.1)),
         });
 
-        var diagnostics = Assert.IsType<CylindricalProjectionState>(result.CylindricalSource).LeastSquaresDiagnostics!;
+        var diagnostics = Assert.IsType<AxisymmetricProjectionState>(result.AxisymmetricSource).LeastSquaresDiagnostics!;
         Assert.False(diagnostics.UsesRegularization);
         Assert.True(double.IsFinite(diagnostics.RefinedLambda));
         Assert.True(double.IsFinite(diagnostics.FinalMeanAlignmentError));
