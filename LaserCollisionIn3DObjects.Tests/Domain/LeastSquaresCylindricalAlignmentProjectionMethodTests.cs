@@ -68,12 +68,11 @@ public sealed class LeastSquaresCylindricalAlignmentProjectionMethodTests
         var result = method.Execute(new ProjectionRequest
         {
             HolePoints = holes,
-            Parameters = new LeastSquaresCylindricalAlignmentProjectionParameters(
+            Parameters = new LeastSquaresAxisymmetricAlignmentProjectionParameters(
                 new Point3(0, 0, 0),
                 new Vector3D(1, 0, 0),
                 new Vector3D(0, 1, 0),
-                1,
-                10,
+                new AxisymmetricSourceProfileDefinition(new CylindricalSourceProfile(1f, 10f)),
                 new Point3(0.2, -0.3, 0.1)),
         });
 
@@ -91,12 +90,11 @@ public sealed class LeastSquaresCylindricalAlignmentProjectionMethodTests
         var result = new LeastSquaresCylindricalAlignmentProjectionMethod().Execute(new ProjectionRequest
         {
             HolePoints = holes,
-            Parameters = new LeastSquaresCylindricalAlignmentProjectionParameters(
+            Parameters = new LeastSquaresAxisymmetricAlignmentProjectionParameters(
                 new Point3(0, 0, 0),
                 new Vector3D(1, 0, 0),
                 new Vector3D(0, 1, 0),
-                radius,
-                length,
+                new AxisymmetricSourceProfileDefinition(new CylindricalSourceProfile((float)radius, (float)length)),
                 new Point3(0.2, -0.3, 0.1)),
         });
 
@@ -121,12 +119,11 @@ public sealed class LeastSquaresCylindricalAlignmentProjectionMethodTests
         var result = new LeastSquaresCylindricalAlignmentProjectionMethod().Execute(new ProjectionRequest
         {
             HolePoints = holes,
-            Parameters = new LeastSquaresCylindricalAlignmentProjectionParameters(
+            Parameters = new LeastSquaresAxisymmetricAlignmentProjectionParameters(
                 new Point3(0, 0, 0),
                 new Vector3D(1, 0, 0),
                 new Vector3D(0, 1, 0),
-                1,
-                10,
+                new AxisymmetricSourceProfileDefinition(new CylindricalSourceProfile(1f, 10f)),
                 new Point3(0.2, -0.3, 0.1)),
         });
 
@@ -141,12 +138,11 @@ public sealed class LeastSquaresCylindricalAlignmentProjectionMethodTests
         var result = new LeastSquaresCylindricalAlignmentProjectionMethod().Execute(new ProjectionRequest
         {
             HolePoints = holes,
-            Parameters = new LeastSquaresCylindricalAlignmentProjectionParameters(
+            Parameters = new LeastSquaresAxisymmetricAlignmentProjectionParameters(
                 new Point3(0, 0, 0),
                 new Vector3D(1, 0, 0),
                 new Vector3D(0, 1, 0),
-                1,
-                10,
+                new AxisymmetricSourceProfileDefinition(new CylindricalSourceProfile(1f, 10f)),
                 new Point3(0.2, -0.3, 0.1)),
         });
 
