@@ -82,8 +82,8 @@
                                 </StackPanel>
                             </GroupBox>
 
-                            <UniformGrid Columns="2" Margin="0,0,0,6"><StackPanel Margin="2"><TextBlock Text="Ray Count"/><TextBox Text="{Binding ProjectionWorkspace.HybridRayCount}"/></StackPanel><StackPanel Margin="2"><TextBlock Text="Tilt Weight"/><TextBox Text="{Binding ProjectionWorkspace.HybridTiltWeight}"/></StackPanel></UniformGrid>
-                            <UniformGrid Columns="3" Margin="0,0,0,6"><StackPanel Margin="2"><TextBlock Text="Tilt X"/><TextBox Text="{Binding ProjectionWorkspace.HybridTiltPointX}"/></StackPanel><StackPanel Margin="2"><TextBlock Text="Tilt Y"/><TextBox Text="{Binding ProjectionWorkspace.HybridTiltPointY}"/></StackPanel><StackPanel Margin="2"><TextBlock Text="Tilt Z"/><TextBox Text="{Binding ProjectionWorkspace.HybridTiltPointZ}"/></StackPanel></UniformGrid>
+                            <TextBlock Text="Local Tilt Point"/>
+                            <UniformGrid Columns="3" Margin="0,0,0,6"><StackPanel Margin="2"><TextBlock Text="Tilt X"/><TextBox Text="{Binding ProjectionWorkspace.TiltPointX, Converter={StaticResource FlexibleNumericConverter}}"/></StackPanel><StackPanel Margin="2"><TextBlock Text="Tilt Y"/><TextBox Text="{Binding ProjectionWorkspace.TiltPointY, Converter={StaticResource FlexibleNumericConverter}}"/></StackPanel><StackPanel Margin="2"><TextBlock Text="Tilt Z"/><TextBox Text="{Binding ProjectionWorkspace.TiltPointZ, Converter={StaticResource FlexibleNumericConverter}}"/></StackPanel></UniformGrid>
                             <Button Content="Add Geometry to Collision Scene" Command="{Binding ProjectionWorkspace.AddGeometryToCollisionSceneCommand}" Height="28"/>
                         </StackPanel>
                     </GroupBox>
@@ -100,10 +100,6 @@
                             <GroupBox Header="Point Source Parameters" Margin="0,0,0,6" Padding="6" Visibility="{Binding ProjectionWorkspace.IsPointSourceMethodSelected, Converter={StaticResource BoolToVisibility}}">
                                 <UniformGrid Columns="3"><StackPanel Margin="2"><TextBlock Text="Point Source X"/><TextBox Text="{Binding ProjectionWorkspace.PointSourceX, Converter={StaticResource FlexibleNumericConverter}}"/></StackPanel><StackPanel Margin="2"><TextBlock Text="Point Source Y"/><TextBox Text="{Binding ProjectionWorkspace.PointSourceY, Converter={StaticResource FlexibleNumericConverter}}"/></StackPanel><StackPanel Margin="2"><TextBlock Text="Point Source Z"/><TextBox Text="{Binding ProjectionWorkspace.PointSourceZ, Converter={StaticResource FlexibleNumericConverter}}"/></StackPanel></UniformGrid>
                             </GroupBox>
-                            <StackPanel Visibility="{Binding ProjectionWorkspace.IsTiltPointVisibleForSelectedMethod, Converter={StaticResource BoolToVisibility}}">
-                                <TextBlock Text="Local Tilt Point"/>
-                                <UniformGrid Columns="3"><StackPanel Margin="2"><TextBlock Text="Tilt X"/><TextBox Text="{Binding ProjectionWorkspace.TiltPointX, Converter={StaticResource FlexibleNumericConverter}}"/></StackPanel><StackPanel Margin="2"><TextBlock Text="Tilt Y"/><TextBox Text="{Binding ProjectionWorkspace.TiltPointY, Converter={StaticResource FlexibleNumericConverter}}"/></StackPanel><StackPanel Margin="2"><TextBlock Text="Tilt Z"/><TextBox Text="{Binding ProjectionWorkspace.TiltPointZ, Converter={StaticResource FlexibleNumericConverter}}"/></StackPanel></UniformGrid>
-                            </StackPanel>
                         </StackPanel>
                     </GroupBox>
 

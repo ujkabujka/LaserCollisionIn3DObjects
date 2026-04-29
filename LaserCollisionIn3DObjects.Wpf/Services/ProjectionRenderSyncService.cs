@@ -24,9 +24,10 @@ public sealed class ProjectionRenderSyncService
         ProjectionComputationResult? projectionResult,
         IAxisymmetricSourceProfile? previewProfile = null,
         Frame3D? previewFrame = null,
-        bool previewAsGhost = true)
+        bool previewAsGhost = true,
+        Point3? previewTiltPointLocal = null)
     {
-        var visuals = _sceneBuilder.BuildProjectionVisuals(holePoints, projectionResult, previewProfile, previewFrame, previewAsGhost);
+        var visuals = _sceneBuilder.BuildProjectionVisuals(holePoints, projectionResult, previewProfile, previewFrame, previewAsGhost, previewTiltPointLocal);
         _dynamicVisualRoot.Children.Clear();
         foreach (var visual in visuals)
         {

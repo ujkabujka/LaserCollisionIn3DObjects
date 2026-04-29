@@ -106,7 +106,8 @@ public sealed class HelixSceneBuilder
         ProjectionComputationResult? projectionResult,
         IAxisymmetricSourceProfile? previewProfile = null,
         Frame3D? previewFrame = null,
-        bool previewAsGhost = true)
+        bool previewAsGhost = true,
+        Point3? previewTiltPointLocal = null)
     {
         ArgumentNullException.ThrowIfNull(holePoints);
 
@@ -126,26 +127,19 @@ public sealed class HelixSceneBuilder
             var previewOpacity = previewAsGhost ? 0.25d : 1d;
             visuals.Add(_meshFactory.CreateAxisymmetricSourceProfileVisual(previewProfile, previewFrame, Colors.MediumPurple, previewOpacity, slices: 32, stacks: 24));
             visuals.AddRange(_frameVisualizer.CreateFrameVisualsBatch(new[] { (previewFrame, 1.5f) }));
+
+            if (previewTiltPointLocal is Point3 tiltLocal)
+            {
+                var tiltWorld = previewFrame.LocalToWorld(new Vector3((float)tiltLocal.X, (float)tiltLocal.Y, (float)tiltLocal.Z));
+                visuals.Add(_rayVisualizer.CreatePoints(new[] { new Point3(tiltWorld.X, tiltWorld.Y, tiltWorld.Z) }, Colors.Orange, size: 8));
+            }
         }
 
         if (projectionResult?.AxisymmetricSource is { } axisymmetric)
         {
-            var axisymmetricFrame = ToFrame3D(axisymmetric.SourceFrame);
-            visuals.Add(_meshFactory.CreateCylindricalLightSourceBatch(
-                new[]
-                {
-                    new CylindricalLightSource(
-                        "Projected Cylindrical Source",
-                        axisymmetricFrame,
-                        (float)axisymmetric.Radius,
-                        (float)axisymmetric.Length,
-                        rayCount: 1)
-                },
-                Colors.Goldenrod));
-
             if (axisymmetric.Points.Count > 0)
             {
-                visuals.Add(_rayVisualizer.CreatePoints(axisymmetric.Points.Select(point => point.SourceSurfacePoint).ToList(), Colors.MediumPurple, size: 4));
+                visuals.Add(_rayVisualizer.CreatePoints(axisymmetric.Points.Select(point => point.SourceSurfacePoint).ToList(), Colors.Red, size: 5));
             }
         }
         else

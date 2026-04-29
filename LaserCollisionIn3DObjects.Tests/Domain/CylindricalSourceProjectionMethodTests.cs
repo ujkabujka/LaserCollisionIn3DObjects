@@ -118,6 +118,30 @@ public sealed class AxisymmetricSourceProjectionMethodTests
         Assert.Equal(10d, result.AxisymmetricSource.Length, 6);
     }
 
+    [Theory]
+    [InlineData(AxisymmetricSourceKind.Cylinder)]
+    [InlineData(AxisymmetricSourceKind.ConicalFrustum)]
+    [InlineData(AxisymmetricSourceKind.CircularOgive)]
+    [InlineData(AxisymmetricSourceKind.Hybrid)]
+    public void Execute_SupportsAllAxisymmetricGeometryKinds(AxisymmetricSourceKind geometryKind)
+    {
+        var request = new ProjectionRequest
+        {
+            HolePoints = [new Point3(1, 2, 3), new Point3(2, 3, 4), new Point3(3, 4, 5)],
+            Parameters = new AxisymmetricSourceProjectionParameters(
+                new Point3(0, 0, 0),
+                new Vector3D(1, 0, 0),
+                new Vector3D(0, 1, 0),
+                BuildProfileDefinition(geometryKind)),
+        };
+
+        var result = _method.Execute(request);
+
+        Assert.NotNull(result.AxisymmetricSource);
+        Assert.Equal(request.HolePoints.Count, result.AxisymmetricSource!.Points.Count);
+        Assert.All(result.AxisymmetricSource.Points, point => Assert.True(double.IsFinite(point.SourceSurfacePoint.X)));
+    }
+
     [Fact]
     public void Registry_IncludesCylindricalMethod()
     {
@@ -145,4 +169,21 @@ public sealed class AxisymmetricSourceProjectionMethodTests
             Parameters = new AxisymmetricSourceProjectionParameters(origin, axisX, axisY, new AxisymmetricSourceProfileDefinition { Kind = AxisymmetricSourceKind.Cylinder, Radius = (float)radius, Length = (float)length }),
         };
     }
+
+    private static AxisymmetricSourceProfileDefinition BuildProfileDefinition(AxisymmetricSourceKind kind) => kind switch
+    {
+        AxisymmetricSourceKind.Cylinder => new AxisymmetricSourceProfileDefinition { Kind = kind, Radius = 2f, Length = 10f },
+        AxisymmetricSourceKind.ConicalFrustum => new AxisymmetricSourceProfileDefinition { Kind = kind, RadiusStart = 2f, RadiusEnd = 3f, Length = 10f },
+        AxisymmetricSourceKind.CircularOgive => new AxisymmetricSourceProfileDefinition { Kind = kind, RadiusStart = 2f, RadiusEnd = 3f, Length = 10f, ArcRadius = 20f, OgiveCurvatureDirection = OgiveCurvatureDirection.Outward },
+        AxisymmetricSourceKind.Hybrid => new AxisymmetricSourceProfileDefinition
+        {
+            Kind = kind,
+            Hybrid =
+            [
+                new HybridAxisymmetricSourceSegmentDefinition(HybridAxisymmetricSourceSegmentKind.Cylinder, 4f, 2f, 2f),
+                new HybridAxisymmetricSourceSegmentDefinition(HybridAxisymmetricSourceSegmentKind.ConicalFrustum, 6f, 2f, 3f),
+            ],
+        },
+        _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, null),
+    };
 }
