@@ -53,3 +53,12 @@ public sealed class ProjectionComputationResult
         };
     }
 }
+
+public sealed class AxisymmetricProjectionState
+{
+    public required PointSourceFrameState SourceFrame { get; init; }
+
+    public required AxisymmetricProfileDefinition ProfileDefinition { get; init; }
+
+    public required IReadOnlyList<CylindricalProjectionPoint> Points { get; init; }
+}

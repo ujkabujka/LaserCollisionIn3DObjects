@@ -106,7 +106,13 @@ public sealed class AxisymmetricSourceProjectionMethod : IProjectionMethod
                 holeWorld,
                 surfaceWorld,
                 new Vector3D(direction.X, direction.Y, direction.Z),
-                surfaceWorld));
+                surfaceWorld)
+            {
+                LocalU = u,
+                LocalTheta = theta,
+                UnwrappedU = u,
+                UnwrappedV = profile.RadiusAt((float)u) * theta,
+            });
         }
 
         return new ProjectionComputationResult
