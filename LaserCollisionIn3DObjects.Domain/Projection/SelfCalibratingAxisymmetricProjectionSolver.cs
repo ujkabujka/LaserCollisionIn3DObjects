@@ -18,15 +18,12 @@ public sealed class SelfCalibratingAxisymmetricProjectionSolver
     public SelfCalibratingSolveResult Solve(
         IReadOnlyList<Point3> localHolePoints,
         PointSourceFrameState frame,
-        double radius,
-        double length,
+        IAxisymmetricSourceProfile profile,
         Point3 localTiltPoint,
         IReadOnlyList<Point3> worldHolePoints,
         IProgress<ProjectionProgress>? progress = null)
     {
-        IAxisymmetricSourceProfile profile = new CylindricalSourceProfile((float)radius, (float)length);
-        var scale = Math.Max(Math.Max(radius, length), Math.Max(Math.Sqrt(Math.Pow(localTiltPoint.X - (length * 0.5d), 2d) + Math.Pow(localTiltPoint.Y, 2d) + Math.Pow(localTiltPoint.Z, 2d)), Epsilon));
-        var candidateDiagnostics = new List<SelfCalibratingAxisymmetricCandidateDiagnostics>(Settings.KappaCandidates.Count);
+        var scale = Math.Max(profile.Length, Math.Max(Math.Sqrt((localTiltPoint.X * localTiltPoint.X) + (localTiltPoint.Y * localTiltPoint.Y) + (localTiltPoint.Z * localTiltPoint.Z)), Epsilon));
         var candidateDiagnostics = new List<SelfCalibratingAxisymmetricCandidateDiagnostics>(Settings.KappaCandidates.Count);
 
         CandidateResult? best = null;
@@ -74,7 +71,6 @@ public sealed class SelfCalibratingAxisymmetricProjectionSolver
             var regularity = ComputeRegularity(points);
             var score = meanFit + (Settings.RegularityWeight * regularity);
             candidateDiagnostics.Add(new SelfCalibratingAxisymmetricCandidateDiagnostics(lambda, meanFit, regularity, score));
-            candidateDiagnostics.Add(new SelfCalibratingAxisymmetricCandidateDiagnostics(lambda, meanFit, regularity, score));
 
             if (best is null || score < best.Score)
             {
@@ -84,7 +80,7 @@ public sealed class SelfCalibratingAxisymmetricProjectionSolver
 
         if (best is null)
         {
-            throw new InvalidOperationException("Self-calibrating cylindrical solver failed to evaluate candidates.");
+            throw new InvalidOperationException("Self-calibrating axisymmetric solver failed to evaluate candidates.");
         }
 
         progress?.Report(new ProjectionProgress(100d, "Projection complete."));
@@ -92,7 +88,6 @@ public sealed class SelfCalibratingAxisymmetricProjectionSolver
         return new SelfCalibratingSolveResult(
             best.Lambda,
             best.Points,
-            new SelfCalibratingAxisymmetricProjectionDiagnostics
             new SelfCalibratingAxisymmetricProjectionDiagnostics
             {
                 CandidateScores = candidateDiagnostics,
@@ -282,7 +277,5 @@ public sealed class SelfCalibratingAxisymmetricProjectionSolver
 
 public sealed record SelfCalibratingSolveResult(
     double EstimatedTiltWeight,
-    IReadOnlyList<CylindricalProjectionPoint> Points,
-    SelfCalibratingAxisymmetricProjectionDiagnostics Diagnostics);
     IReadOnlyList<AxisymmetricProjectionPoint> Points,
     SelfCalibratingAxisymmetricProjectionDiagnostics Diagnostics);
