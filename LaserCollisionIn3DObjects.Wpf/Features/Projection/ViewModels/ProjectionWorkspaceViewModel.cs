@@ -328,9 +328,12 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
                 ArcRadius = segment.IsOgive ? segment.ArcRadius : null,
                 OgiveCurvatureDirection = segment.OgiveCurvatureDirection,
             }).ToList(),
-            TiltPointX = (float)TiltPointX,
-            TiltPointY = (float)TiltPointY,
-            TiltPointZ = (float)TiltPointZ,
+            TiltPointX = TiltPointX,
+            TiltPointY = TiltPointY,
+            TiltPointZ = TiltPointZ,
+            HybridTiltPointX = (float)TiltPointX,
+            HybridTiltPointY = (float)TiltPointY,
+            HybridTiltPointZ = (float)TiltPointZ,
         };
     }
 
@@ -375,9 +378,16 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
         }
         EnsureDefaultHybridSegment();
 
-        TiltPointX = state.TiltPointX != 0f ? state.TiltPointX : state.HybridTiltPointX;
-        TiltPointY = state.TiltPointY != 0f ? state.TiltPointY : state.HybridTiltPointY;
-        TiltPointZ = state.TiltPointZ != 0f ? state.TiltPointZ : state.HybridTiltPointZ;
+        TiltPointX = state.TiltPointX;
+        TiltPointY = state.TiltPointY;
+        TiltPointZ = state.TiltPointZ;
+        if (TiltPointX == 0d && TiltPointY == 0d && TiltPointZ == 0d &&
+            (state.HybridTiltPointX != 0f || state.HybridTiltPointY != 0f || state.HybridTiltPointZ != 0f))
+        {
+            TiltPointX = state.HybridTiltPointX;
+            TiltPointY = state.HybridTiltPointY;
+            TiltPointZ = state.HybridTiltPointZ;
+        }
 
         SelectedScene = AvailableScenes.FirstOrDefault(scene => scene.Name == state.SelectedSceneName)
             ?? AvailableScenes.FirstOrDefault();
