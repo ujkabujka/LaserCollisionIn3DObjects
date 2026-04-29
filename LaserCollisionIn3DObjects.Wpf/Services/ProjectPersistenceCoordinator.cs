@@ -234,8 +234,8 @@ public sealed class ProjectPersistenceCoordinator
                 },
                 ProfileDefinition = new AxisymmetricSourceProfileDefinition
                 {
-                    Radius = namedResult.Result.AxisymmetricSource.Radius,
-                    Length = namedResult.Result.AxisymmetricSource.Length,
+                    Radius = (float)namedResult.Result.AxisymmetricSource.Radius,
+                    Length = (float)namedResult.Result.AxisymmetricSource.Length,
                 },
                 LocalTiltPoint = namedResult.Result.AxisymmetricSource.LocalTiltPoint,
                 EstimatedTiltWeight = namedResult.Result.AxisymmetricSource.EstimatedTiltWeight,

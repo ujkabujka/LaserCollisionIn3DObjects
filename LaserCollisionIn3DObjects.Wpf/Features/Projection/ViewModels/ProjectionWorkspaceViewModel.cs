@@ -59,7 +59,7 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
         {
             new PointSourceProjectionMethod(),
             new AxisymmetricSourceProjectionMethod(),
-            new SelfCalibratingCylindricalProjectionMethod(),
+            new SelfCalibratingAxisymmetricProjectionMethod(),
             new LeastSquaresAxisymmetricAlignmentProjectionMethod(),
         });
         _applicationLogService = applicationLogService;
@@ -172,9 +172,9 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
     public float HybridTiltPointZ { get; set; }
 
     public bool IsPointSourceMethodSelected => string.Equals(SelectedMethod?.Id, ProjectionMethodIds.PointSource, StringComparison.OrdinalIgnoreCase);
-    public bool IsAxisymmetricSourceMethodSelected => string.Equals(SelectedMethod?.Id, ProjectionMethodIds.CylindricalSource, StringComparison.OrdinalIgnoreCase);
-    public bool IsSelfCalibratingAxisymmetricMethodSelected => string.Equals(SelectedMethod?.Id, ProjectionMethodIds.SelfCalibratingCylindricalSource, StringComparison.OrdinalIgnoreCase);
-    public bool IsLeastSquaresAxisymmetricAlignmentMethodSelected => string.Equals(SelectedMethod?.Id, ProjectionMethodIds.LeastSquaresCylindricalAlignmentSource, StringComparison.OrdinalIgnoreCase);
+    public bool IsAxisymmetricSourceMethodSelected => string.Equals(SelectedMethod?.Id, ProjectionMethodIds.AxisymmetricSource, StringComparison.OrdinalIgnoreCase);
+    public bool IsSelfCalibratingAxisymmetricMethodSelected => string.Equals(SelectedMethod?.Id, ProjectionMethodIds.SelfCalibratingAxisymmetricSource, StringComparison.OrdinalIgnoreCase);
+    public bool IsLeastSquaresAxisymmetricAlignmentMethodSelected => string.Equals(SelectedMethod?.Id, ProjectionMethodIds.LeastSquaresAxisymmetricAlignmentSource, StringComparison.OrdinalIgnoreCase);
     public bool IsAnyAxisymmetricMethodSelected => IsAxisymmetricSourceMethodSelected || IsSelfCalibratingAxisymmetricMethodSelected || IsLeastSquaresAxisymmetricAlignmentMethodSelected;
     public bool IsTiltPointVisibleForSelectedMethod => IsSelfCalibratingAxisymmetricMethodSelected || IsLeastSquaresAxisymmetricAlignmentMethodSelected;
 
@@ -511,7 +511,7 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
 
             SetStatus(result.AxisymmetricSource is null
                 ? $"Projection completed and saved as '{namedResult.DisplayName}' ({result.Rays.Count} ray(s))."
-                : $"Axisymmetric projection completed and saved as '{namedResult.DisplayName}' ({result.CylindricalSource.Points.Count} reconstructed source points).",
+                : $"Axisymmetric projection completed and saved as '{namedResult.DisplayName}' ({result.AxisymmetricSource.Points.Count} reconstructed source points).",
                 ApplicationLogLevel.Success);
             LogProjectionSummary(result);
             _applicationLogService?.LogSuccess("Projection run completed.", nameof(ProjectionWorkspaceViewModel));
@@ -615,14 +615,13 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
 
         var profileDefinition = BuildAxisymmetricSourceProfileDefinition(method);
 
-        if (method.Metadata.Id == ProjectionMethodIds.CylindricalSource)
+        if (method.Metadata.Id == ProjectionMethodIds.AxisymmetricSource)
         {
             return new AxisymmetricSourceProjectionParameters(
                 new Point3(BeamOriginX, BeamOriginY, BeamOriginZ),
                 new Vector3D(SourceFrameXx, SourceFrameXy, SourceFrameXz),
                 new Vector3D(SourceFrameYx, SourceFrameYy, SourceFrameYz),
-                profileDefinition.Radius,
-                profileDefinition.Length);
+                profileDefinition);
         }
 
         if (method.Metadata.Id == ProjectionMethodIds.SelfCalibratingAxisymmetricSource)
@@ -674,17 +673,17 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
             return;
         }
 
-        var cylindrical = result.AxisymmetricSource;
-        if (cylindrical is null)
+        var axisymmetric = result.AxisymmetricSource;
+        if (axisymmetric is null)
         {
             return;
         }
 
-        _applicationLogService.LogInfo($"Radius: {cylindrical.Radius:F6}", nameof(ProjectionWorkspaceViewModel));
-        _applicationLogService.LogInfo($"Length: {cylindrical.Length:F6}", nameof(ProjectionWorkspaceViewModel));
-        _applicationLogService.LogInfo($"Reconstructed source points: {cylindrical.Points.Count}", nameof(ProjectionWorkspaceViewModel));
+        _applicationLogService.LogInfo($"Profile kind: {axisymmetric.ProfileDefinition.Kind}", nameof(ProjectionWorkspaceViewModel));
+        _applicationLogService.LogInfo($"Profile length: {axisymmetric.ProfileDefinition.Length:F6}", nameof(ProjectionWorkspaceViewModel));
+        _applicationLogService.LogInfo($"Reconstructed source points: {axisymmetric.Points.Count}", nameof(ProjectionWorkspaceViewModel));
 
-        var fitEntries = cylindrical.Points
+        var fitEntries = axisymmetric.Points
             .Select((point, index) => new { point.FitError, Index = index })
             .Where(item => item.FitError.HasValue)
             .Select(item => new { FitError = item.FitError!.Value, item.Index })
@@ -703,10 +702,9 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
             _applicationLogService.LogWarning($"Max fit error: {maxFitErrorEntry.FitError:F6} at hole index {maxFitErrorEntry.Index}", nameof(ProjectionWorkspaceViewModel));
         }
 
-        if (result.MethodId == ProjectionMethodIds.LeastSquaresAxisymmetricAlignmentSource && cylindrical.LeastSquaresDiagnostics is not null)
-        if (result.MethodId == ProjectionMethodIds.LeastSquaresAxisymmetricAlignmentSource && cylindrical.LeastSquaresDiagnostics is not null)
+        if (result.MethodId == ProjectionMethodIds.LeastSquaresAxisymmetricAlignmentSource && axisymmetric.LeastSquaresDiagnostics is not null)
         {
-            var diagnostics = cylindrical.LeastSquaresDiagnostics;
+            var diagnostics = axisymmetric.LeastSquaresDiagnostics;
             _applicationLogService.LogSuccess("Least-squares axisymmetric alignment completed.", nameof(ProjectionWorkspaceViewModel));
             _applicationLogService.LogInfo($"Initial lambda: {diagnostics.InitialLambda:F6}", nameof(ProjectionWorkspaceViewModel));
             _applicationLogService.LogInfo($"Refined lambda: {diagnostics.RefinedLambda:F6}", nameof(ProjectionWorkspaceViewModel));
@@ -726,20 +724,20 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
         }
 
         _applicationLogService.LogSuccess("Self-calibrating axisymmetric projection completed.", nameof(ProjectionWorkspaceViewModel));
-        if (cylindrical.EstimatedTiltWeight.HasValue)
+        if (axisymmetric.EstimatedTiltWeight.HasValue)
         {
-            _applicationLogService.LogSuccess($"Estimated lambda: {cylindrical.EstimatedTiltWeight.Value:F6}", nameof(ProjectionWorkspaceViewModel));
+            _applicationLogService.LogSuccess($"Estimated lambda: {axisymmetric.EstimatedTiltWeight.Value:F6}", nameof(ProjectionWorkspaceViewModel));
         }
 
-        if (cylindrical.Diagnostics is null)
+        if (axisymmetric.Diagnostics is null)
         {
             return;
         }
 
-        _applicationLogService.LogInfo($"Regularity weight: {cylindrical.Diagnostics.RegularityWeight:F6}", nameof(ProjectionWorkspaceViewModel));
-        _applicationLogService.LogInfo($"Candidates evaluated: {cylindrical.Diagnostics.CandidateScores.Count}", nameof(ProjectionWorkspaceViewModel));
+        _applicationLogService.LogInfo($"Regularity weight: {axisymmetric.Diagnostics.RegularityWeight:F6}", nameof(ProjectionWorkspaceViewModel));
+        _applicationLogService.LogInfo($"Candidates evaluated: {axisymmetric.Diagnostics.CandidateScores.Count}", nameof(ProjectionWorkspaceViewModel));
 
-        var bestCandidate = cylindrical.Diagnostics.CandidateScores.MinBy(candidate => candidate.Score);
+        var bestCandidate = axisymmetric.Diagnostics.CandidateScores.MinBy(candidate => candidate.Score);
         if (bestCandidate is not null)
         {
             _applicationLogService.LogInfo($"Best candidate score: {bestCandidate.Score:F6}", nameof(ProjectionWorkspaceViewModel));
@@ -891,11 +889,11 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
         }
     }
 
-    private AxisymmetricSourceProfileDefinition BuildAxisymmetricSourceProfileDefinition(IProjectionMethod method)
+    private LaserCollisionIn3DObjects.Domain.Geometry.AxisymmetricSourceProfileDefinition BuildAxisymmetricSourceProfileDefinition(IProjectionMethod method)
     {
         if (method.Metadata.Id == ProjectionMethodIds.PointSource)
         {
-            return AxisymmetricSourceProfileDefinition.Default();
+            return new LaserCollisionIn3DObjects.Domain.Geometry.AxisymmetricSourceProfileDefinition();
         }
 
         var selectedGeometry = BuildSelectedProjectionGeometryProfile();
@@ -904,7 +902,39 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
             throw new InvalidOperationException("Select a valid axisymmetric source geometry before running this projection method.");
         }
 
-        return AxisymmetricSourceProfileDefinition.FromProfile(selectedGeometry);
+        return selectedGeometry switch
+        {
+            CylindricalSourceProfile cylinder => new LaserCollisionIn3DObjects.Domain.Geometry.AxisymmetricSourceProfileDefinition
+            {
+                Kind = AxisymmetricSourceKind.Cylinder,
+                Radius = cylinder.Radius,
+                Length = cylinder.Length,
+                Height = cylinder.Length,
+            },
+            ConicalFrustumSourceProfile frustum => new LaserCollisionIn3DObjects.Domain.Geometry.AxisymmetricSourceProfileDefinition
+            {
+                Kind = AxisymmetricSourceKind.ConicalFrustum,
+                RadiusStart = frustum.RadiusStart,
+                RadiusEnd = frustum.RadiusEnd,
+                Length = frustum.Length,
+            },
+            CircularOgiveSourceProfile ogive => new LaserCollisionIn3DObjects.Domain.Geometry.AxisymmetricSourceProfileDefinition
+            {
+                Kind = AxisymmetricSourceKind.CircularOgive,
+                RadiusStart = ogive.RadiusStart,
+                RadiusEnd = ogive.RadiusEnd,
+                Length = ogive.Length,
+                ArcRadius = ogive.ArcRadius,
+                OgiveCurvatureDirection = ogive.CurvatureDirection,
+            },
+            HybridAxisymmetricSourceProfile hybrid => new LaserCollisionIn3DObjects.Domain.Geometry.AxisymmetricSourceProfileDefinition
+            {
+                Kind = AxisymmetricSourceKind.Hybrid,
+                Length = hybrid.Length,
+                Hybrid = hybrid.Segments.Select(segment => segment.Definition).ToList(),
+            },
+            _ => throw new InvalidOperationException("Unsupported axisymmetric source geometry profile.")
+        };
     }
 
     private IAxisymmetricSourceProfile? BuildSelectedProjectionGeometryProfile()
@@ -1066,30 +1096,4 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
         RaiseCanExecuteChanged();
     }
 
-    private readonly record struct AxisymmetricSourceProfileDefinition(double Radius, double Length)
-    {
-        public static AxisymmetricSourceProfileDefinition Default() => new(1d, 1d);
-
-        public static AxisymmetricSourceProfileDefinition FromProfile(IAxisymmetricSourceProfile profile)
-        {
-            return profile switch
-            {
-                CylindricalSourceProfile cylinder => new(cylinder.Radius, cylinder.Length),
-                ConicalFrustumSourceProfile frustum => new(Math.Max(frustum.RadiusStart, frustum.RadiusEnd), frustum.Length),
-                CircularOgiveSourceProfile ogive => new(Math.Max(ogive.RadiusStart, ogive.RadiusEnd), ogive.Length),
-                HybridAxisymmetricSourceProfile hybrid => new(GetHybridRadius(hybrid), hybrid.Length),
-                _ => throw new InvalidOperationException("Unsupported axisymmetric source geometry profile.")
-            };
-        }
-
-        private static double GetHybridRadius(HybridAxisymmetricSourceProfile profile)
-        {
-            if (profile.Segments.Count == 0)
-            {
-                throw new InvalidOperationException("Hybrid axisymmetric source requires at least one segment.");
-            }
-
-            return profile.Segments.Max(segment => Math.Max(segment.RadiusStart, segment.RadiusEnd));
-        }
-    }
 }
