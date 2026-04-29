@@ -679,8 +679,8 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
             return;
         }
 
-        _applicationLogService.LogInfo($"Profile kind: {axisymmetric.ProfileDefinition.Kind}", nameof(ProjectionWorkspaceViewModel));
-        _applicationLogService.LogInfo($"Profile length: {axisymmetric.ProfileDefinition.Length:F6}", nameof(ProjectionWorkspaceViewModel));
+        _applicationLogService.LogInfo("Profile kind: runtime axisymmetric state", nameof(ProjectionWorkspaceViewModel));
+        _applicationLogService.LogInfo($"Profile length: {axisymmetric.Length:F6}", nameof(ProjectionWorkspaceViewModel));
         _applicationLogService.LogInfo($"Reconstructed source points: {axisymmetric.Points.Count}", nameof(ProjectionWorkspaceViewModel));
 
         var fitEntries = axisymmetric.Points
