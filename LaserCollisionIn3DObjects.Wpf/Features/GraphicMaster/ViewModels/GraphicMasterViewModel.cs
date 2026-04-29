@@ -545,7 +545,7 @@ public sealed class GraphicMasterViewModel : ObservableObject
             .Select(scene => new GraphSceneData
             {
                 SceneName = scene.Name,
-                CylindricalSources = scene.LightSources.Where(source => source.SourceKind == AxisymmetricSourceKind.Cylinder).Select(MapToDomainLightSource).ToList(),
+                AxisymmetricSources = scene.LightSources.Where(source => source.SourceKind == AxisymmetricSourceKind.Cylinder).Select(MapToDomainLightSource).ToList(),
                 ProjectionResults = scene.ProjectionState.SavedResults,
             })
             .ToList();

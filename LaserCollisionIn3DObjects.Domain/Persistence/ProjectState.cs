@@ -151,24 +151,17 @@ public sealed class ProjectionResultStateDto
     public PointSourceFrameStateDto SourceFrame { get; set; } = new();
     public List<ProjectionRayStateDto> Rays { get; set; } = new();
     public AxisymmetricProjectionStateDto? AxisymmetricSource { get; set; }
-    public CylindricalProjectionStateDto? CylindricalSource { get; set; }
-}
-
-public sealed class AxisymmetricProfileDefinitionDto
-{
-    public double Radius { get; set; }
-    public double Length { get; set; }
 }
 
 public sealed class AxisymmetricProjectionStateDto
 {
-    public string MethodId { get; set; } = string.Empty;
     public PointSourceFrameStateDto SourceFrame { get; set; } = new();
-    public AxisymmetricProfileDefinitionDto Profile { get; set; } = new();
+    public double Radius { get; set; }
+    public double Length { get; set; }
     public Point3? LocalTiltPoint { get; set; }
-    public double? EstimatedLambda { get; set; }
-    public AxisymmetricSelfCalibrationDiagnosticsDto? Diagnostics { get; set; }
-    public AxisymmetricLeastSquaresDiagnosticsDto? LeastSquaresDiagnostics { get; set; }
+    public double? EstimatedTiltWeight { get; set; }
+    public SelfCalibratingAxisymmetricProjectionDiagnosticsDto? Diagnostics { get; set; }
+    public LeastSquaresAxisymmetricAlignmentDiagnosticsDto? LeastSquaresDiagnostics { get; set; }
     public List<AxisymmetricProjectionPointStateDto> Points { get; set; } = new();
 }
 
@@ -188,13 +181,13 @@ public sealed class AxisymmetricProjectionPointStateDto
     public double? AngularErrorDegrees { get; set; }
 }
 
-public sealed class AxisymmetricSelfCalibrationDiagnosticsDto
+public sealed class SelfCalibratingAxisymmetricProjectionDiagnosticsDto
 {
     public double RegularityWeight { get; set; }
-    public List<AxisymmetricSelfCalibrationCandidateDiagnosticsDto> CandidateScores { get; set; } = new();
+    public List<SelfCalibratingAxisymmetricCandidateDiagnosticsDto> CandidateScores { get; set; } = new();
 }
 
-public sealed class AxisymmetricSelfCalibrationCandidateDiagnosticsDto
+public sealed class SelfCalibratingAxisymmetricCandidateDiagnosticsDto
 {
     public double Lambda { get; set; }
     public double MeanFitError { get; set; }
@@ -202,7 +195,7 @@ public sealed class AxisymmetricSelfCalibrationCandidateDiagnosticsDto
     public double Score { get; set; }
 }
 
-public sealed class AxisymmetricLeastSquaresDiagnosticsDto
+public sealed class LeastSquaresAxisymmetricAlignmentDiagnosticsDto
 {
     public double InitialLambda { get; set; }
     public double RefinedLambda { get; set; }
@@ -215,6 +208,7 @@ public sealed class AxisymmetricLeastSquaresDiagnosticsDto
     public int Iterations { get; set; }
     public bool Converged { get; set; }
     public bool UsesRegularization { get; set; }
+    public List<LeastSquaresAxisymmetricAlignmentIterationDiagnosticsDto> IterationHistory { get; set; } = new();
     public List<AxisymmetricLeastSquaresIterationDiagnosticsDto> IterationHistory { get; set; } = new();
 }
 
@@ -260,6 +254,7 @@ public sealed class SelfCalibratingAxisymmetricProjectionDiagnosticsDto
     public List<SelfCalibratingAxisymmetricCandidateDiagnosticsDto> CandidateScores { get; set; } = new();
 }
 
+public sealed class LeastSquaresAxisymmetricAlignmentIterationDiagnosticsDto
 public sealed class SelfCalibratingAxisymmetricCandidateDiagnosticsDto
 {
     public double Lambda { get; set; }

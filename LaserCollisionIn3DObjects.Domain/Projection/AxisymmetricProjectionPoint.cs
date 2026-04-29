@@ -2,7 +2,7 @@ using LaserCollisionIn3DObjects.Domain.Geometry;
 
 namespace LaserCollisionIn3DObjects.Domain.Projection;
 
-public sealed record CylindricalProjectionPoint(
+public sealed record AxisymmetricProjectionPoint(
     Point3 HolePoint,
     Point3 SourceSurfacePoint,
     Vector3D RayDirection,
@@ -18,7 +18,7 @@ public sealed record CylindricalProjectionPoint(
     public double? AngularErrorDegrees { get; init; }
 }
 
-public sealed class CylindricalProjectionState
+public sealed class AxisymmetricProjectionState
 {
     public required PointSourceFrameState SourceFrame { get; init; }
 
@@ -32,9 +32,9 @@ public sealed class CylindricalProjectionState
 
     public SelfCalibratingAxisymmetricProjectionDiagnostics? Diagnostics { get; init; }
 
-    public LeastSquaresCylindricalAlignmentDiagnostics? LeastSquaresDiagnostics { get; init; }
+    public LeastSquaresAxisymmetricAlignmentDiagnostics? LeastSquaresDiagnostics { get; init; }
 
-    public required IReadOnlyList<CylindricalProjectionPoint> Points { get; init; }
+    public required IReadOnlyList<AxisymmetricProjectionPoint> Points { get; init; }
 }
 
 public sealed class SelfCalibratingAxisymmetricProjectionDiagnostics
@@ -50,7 +50,7 @@ public sealed record SelfCalibratingAxisymmetricCandidateDiagnostics(
     double RegularityError,
     double Score);
 
-public sealed class LeastSquaresCylindricalAlignmentDiagnostics
+public sealed class LeastSquaresAxisymmetricAlignmentDiagnostics
 {
     public double InitialLambda { get; init; }
     public double RefinedLambda { get; init; }
@@ -63,10 +63,10 @@ public sealed class LeastSquaresCylindricalAlignmentDiagnostics
     public int Iterations { get; init; }
     public bool Converged { get; init; }
     public bool UsesRegularization { get; init; }
-    public IReadOnlyList<LeastSquaresCylindricalAlignmentIterationDiagnostics> IterationHistory { get; init; } = Array.Empty<LeastSquaresCylindricalAlignmentIterationDiagnostics>();
+    public IReadOnlyList<LeastSquaresAxisymmetricAlignmentIterationDiagnostics> IterationHistory { get; init; } = Array.Empty<LeastSquaresAxisymmetricAlignmentIterationDiagnostics>();
 }
 
-public sealed record LeastSquaresCylindricalAlignmentIterationDiagnostics(
+public sealed record LeastSquaresAxisymmetricAlignmentIterationDiagnostics(
     int Iteration,
     double Lambda,
     double MeanAlignmentError,

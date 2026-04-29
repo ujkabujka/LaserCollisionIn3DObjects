@@ -74,7 +74,7 @@ public sealed class SelfCalibratingAxisymmetricProjectionMethod : IProjectionMet
             MethodId = Metadata.Id,
             SourceFrame = sourceFrame,
             Rays = Array.Empty<ProjectionRay>(),
-            CylindricalSource = new CylindricalProjectionState
+            AxisymmetricSource = new AxisymmetricProjectionState
             {
                 SourceFrame = sourceFrame,
                 Radius = radius,

@@ -27,6 +27,7 @@ public sealed class SelfCalibratingAxisymmetricProjectionSolver
         IAxisymmetricSourceProfile profile = new CylindricalSourceProfile((float)radius, (float)length);
         var scale = Math.Max(Math.Max(radius, length), Math.Max(Math.Sqrt(Math.Pow(localTiltPoint.X - (length * 0.5d), 2d) + Math.Pow(localTiltPoint.Y, 2d) + Math.Pow(localTiltPoint.Z, 2d)), Epsilon));
         var candidateDiagnostics = new List<SelfCalibratingAxisymmetricCandidateDiagnostics>(Settings.KappaCandidates.Count);
+        var candidateDiagnostics = new List<SelfCalibratingAxisymmetricCandidateDiagnostics>(Settings.KappaCandidates.Count);
 
         CandidateResult? best = null;
 
@@ -35,7 +36,7 @@ public sealed class SelfCalibratingAxisymmetricProjectionSolver
             var lambda = Settings.KappaCandidates[c] / scale;
             progress?.Report(new ProjectionProgress((100d * c) / Math.Max(Settings.KappaCandidates.Count, 1), $"Testing tilt candidate {c + 1}/{Settings.KappaCandidates.Count}..."));
 
-            var points = new List<CylindricalProjectionPoint>(localHolePoints.Count);
+            var points = new List<AxisymmetricProjectionPoint>(localHolePoints.Count);
             var fitErrorSum = 0d;
 
             for (var i = 0; i < localHolePoints.Count; i++)
@@ -54,7 +55,7 @@ public sealed class SelfCalibratingAxisymmetricProjectionSolver
                 var modeledWorld = LocalDirectionToWorld(solved.ModeledLocalDirection, frame);
                 var actualWorld = BuildNormalizedDirection(sourceWorld, worldHolePoints[i], $"Hole point at index {i} coincides with reconstructed source point.");
 
-                points.Add(new CylindricalProjectionPoint(
+                points.Add(new AxisymmetricProjectionPoint(
                     worldHolePoints[i],
                     sourceWorld,
                     actualWorld,
@@ -73,6 +74,7 @@ public sealed class SelfCalibratingAxisymmetricProjectionSolver
             var regularity = ComputeRegularity(points);
             var score = meanFit + (Settings.RegularityWeight * regularity);
             candidateDiagnostics.Add(new SelfCalibratingAxisymmetricCandidateDiagnostics(lambda, meanFit, regularity, score));
+            candidateDiagnostics.Add(new SelfCalibratingAxisymmetricCandidateDiagnostics(lambda, meanFit, regularity, score));
 
             if (best is null || score < best.Score)
             {
@@ -90,6 +92,7 @@ public sealed class SelfCalibratingAxisymmetricProjectionSolver
         return new SelfCalibratingSolveResult(
             best.Lambda,
             best.Points,
+            new SelfCalibratingAxisymmetricProjectionDiagnostics
             new SelfCalibratingAxisymmetricProjectionDiagnostics
             {
                 CandidateScores = candidateDiagnostics,
@@ -199,7 +202,7 @@ public sealed class SelfCalibratingAxisymmetricProjectionSolver
         return (rx * rx) + (ry * ry) + (rz * rz);
     }
 
-    private static double ComputeRegularity(IReadOnlyList<CylindricalProjectionPoint> points)
+    private static double ComputeRegularity(IReadOnlyList<AxisymmetricProjectionPoint> points)
     {
         if (points.Count <= 1)
         {
@@ -273,11 +276,13 @@ public sealed class SelfCalibratingAxisymmetricProjectionSolver
         return wrapped;
     }
 
-    private sealed record CandidateResult(double Lambda, double Score, IReadOnlyList<CylindricalProjectionPoint> Points);
+    private sealed record CandidateResult(double Lambda, double Score, IReadOnlyList<AxisymmetricProjectionPoint> Points);
     private sealed record SolvedPoint(double U, double Theta, Point3 SourceLocal, Vector3D ModeledLocalDirection, double FitError);
 }
 
 public sealed record SelfCalibratingSolveResult(
     double EstimatedTiltWeight,
     IReadOnlyList<CylindricalProjectionPoint> Points,
+    SelfCalibratingAxisymmetricProjectionDiagnostics Diagnostics);
+    IReadOnlyList<AxisymmetricProjectionPoint> Points,
     SelfCalibratingAxisymmetricProjectionDiagnostics Diagnostics);

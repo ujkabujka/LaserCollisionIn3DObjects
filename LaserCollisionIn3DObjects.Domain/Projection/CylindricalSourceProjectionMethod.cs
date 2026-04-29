@@ -3,7 +3,7 @@ using LaserCollisionIn3DObjects.Domain.Geometry;
 
 namespace LaserCollisionIn3DObjects.Domain.Projection;
 
-public sealed class CylindricalSourceProjectionMethod : IProjectionMethod
+public sealed class AxisymmetricSourceProjectionMethod : IProjectionMethod
 {
     private const double ZeroTolerance = 1e-9;
 
@@ -69,7 +69,7 @@ public sealed class CylindricalSourceProjectionMethod : IProjectionMethod
             throw new ArgumentException("Hole points cannot be normalized: all transformed local X coordinates are equal.", nameof(request));
         }
 
-        var reconstructedPoints = new List<CylindricalProjectionPoint>(request.HolePoints.Count);
+        var reconstructedPoints = new List<AxisymmetricProjectionPoint>(request.HolePoints.Count);
         for (var i = 0; i < request.HolePoints.Count; i++)
         {
             var localHole = localHolePoints[i];
@@ -102,11 +102,17 @@ public sealed class CylindricalSourceProjectionMethod : IProjectionMethod
             }
 
             var direction = Vector3.Normalize(directionVector);
-            reconstructedPoints.Add(new CylindricalProjectionPoint(
+            reconstructedPoints.Add(new AxisymmetricProjectionPoint(
                 holeWorld,
                 surfaceWorld,
                 new Vector3D(direction.X, direction.Y, direction.Z),
-                surfaceWorld));
+                surfaceWorld)
+            {
+                LocalU = u,
+                LocalTheta = theta,
+                UnwrappedU = u,
+                UnwrappedV = profile.RadiusAt((float)u) * theta,
+            });
         }
 
         return new ProjectionComputationResult
@@ -114,7 +120,7 @@ public sealed class CylindricalSourceProjectionMethod : IProjectionMethod
             MethodId = Metadata.Id,
             SourceFrame = sourceFrame,
             Rays = Array.Empty<ProjectionRay>(),
-            CylindricalSource = new CylindricalProjectionState
+            AxisymmetricSource = new AxisymmetricProjectionState
             {
                 SourceFrame = sourceFrame,
                 Radius = radius,
