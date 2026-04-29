@@ -263,7 +263,7 @@ public sealed class SelfCalibratingAxisymmetricCandidateDiagnosticsDto
     public double Score { get; set; }
 }
 
-public sealed class LeastSquaresCylindricalAlignmentDiagnosticsDto
+public sealed class LeastSquaresAxisymmetricAlignmentDiagnosticsDto
 {
     public double InitialLambda { get; set; }
     public double RefinedLambda { get; set; }
@@ -276,10 +276,10 @@ public sealed class LeastSquaresCylindricalAlignmentDiagnosticsDto
     public int Iterations { get; set; }
     public bool Converged { get; set; }
     public bool UsesRegularization { get; set; }
-    public List<LeastSquaresCylindricalAlignmentIterationDiagnosticsDto> IterationHistory { get; set; } = new();
+    public List<LeastSquaresAxisymmetricAlignmentIterationDiagnosticsDto> IterationHistory { get; set; } = new();
 }
 
-public sealed class LeastSquaresCylindricalAlignmentIterationDiagnosticsDto
+public sealed class LeastSquaresAxisymmetricAlignmentIterationDiagnosticsDto
 {
     public int Iteration { get; set; }
     public double Lambda { get; set; }

@@ -60,7 +60,7 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
             new PointSourceProjectionMethod(),
             new AxisymmetricSourceProjectionMethod(),
             new SelfCalibratingCylindricalProjectionMethod(),
-            new LeastSquaresCylindricalAlignmentProjectionMethod(),
+            new LeastSquaresAxisymmetricAlignmentProjectionMethod(),
         });
         _applicationLogService = applicationLogService;
 
@@ -637,7 +637,9 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
         }
 
         if (method.Metadata.Id == ProjectionMethodIds.LeastSquaresAxisymmetricAlignmentSource)
+        if (method.Metadata.Id == ProjectionMethodIds.LeastSquaresAxisymmetricAlignmentSource)
         {
+            return new LeastSquaresAxisymmetricAlignmentProjectionParameters(
             return new LeastSquaresAxisymmetricAlignmentProjectionParameters(
                 new Point3(BeamOriginX, BeamOriginY, BeamOriginZ),
                 new Vector3D(SourceFrameXx, SourceFrameXy, SourceFrameXz),
@@ -705,6 +707,7 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
             _applicationLogService.LogWarning($"Max fit error: {maxFitErrorEntry.FitError:F6} at hole index {maxFitErrorEntry.Index}", nameof(ProjectionWorkspaceViewModel));
         }
 
+        if (result.MethodId == ProjectionMethodIds.LeastSquaresAxisymmetricAlignmentSource && cylindrical.LeastSquaresDiagnostics is not null)
         if (result.MethodId == ProjectionMethodIds.LeastSquaresAxisymmetricAlignmentSource && cylindrical.LeastSquaresDiagnostics is not null)
         {
             var diagnostics = cylindrical.LeastSquaresDiagnostics;

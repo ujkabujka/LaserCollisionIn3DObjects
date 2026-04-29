@@ -1,8 +1,8 @@
 namespace LaserCollisionIn3DObjects.Domain.Projection;
 
-public sealed class LeastSquaresCylindricalAlignmentSolverSettings
+public sealed class LeastSquaresAxisymmetricAlignmentSolverSettings
 {
-    public static LeastSquaresCylindricalAlignmentSolverSettings Default { get; } = new();
+    public static LeastSquaresAxisymmetricAlignmentSolverSettings Default { get; } = new();
 
     public int MaxIterations { get; init; } = 20;
     public int PointRefinementIterations { get; init; } = 12;

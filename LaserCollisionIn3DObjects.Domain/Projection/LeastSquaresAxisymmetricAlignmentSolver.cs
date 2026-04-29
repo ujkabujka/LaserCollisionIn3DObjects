@@ -3,19 +3,19 @@ using LaserCollisionIn3DObjects.Domain.Geometry;
 
 namespace LaserCollisionIn3DObjects.Domain.Projection;
 
-public sealed class LeastSquaresCylindricalAlignmentSolver
+public sealed class LeastSquaresAxisymmetricAlignmentSolver
 {
     private const double TwoPi = Math.PI * 2d;
     private const double Epsilon = 1e-9;
 
-    public LeastSquaresCylindricalAlignmentSolverSettings Settings { get; }
+    public LeastSquaresAxisymmetricAlignmentSolverSettings Settings { get; }
 
-    public LeastSquaresCylindricalAlignmentSolver(LeastSquaresCylindricalAlignmentSolverSettings? settings = null)
+    public LeastSquaresAxisymmetricAlignmentSolver(LeastSquaresAxisymmetricAlignmentSolverSettings? settings = null)
     {
-        Settings = settings ?? LeastSquaresCylindricalAlignmentSolverSettings.Default;
+        Settings = settings ?? LeastSquaresAxisymmetricAlignmentSolverSettings.Default;
     }
 
-    public LeastSquaresCylindricalAlignmentSolveResult Solve(
+    public LeastSquaresAxisymmetricAlignmentSolveResult Solve(
         IReadOnlyList<Point3> localHolePoints,
         PointSourceFrameState frame,
         double radius,
@@ -24,7 +24,7 @@ public sealed class LeastSquaresCylindricalAlignmentSolver
         IReadOnlyList<Point3> worldHolePoints,
         IProgress<ProjectionProgress>? progress = null)
     {
-        progress?.Report(new ProjectionProgress(0d, "Initializing least-squares cylindrical alignment..."));
+        progress?.Report(new ProjectionProgress(0d, "Initializing least-squares axisymmetric alignment..."));
 
         var initSolver = new SelfCalibratingAxisymmetricProjectionSolver(new SelfCalibratingAxisymmetricProjectionSolverSettings
         {
@@ -64,13 +64,14 @@ public sealed class LeastSquaresCylindricalAlignmentSolver
         {
             for (var i = 0; i < localHolePoints.Count; i++)
             {
-                RefinePoint(localHolePoints[i], ref a[i], ref theta[i], beta, radius, length, localTiltPoint, scale);
+                RefinePoint(localHolePoints[i], ref a[i], ref theta[i], beta, radius, length, localTiltPoint, scale, profile);
             }
 
-            beta = RefineBeta(localHolePoints, a, theta, beta, radius, length, localTiltPoint, scale);
+            beta = RefineBeta(localHolePoints, a, theta, beta, radius, length, localTiltPoint, scale, profile);
 
-            var metrics = ComputeMetrics(localHolePoints, a, theta, beta, radius, length, localTiltPoint, scale);
+            var metrics = ComputeMetrics(localHolePoints, a, theta, beta, radius, length, localTiltPoint, scale, profile);
             var lambda = Softplus(beta) / scale;
+            iterationHistory.Add(new LeastSquaresAxisymmetricAlignmentIterationDiagnostics(iter, lambda, metrics.MeanAlignmentError, metrics.MeanAngularErrorDegrees));
             iterationHistory.Add(new LeastSquaresAxisymmetricAlignmentIterationDiagnostics(iter, lambda, metrics.MeanAlignmentError, metrics.MeanAngularErrorDegrees));
             iterationsCompleted = iter;
 
@@ -86,16 +87,17 @@ public sealed class LeastSquaresCylindricalAlignmentSolver
             previousCost = metrics.TotalAlignmentError;
         }
 
-        var refinedMetrics = ComputeMetrics(localHolePoints, a, theta, beta, radius, length, localTiltPoint, scale);
+        var refinedMetrics = ComputeMetrics(localHolePoints, a, theta, beta, radius, length, localTiltPoint, scale, profile);
         var refinedLambda = Softplus(beta) / scale;
-        var points = BuildPoints(localHolePoints, worldHolePoints, frame, a, theta, refinedLambda, radius, length, localTiltPoint);
+        var points = BuildPoints(localHolePoints, worldHolePoints, frame, a, theta, refinedLambda, radius, length, localTiltPoint, profile);
 
-        progress?.Report(new ProjectionProgress(100d, "Least-squares cylindrical alignment completed."));
+        progress?.Report(new ProjectionProgress(100d, "Least-squares axisymmetric alignment completed."));
 
-        return new LeastSquaresCylindricalAlignmentSolveResult(
+        return new LeastSquaresAxisymmetricAlignmentSolveResult(
             init.EstimatedTiltWeight,
             refinedLambda,
             points,
+            new LeastSquaresAxisymmetricAlignmentDiagnostics
             new LeastSquaresAxisymmetricAlignmentDiagnostics
             {
                 InitialLambda = init.EstimatedTiltWeight,
@@ -122,7 +124,8 @@ public sealed class LeastSquaresCylindricalAlignmentSolver
         double lambda,
         double radius,
         double length,
-        Point3 localTiltPoint)
+        Point3 localTiltPoint,
+        IAxisymmetricSourceProfile? profile = null)
     {
         var points = new List<AxisymmetricProjectionPoint>(localHolePoints.Count);
 
@@ -130,8 +133,9 @@ public sealed class LeastSquaresCylindricalAlignmentSolver
         {
             var u = ToU(a[i], length);
             var wrappedTheta = WrapTheta(theta[i]);
-            var sourceLocal = ParameterizeSurface(u, wrappedTheta, radius, length);
-            var modeledLocal = BuildModeledDirection(u, wrappedTheta, lambda, radius, localTiltPoint);
+            var sourceLocalVector = profile.EvaluateSurfacePoint((float)u, (float)wrappedTheta);
+            var sourceLocal = new Point3(sourceLocalVector.X, sourceLocalVector.Y, sourceLocalVector.Z);
+            var modeledLocal = BuildModeledDirection(u, wrappedTheta, lambda, radius, localTiltPoint, profile);
             var sourceWorld = ToWorld(sourceLocal, frame);
             var modeledWorld = LocalDirectionToWorld(modeledLocal, frame);
             var actualWorld = BuildNormalizedDirection(sourceWorld, worldHolePoints[i], $"Hole point at index {i} coincides with reconstructed source point.");
@@ -167,21 +171,22 @@ public sealed class LeastSquaresCylindricalAlignmentSolver
         double radius,
         double length,
         Point3 localTiltPoint,
-        double scale)
+        double scale,
+        IAxisymmetricSourceProfile? profile = null)
     {
         var stepA = Settings.PointStepScale;
         var stepTheta = Settings.PointStepScale;
 
         for (var iter = 0; iter < Settings.PointRefinementIterations; iter++)
         {
-            var current = SinglePointCost(holeLocal, a, theta, beta, radius, length, localTiltPoint, scale);
+            var current = SinglePointCost(holeLocal, a, theta, beta, radius, length, localTiltPoint, scale, profile);
             var improved = false;
 
             foreach (var candidateA in new[] { a - stepA, a, a + stepA })
             {
                 foreach (var candidateTheta in new[] { theta - stepTheta, theta, theta + stepTheta })
                 {
-                    var candidateCost = SinglePointCost(holeLocal, candidateA, candidateTheta, beta, radius, length, localTiltPoint, scale);
+                    var candidateCost = SinglePointCost(holeLocal, candidateA, candidateTheta, beta, radius, length, localTiltPoint, scale, profile);
                     if (candidateCost + 1e-12 < current)
                     {
                         a = candidateA;
@@ -208,17 +213,18 @@ public sealed class LeastSquaresCylindricalAlignmentSolver
         double radius,
         double length,
         Point3 localTiltPoint,
-        double scale)
+        double scale,
+        IAxisymmetricSourceProfile? profile = null)
     {
         var step = Settings.LambdaStepScale;
-        var current = TotalCost(holes, a, theta, beta, radius, length, localTiltPoint, scale);
+        var current = TotalCost(holes, a, theta, beta, radius, length, localTiltPoint, scale, profile);
 
         for (var iter = 0; iter < Settings.LambdaRefinementIterations; iter++)
         {
             var candidateMinus = beta - step;
             var candidatePlus = beta + step;
-            var minusCost = TotalCost(holes, a, theta, candidateMinus, radius, length, localTiltPoint, scale);
-            var plusCost = TotalCost(holes, a, theta, candidatePlus, radius, length, localTiltPoint, scale);
+            var minusCost = TotalCost(holes, a, theta, candidateMinus, radius, length, localTiltPoint, scale, profile);
+            var plusCost = TotalCost(holes, a, theta, candidatePlus, radius, length, localTiltPoint, scale, profile);
 
             if (minusCost < current || plusCost < current)
             {
@@ -250,7 +256,8 @@ public sealed class LeastSquaresCylindricalAlignmentSolver
         double radius,
         double length,
         Point3 localTiltPoint,
-        double scale)
+        double scale,
+        IAxisymmetricSourceProfile? profile = null)
     {
         var lambda = Softplus(beta) / scale;
         var total = 0d;
@@ -264,9 +271,10 @@ public sealed class LeastSquaresCylindricalAlignmentSolver
         {
             var u = ToU(a[i], length);
             var t = theta[i];
-            var source = ParameterizeSurface(u, t, radius, length);
+            var source = profile.EvaluateSurfacePoint((float)u, (float)t);
+            var b = profile.EvaluateBaseDirection((float)u, (float)t);
             var actual = Normalize(new Vector3((float)(holes[i].X - source.X), (float)(holes[i].Y - source.Y), (float)(holes[i].Z - source.Z)));
-            var modeled = BuildModeledDirectionVec(u, t, lambda, radius, localTiltPoint);
+            var modeled = Normalize(b + (float)lambda * (source - new Vector3((float)localTiltPoint.X, (float)localTiltPoint.Y, (float)localTiltPoint.Z)));
             var dx = actual.X - modeled.X;
             var dy = actual.Y - modeled.Y;
             var dz = actual.Z - modeled.Z;
@@ -297,7 +305,8 @@ public sealed class LeastSquaresCylindricalAlignmentSolver
         double radius,
         double length,
         Point3 localTiltPoint,
-        double scale)
+        double scale,
+        IAxisymmetricSourceProfile? profile = null)
     {
         var lambda = Softplus(beta) / scale;
         var total = 0d;
@@ -305,7 +314,7 @@ public sealed class LeastSquaresCylindricalAlignmentSolver
         for (var i = 0; i < holes.Count; i++)
         {
             var u = ToU(a[i], length);
-            total += SinglePointCost(holes[i], u, theta[i], lambda, radius, length, localTiltPoint);
+            total += SinglePointCost(holes[i], u, theta[i], lambda, radius, length, localTiltPoint, profile);
         }
 
         return total;
@@ -319,18 +328,21 @@ public sealed class LeastSquaresCylindricalAlignmentSolver
         double radius,
         double length,
         Point3 localTiltPoint,
-        double scale)
+        double scale,
+        IAxisymmetricSourceProfile? profile = null)
     {
         var u = ToU(a, length);
         var lambda = Softplus(beta) / scale;
-        return SinglePointCost(holeLocal, u, theta, lambda, radius, length, localTiltPoint);
+        return SinglePointCost(holeLocal, u, theta, lambda, radius, length, localTiltPoint, profile);
     }
 
-    private static double SinglePointCost(Point3 holeLocal, double u, double theta, double lambda, double radius, double length, Point3 localTiltPoint)
+    private static double SinglePointCost(Point3 holeLocal, double u, double theta, double lambda, double radius, double length, Point3 localTiltPoint,
+        IAxisymmetricSourceProfile? profile = null)
     {
-        var source = ParameterizeSurface(u, theta, radius, length);
+        var source = profile.EvaluateSurfacePoint((float)u, (float)theta);
+        var b = profile.EvaluateBaseDirection((float)u, (float)theta);
         var actual = Normalize(new Vector3((float)(holeLocal.X - source.X), (float)(holeLocal.Y - source.Y), (float)(holeLocal.Z - source.Z)));
-        var modeled = BuildModeledDirectionVec(u, theta, lambda, radius, localTiltPoint);
+        var modeled = Normalize(b + (float)lambda * (source - new Vector3((float)localTiltPoint.X, (float)localTiltPoint.Y, (float)localTiltPoint.Z)));
         var dx = actual.X - modeled.X;
         var dy = actual.Y - modeled.Y;
         var dz = actual.Z - modeled.Z;
@@ -344,9 +356,11 @@ public sealed class LeastSquaresCylindricalAlignmentSolver
         return new Point3(clampedU, radius * Math.Cos(wrappedTheta), radius * Math.Sin(wrappedTheta));
     }
 
-    public static Vector3D BuildModeledDirection(double u, double theta, double lambda, double radius, Point3 localTiltPoint)
+    public static Vector3D BuildModeledDirection(double u, double theta, double lambda, double radius, Point3 localTiltPoint,
+        IAxisymmetricSourceProfile? profile = null)
     {
-        var vec = BuildModeledDirectionVec(u, theta, lambda, radius, localTiltPoint);
+        var effectiveProfile = profile ?? new CylindricalSourceProfile((float)radius, (float)Math.Max(u, 1d));
+        var vec = BuildModeledDirectionVec(u, theta, lambda, radius, localTiltPoint, effectiveProfile);
         return new Vector3D(vec.X, vec.Y, vec.Z);
     }
 
@@ -412,14 +426,13 @@ public sealed class LeastSquaresCylindricalAlignmentSolver
         return wrapped;
     }
 
-    private static Vector3 BuildModeledDirectionVec(double u, double theta, double lambda, double radius, Point3 localTiltPoint)
+    private static Vector3 BuildModeledDirectionVec(double u, double theta, double lambda, double radius, Point3 localTiltPoint,
+        IAxisymmetricSourceProfile? profile = null)
     {
         var wrappedTheta = WrapTheta(theta);
-        var source = new Point3(u, radius * Math.Cos(wrappedTheta), radius * Math.Sin(wrappedTheta));
-        var raw = new Vector3(
-            (float)(lambda * (source.X - localTiltPoint.X)),
-            (float)(Math.Cos(wrappedTheta) + (lambda * (source.Y - localTiltPoint.Y))),
-            (float)(Math.Sin(wrappedTheta) + (lambda * (source.Z - localTiltPoint.Z))));
+        var source = profile.EvaluateSurfacePoint((float)u, (float)wrappedTheta);
+        var b = profile.EvaluateBaseDirection((float)u, (float)wrappedTheta);
+        var raw = b + (float)lambda * (source - new Vector3((float)localTiltPoint.X, (float)localTiltPoint.Y, (float)localTiltPoint.Z));
 
         return Normalize(raw);
     }
@@ -490,7 +503,7 @@ public sealed class LeastSquaresCylindricalAlignmentSolver
         int? MaxAngularErrorHoleIndex);
 }
 
-public sealed record LeastSquaresCylindricalAlignmentSolveResult(
+public sealed record LeastSquaresAxisymmetricAlignmentSolveResult(
     double InitialLambda,
     double RefinedLambda,
     IReadOnlyList<AxisymmetricProjectionPoint> Points,
