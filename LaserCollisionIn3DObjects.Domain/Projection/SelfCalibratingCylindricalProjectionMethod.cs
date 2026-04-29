@@ -5,9 +5,9 @@ namespace LaserCollisionIn3DObjects.Domain.Projection;
 public sealed class SelfCalibratingCylindricalProjectionMethod : IProjectionMethod
 {
     public ProjectionMethodMetadata Metadata { get; } = new(
-        ProjectionMethodIds.SelfCalibratingAxisymmetricSource,
+        ProjectionMethodIds.SelfCalibratingCylindricalSource,
         "Self-calibrating axisymmetric inverse projection",
-        "Fits source-surface points on an axisymmetric source (cylinder, conical frustum, circular ogive, or hybrid profile) and estimates one global tilt weight from all hole points.");
+        "Fits source-surface points on a cylinder and estimates one global tilt weight from all hole points.");
 
     private readonly SelfCalibratingCylindricalProjectionSolver _solver;
 
@@ -20,9 +20,22 @@ public sealed class SelfCalibratingCylindricalProjectionMethod : IProjectionMeth
     {
         ArgumentNullException.ThrowIfNull(request);
 
-        if (request.Parameters is not SelfCalibratingAxisymmetricProjectionParameters parameters)
+        var parameters = request.Parameters switch
         {
-            throw new ArgumentException("Self-calibrating cylindrical projection requires self-calibrating cylindrical parameters.", nameof(request));
+            SelfCalibratingAxisymmetricProjectionParameters axisymmetric => new SelfCalibratingCylindricalProjectionParameters(
+                axisymmetric.SourceFrameOrigin,
+                axisymmetric.SourceFrameX,
+                axisymmetric.SourceFrameY,
+                axisymmetric.Radius,
+                axisymmetric.Length,
+                axisymmetric.LocalTiltPoint),
+            SelfCalibratingCylindricalProjectionParameters cylindrical => cylindrical,
+            _ => null,
+        };
+
+        if (parameters is null)
+        {
+            throw new ArgumentException("Self-calibrating axisymmetric projection requires self-calibrating axisymmetric parameters.", nameof(request));
         }
 
         if (request.HolePoints is null || request.HolePoints.Count == 0)
