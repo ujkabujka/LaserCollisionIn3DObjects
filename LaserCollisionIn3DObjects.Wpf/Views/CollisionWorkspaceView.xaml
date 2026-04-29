@@ -72,17 +72,30 @@
                                         <Button Content="Add Segment" Command="{Binding AddHybridSegmentCommand}" Width="110" Margin="0,0,8,0"/>
                                         <Button Content="Remove Selected Segment" Command="{Binding RemoveSelectedHybridSegmentCommand}" Width="170"/>
                                     </StackPanel>
-                                    <DataGrid ItemsSource="{Binding NewHybridSegments}" SelectedItem="{Binding SelectedNewHybridSegment}" AutoGenerateColumns="False" CanUserAddRows="False" Height="130">
-                                        <DataGrid.Columns>
-                                            <DataGridTextColumn Header="#" Binding="{Binding SegmentIndex}" Width="35" IsReadOnly="True"/>
-                                            <DataGridComboBoxColumn Header="Type" Width="110" SelectedItemBinding="{Binding SegmentKind}" ItemsSource="{Binding DataContext.HybridSegmentKinds, RelativeSource={RelativeSource AncestorType=UserControl}}"/>
-                                            <DataGridTextColumn Header="Length" Binding="{Binding Length}" Width="70"/>
-                                            <DataGridTextColumn Header="R1" Binding="{Binding RadiusStart}" Width="60" IsReadOnly="True"/>
-                                            <DataGridTextColumn Header="R2" Binding="{Binding RadiusEnd}" Width="60"/>
-                                            <DataGridTextColumn Header="Arc" Binding="{Binding ArcRadius}" Width="60"/>
-                                            <DataGridComboBoxColumn Header="Curvature" Width="95" SelectedItemBinding="{Binding OgiveCurvatureDirection}" ItemsSource="{Binding DataContext.OgiveCurvatureDirections, RelativeSource={RelativeSource AncestorType=UserControl}}"/>
-                                        </DataGrid.Columns>
-                                    </DataGrid>
+                                    <ListBox ItemsSource="{Binding NewHybridSegments}" SelectedItem="{Binding SelectedNewHybridSegment}" DisplayMemberPath="Summary" Height="120" Margin="0,0,0,8"/>
+
+                                    <GroupBox Header="Selected Segment" Padding="6">
+                                        <StackPanel>
+                                            <Grid Margin="0,0,0,6"><Grid.ColumnDefinitions><ColumnDefinition Width="90"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><TextBlock Grid.Column="0" Text="Type" VerticalAlignment="Center"/><ComboBox Grid.Column="1" ItemsSource="{Binding HybridSegmentKinds}" SelectedItem="{Binding SelectedNewHybridSegment.SegmentKind}"/></Grid>
+                                            <Grid Margin="0,0,0,6"><Grid.ColumnDefinitions><ColumnDefinition Width="90"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><TextBlock Grid.Column="0" Text="Length" VerticalAlignment="Center"/><TextBox Grid.Column="1" Text="{Binding SelectedNewHybridSegment.Length}"/></Grid>
+
+                                            <StackPanel Visibility="{Binding SelectedNewHybridSegment.IsCylinder, Converter={StaticResource BoolToVisibility}}">
+                                                <Grid Margin="0,0,0,6"><Grid.ColumnDefinitions><ColumnDefinition Width="90"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><TextBlock Grid.Column="0" Text="Radius" VerticalAlignment="Center"/><TextBox Grid.Column="1" Text="{Binding SelectedNewHybridSegment.Radius}"/></Grid>
+                                            </StackPanel>
+
+                                            <StackPanel Visibility="{Binding SelectedNewHybridSegment.IsConicalFrustum, Converter={StaticResource BoolToVisibility}}">
+                                                <UniformGrid Columns="2" Margin="0,0,0,6">
+                                                    <StackPanel Margin="2"><TextBlock Text="R1"/><TextBox Text="{Binding SelectedNewHybridSegment.RadiusStart}" IsEnabled="{Binding SelectedNewHybridSegment.IsRadiusStartEditable}"/></StackPanel>
+                                                    <StackPanel Margin="2"><TextBlock Text="R2"/><TextBox Text="{Binding SelectedNewHybridSegment.RadiusEnd}"/></StackPanel>
+                                                </UniformGrid>
+                                            </StackPanel>
+
+                                            <StackPanel Visibility="{Binding SelectedNewHybridSegment.IsCircularOgive, Converter={StaticResource BoolToVisibility}}">
+                                                <UniformGrid Columns="3"><StackPanel Margin="2"><TextBlock Text="R1"/><TextBox Text="{Binding SelectedNewHybridSegment.RadiusStart}" IsEnabled="{Binding SelectedNewHybridSegment.IsRadiusStartEditable}"/></StackPanel><StackPanel Margin="2"><TextBlock Text="R2"/><TextBox Text="{Binding SelectedNewHybridSegment.RadiusEnd}"/></StackPanel><StackPanel Margin="2"><TextBlock Text="ArcRadius"/><TextBox Text="{Binding SelectedNewHybridSegment.ArcRadius}"/></StackPanel></UniformGrid>
+                                                <Grid Margin="0,4,0,0"><Grid.ColumnDefinitions><ColumnDefinition Width="120"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><TextBlock Grid.Column="0" Text="Curvature" VerticalAlignment="Center"/><ComboBox Grid.Column="1" ItemsSource="{Binding OgiveCurvatureDirections}" SelectedItem="{Binding SelectedNewHybridSegment.OgiveCurvatureDirection}"/></Grid>
+                                            </StackPanel>
+                                        </StackPanel>
+                                    </GroupBox>
                                 </StackPanel>
                             </GroupBox>
 
