@@ -990,7 +990,6 @@ public sealed class MainWindowViewModel : ObservableObject
             return;
         }
 
-        var cylindricalHitPoints = CollisionHitPointExportSelector.ForCylindricalGeneratedHits(_lastCollisionHitPointRecords);
         var dialog = new SaveFileDialog
         {
             Filter = "CSV Files (*.csv)|*.csv|All Files (*.*)|*.*",
@@ -1004,8 +1003,8 @@ public sealed class MainWindowViewModel : ObservableObject
             return;
         }
 
-        _collisionHitPointCsvExportService.Export(dialog.FileName, cylindricalHitPoints);
-        SetStatus($"Exported {cylindricalHitPoints.Count} cylindrical hit points to '{dialog.FileName}'.", ApplicationLogLevel.Success);
+        _collisionHitPointCsvExportService.Export(dialog.FileName, _lastCollisionHitPointRecords);
+        SetStatus($"Exported {_lastCollisionHitPointRecords.Count} collision hit points to '{dialog.FileName}'.", ApplicationLogLevel.Success);
     }
 
     private bool ValidateAllSceneItems(out string error)
