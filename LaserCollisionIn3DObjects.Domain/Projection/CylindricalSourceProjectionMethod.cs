@@ -8,9 +8,9 @@ public sealed class CylindricalSourceProjectionMethod : IProjectionMethod
     private const double ZeroTolerance = 1e-9;
 
     public ProjectionMethodMetadata Metadata { get; } = new(
-        ProjectionMethodIds.CylindricalSource,
-        "User-defined cylindrical source",
-        "Reconstructs one source-surface point per hole by normalizing local X into source length and projecting local YZ onto radius.");
+        ProjectionMethodIds.AxisymmetricSource,
+        "User-defined axisymmetric source",
+        "Reconstructs one source-surface point per hole by normalizing local X into source length and projecting local YZ onto radius for axisymmetric geometries (cylinder, conical frustum, circular ogive, and hybrid profiles).");
 
     public ProjectionComputationResult Execute(ProjectionRequest request)
     {

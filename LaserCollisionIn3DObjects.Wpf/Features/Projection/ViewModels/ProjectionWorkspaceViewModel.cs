@@ -172,9 +172,9 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
     public float HybridTiltPointZ { get; set; }
 
     public bool IsPointSourceMethodSelected => string.Equals(SelectedMethod?.Id, ProjectionMethodIds.PointSource, StringComparison.OrdinalIgnoreCase);
-    public bool IsLegacyCylindricalMethodSelected => string.Equals(SelectedMethod?.Id, ProjectionMethodIds.CylindricalSource, StringComparison.OrdinalIgnoreCase);
-    public bool IsSelfCalibratingCylindricalMethodSelected => string.Equals(SelectedMethod?.Id, ProjectionMethodIds.SelfCalibratingCylindricalSource, StringComparison.OrdinalIgnoreCase);
-    public bool IsLeastSquaresCylindricalAlignmentMethodSelected => string.Equals(SelectedMethod?.Id, ProjectionMethodIds.LeastSquaresCylindricalAlignmentSource, StringComparison.OrdinalIgnoreCase);
+    public bool IsLegacyCylindricalMethodSelected => string.Equals(SelectedMethod?.Id, ProjectionMethodIds.AxisymmetricSource, StringComparison.OrdinalIgnoreCase);
+    public bool IsSelfCalibratingCylindricalMethodSelected => string.Equals(SelectedMethod?.Id, ProjectionMethodIds.SelfCalibratingAxisymmetricSource, StringComparison.OrdinalIgnoreCase);
+    public bool IsLeastSquaresCylindricalAlignmentMethodSelected => string.Equals(SelectedMethod?.Id, ProjectionMethodIds.LeastSquaresAxisymmetricAlignmentSource, StringComparison.OrdinalIgnoreCase);
     public bool IsAnyCylindricalMethodSelected => IsLegacyCylindricalMethodSelected || IsSelfCalibratingCylindricalMethodSelected || IsLeastSquaresCylindricalAlignmentMethodSelected;
     public bool IsTiltPointVisibleForSelectedMethod => IsSelfCalibratingCylindricalMethodSelected || IsLeastSquaresCylindricalAlignmentMethodSelected;
 
@@ -619,7 +619,7 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
                 new Vector3D(SourceFrameYx, SourceFrameYy, SourceFrameYz));
         }
 
-        if (method.Metadata.Id == ProjectionMethodIds.CylindricalSource)
+        if (method.Metadata.Id == ProjectionMethodIds.AxisymmetricSource)
         {
             return new CylindricalSourceProjectionParameters(
                 new Point3(BeamOriginX, BeamOriginY, BeamOriginZ),
@@ -629,7 +629,7 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
                 GeometryLength);
         }
 
-        if (method.Metadata.Id == ProjectionMethodIds.SelfCalibratingCylindricalSource)
+        if (method.Metadata.Id == ProjectionMethodIds.SelfCalibratingAxisymmetricSource)
         {
             return new SelfCalibratingCylindricalProjectionParameters(
                 new Point3(BeamOriginX, BeamOriginY, BeamOriginZ),
@@ -640,7 +640,7 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
                 new Point3(TiltPointX, TiltPointY, TiltPointZ));
         }
 
-        if (method.Metadata.Id == ProjectionMethodIds.LeastSquaresCylindricalAlignmentSource)
+        if (method.Metadata.Id == ProjectionMethodIds.LeastSquaresAxisymmetricAlignmentSource)
         {
             return new LeastSquaresCylindricalAlignmentProjectionParameters(
                 new Point3(BeamOriginX, BeamOriginY, BeamOriginZ),
@@ -703,7 +703,7 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
             _applicationLogService.LogWarning($"Max fit error: {maxFitErrorEntry.FitError:F6} at hole index {maxFitErrorEntry.Index}", nameof(ProjectionWorkspaceViewModel));
         }
 
-        if (result.MethodId == ProjectionMethodIds.LeastSquaresCylindricalAlignmentSource && cylindrical.LeastSquaresDiagnostics is not null)
+        if (result.MethodId == ProjectionMethodIds.LeastSquaresAxisymmetricAlignmentSource && cylindrical.LeastSquaresDiagnostics is not null)
         {
             var diagnostics = cylindrical.LeastSquaresDiagnostics;
             _applicationLogService.LogSuccess("Least-squares cylindrical alignment completed.", nameof(ProjectionWorkspaceViewModel));
@@ -719,7 +719,7 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
             return;
         }
 
-        if (result.MethodId != ProjectionMethodIds.SelfCalibratingCylindricalSource)
+        if (result.MethodId != ProjectionMethodIds.SelfCalibratingAxisymmetricSource)
         {
             return;
         }
@@ -897,9 +897,9 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
             return true;
         }
 
-        var requiresCylinder = method.Metadata.Id == ProjectionMethodIds.CylindricalSource
-            || method.Metadata.Id == ProjectionMethodIds.SelfCalibratingCylindricalSource
-            || method.Metadata.Id == ProjectionMethodIds.LeastSquaresCylindricalAlignmentSource;
+        var requiresCylinder = method.Metadata.Id == ProjectionMethodIds.AxisymmetricSource
+            || method.Metadata.Id == ProjectionMethodIds.SelfCalibratingAxisymmetricSource
+            || method.Metadata.Id == ProjectionMethodIds.LeastSquaresAxisymmetricAlignmentSource;
 
         return !requiresCylinder || SelectedAxisymmetricSourceKind == AxisymmetricSourceKind.Cylinder;
     }

@@ -17,9 +17,9 @@ public sealed class LeastSquaresCylindricalAlignmentProjectionMethodTests
         });
 
         Assert.Equal(ProjectionMethodIds.PointSource, registry.GetRequired(ProjectionMethodIds.PointSource).Metadata.Id);
-        Assert.Equal(ProjectionMethodIds.CylindricalSource, registry.GetRequired(ProjectionMethodIds.CylindricalSource).Metadata.Id);
-        Assert.Equal(ProjectionMethodIds.SelfCalibratingCylindricalSource, registry.GetRequired(ProjectionMethodIds.SelfCalibratingCylindricalSource).Metadata.Id);
-        Assert.Equal(ProjectionMethodIds.LeastSquaresCylindricalAlignmentSource, registry.GetRequired(ProjectionMethodIds.LeastSquaresCylindricalAlignmentSource).Metadata.Id);
+        Assert.Equal(ProjectionMethodIds.AxisymmetricSource, registry.GetRequired(ProjectionMethodIds.AxisymmetricSource).Metadata.Id);
+        Assert.Equal(ProjectionMethodIds.SelfCalibratingAxisymmetricSource, registry.GetRequired(ProjectionMethodIds.SelfCalibratingAxisymmetricSource).Metadata.Id);
+        Assert.Equal(ProjectionMethodIds.LeastSquaresAxisymmetricAlignmentSource, registry.GetRequired(ProjectionMethodIds.LeastSquaresAxisymmetricAlignmentSource).Metadata.Id);
     }
 
     [Fact]

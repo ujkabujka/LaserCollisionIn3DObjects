@@ -15,8 +15,8 @@ public sealed class SelfCalibratingCylindricalProjectionMethodTests
             new SelfCalibratingCylindricalProjectionMethod(),
         });
 
-        var method = registry.GetRequired(ProjectionMethodIds.SelfCalibratingCylindricalSource);
-        Assert.Equal(ProjectionMethodIds.SelfCalibratingCylindricalSource, method.Metadata.Id);
+        var method = registry.GetRequired(ProjectionMethodIds.SelfCalibratingAxisymmetricSource);
+        Assert.Equal(ProjectionMethodIds.SelfCalibratingAxisymmetricSource, method.Metadata.Id);
     }
 
     [Fact]
@@ -116,7 +116,7 @@ public sealed class SelfCalibratingCylindricalProjectionMethodTests
     {
         var result = new ProjectionComputationResult
         {
-            MethodId = ProjectionMethodIds.SelfCalibratingCylindricalSource,
+            MethodId = ProjectionMethodIds.SelfCalibratingAxisymmetricSource,
             SourceFrame = new PointSourceFrameState
             {
                 Origin = new Point3(0, 0, 0),
