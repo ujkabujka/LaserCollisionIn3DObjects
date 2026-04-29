@@ -38,12 +38,16 @@ public sealed class CylindricalSourceProjectionMethod : IProjectionMethod
             throw new ArgumentException("Projection requires at least one hole point.", nameof(request));
         }
 
-        if (parameters.Radius <= 0d)
+        var profile = parameters.ProfileDefinition.Profile;
+        var radius = profile.RadiusAt(0f);
+        var length = profile.Length;
+
+        if (radius <= 0d)
         {
             throw new ArgumentException("Cylinder radius must be greater than zero.", nameof(request));
         }
 
-        if (parameters.Length <= 0d)
+        if (length <= 0d)
         {
             throw new ArgumentException("Cylinder length must be greater than zero.", nameof(request));
         }
@@ -69,7 +73,7 @@ public sealed class CylindricalSourceProjectionMethod : IProjectionMethod
         for (var i = 0; i < request.HolePoints.Count; i++)
         {
             var localHole = localHolePoints[i];
-            var normalizedX = (localHole.X - xMin) * (parameters.Length / span);
+            var normalizedX = (localHole.X - xMin) * (length / span);
 
             var radialLength = Math.Sqrt((localHole.Y * localHole.Y) + (localHole.Z * localHole.Z));
             if (radialLength <= ZeroTolerance)
@@ -79,7 +83,7 @@ public sealed class CylindricalSourceProjectionMethod : IProjectionMethod
                     nameof(request));
             }
 
-            var radialScale = parameters.Radius / radialLength;
+            var radialScale = radius / radialLength;
             var reconstructedLocal = new Point3(
                 normalizedX,
                 localHole.Y * radialScale,
@@ -113,8 +117,8 @@ public sealed class CylindricalSourceProjectionMethod : IProjectionMethod
             CylindricalSource = new CylindricalProjectionState
             {
                 SourceFrame = sourceFrame,
-                Radius = parameters.Radius,
-                Length = parameters.Length,
+                Radius = radius,
+                Length = length,
                 Points = reconstructedPoints,
             },
         };

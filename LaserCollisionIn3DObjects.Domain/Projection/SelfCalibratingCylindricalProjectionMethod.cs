@@ -43,12 +43,16 @@ public sealed class SelfCalibratingCylindricalProjectionMethod : IProjectionMeth
             throw new ArgumentException("Projection requires at least one hole point.", nameof(request));
         }
 
-        if (parameters.Radius <= 0d)
+        var profile = parameters.ProfileDefinition.Profile;
+        var radius = profile.RadiusAt(0f);
+        var length = profile.Length;
+
+        if (radius <= 0d)
         {
             throw new ArgumentException("Cylinder radius must be greater than zero.", nameof(request));
         }
 
-        if (parameters.Length <= 0d)
+        if (length <= 0d)
         {
             throw new ArgumentException("Cylinder length must be greater than zero.", nameof(request));
         }
@@ -59,8 +63,8 @@ public sealed class SelfCalibratingCylindricalProjectionMethod : IProjectionMeth
         var solveResult = _solver.Solve(
             localHolePoints,
             sourceFrame,
-            parameters.Radius,
-            parameters.Length,
+            radius,
+            length,
             parameters.LocalTiltPoint,
             request.HolePoints,
             request.Progress);
@@ -73,8 +77,8 @@ public sealed class SelfCalibratingCylindricalProjectionMethod : IProjectionMeth
             CylindricalSource = new CylindricalProjectionState
             {
                 SourceFrame = sourceFrame,
-                Radius = parameters.Radius,
-                Length = parameters.Length,
+                Radius = radius,
+                Length = length,
                 LocalTiltPoint = parameters.LocalTiltPoint,
                 EstimatedTiltWeight = solveResult.EstimatedTiltWeight,
                 Diagnostics = solveResult.Diagnostics,
