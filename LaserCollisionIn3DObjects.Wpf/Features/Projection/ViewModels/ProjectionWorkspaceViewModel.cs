@@ -621,37 +621,40 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
 
         if (method.Metadata.Id == ProjectionMethodIds.AxisymmetricSource)
         {
-            return new CylindricalSourceProjectionParameters(
+            return new AxisymmetricSourceProjectionParameters(
                 new Point3(BeamOriginX, BeamOriginY, BeamOriginZ),
                 new Vector3D(SourceFrameXx, SourceFrameXy, SourceFrameXz),
                 new Vector3D(SourceFrameYx, SourceFrameYy, SourceFrameYz),
-                GeometryRadiusStart,
-                GeometryLength);
+                new AxisymmetricSourceProfileDefinition(RequireProjectionGeometryProfile()));
         }
 
         if (method.Metadata.Id == ProjectionMethodIds.SelfCalibratingAxisymmetricSource)
         {
-            return new SelfCalibratingCylindricalProjectionParameters(
+            return new SelfCalibratingAxisymmetricProjectionParameters(
                 new Point3(BeamOriginX, BeamOriginY, BeamOriginZ),
                 new Vector3D(SourceFrameXx, SourceFrameXy, SourceFrameXz),
                 new Vector3D(SourceFrameYx, SourceFrameYy, SourceFrameYz),
-                GeometryRadiusStart,
-                GeometryLength,
+                new AxisymmetricSourceProfileDefinition(RequireProjectionGeometryProfile()),
                 new Point3(TiltPointX, TiltPointY, TiltPointZ));
         }
 
         if (method.Metadata.Id == ProjectionMethodIds.LeastSquaresAxisymmetricAlignmentSource)
         {
-            return new LeastSquaresCylindricalAlignmentProjectionParameters(
+            return new LeastSquaresAxisymmetricAlignmentProjectionParameters(
                 new Point3(BeamOriginX, BeamOriginY, BeamOriginZ),
                 new Vector3D(SourceFrameXx, SourceFrameXy, SourceFrameXz),
                 new Vector3D(SourceFrameYx, SourceFrameYy, SourceFrameYz),
-                GeometryRadiusStart,
-                GeometryLength,
+                new AxisymmetricSourceProfileDefinition(RequireProjectionGeometryProfile()),
                 new Point3(TiltPointX, TiltPointY, TiltPointZ));
         }
 
         throw new InvalidOperationException($"Projection method '{method.Metadata.Id}' is not yet supported by the workspace UI parameter panel.");
+    }
+
+    private IAxisymmetricSourceProfile RequireProjectionGeometryProfile()
+    {
+        return BuildSelectedProjectionGeometryProfile()
+            ?? throw new InvalidOperationException("Projection geometry profile is required for axisymmetric projection methods.");
     }
 
     private void LogProjectionSummary(ProjectionComputationResult result)
