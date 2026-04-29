@@ -16,6 +16,12 @@ public sealed class ProjectionComputationResult
 
     public CylindricalProjectionState? CylindricalSource { get; init; }
 
+    public CylindricalProjectionState? AxisymmetricSource
+    {
+        get => CylindricalSource;
+        init => CylindricalSource = value;
+    }
+
     public IReadOnlyList<ProjectionRay> GetEffectiveRays()
     {
         if (Rays.Count > 0)
@@ -23,12 +29,12 @@ public sealed class ProjectionComputationResult
             return Rays;
         }
 
-        if (CylindricalSource is null)
+        if (AxisymmetricSource is null)
         {
             return Array.Empty<ProjectionRay>();
         }
 
-        return CylindricalSource.Points.Select(point => new ProjectionRay(
+        return AxisymmetricSource.Points.Select(point => new ProjectionRay(
             new Ray3D(
                 new Vector3((float)point.RayOrigin.X, (float)point.RayOrigin.Y, (float)point.RayOrigin.Z),
                 new Vector3((float)point.RayDirection.X, (float)point.RayDirection.Y, (float)point.RayDirection.Z)),

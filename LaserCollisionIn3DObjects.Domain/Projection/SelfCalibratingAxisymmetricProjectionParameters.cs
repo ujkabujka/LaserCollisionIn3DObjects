@@ -6,6 +6,5 @@ public sealed record SelfCalibratingAxisymmetricProjectionParameters(
     Point3 SourceFrameOrigin,
     Vector3D SourceFrameX,
     Vector3D SourceFrameY,
-    double Radius,
-    double Length,
+    AxisymmetricSourceProfileDefinition ProfileDefinition,
     Point3 LocalTiltPoint) : IProjectionParameters;

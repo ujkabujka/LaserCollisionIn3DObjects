@@ -315,14 +315,14 @@ public class PersistenceRoundTripTests
                     Name = "Projection Scene",
                     Projection = new SceneProjectionStateDto
                     {
-                        SelectedMethodId = ProjectionMethodIds.CylindricalSource,
+                        SelectedMethodId = ProjectionMethodIds.AxisymmetricSource,
                         Results =
                         [
                             new ProjectionResultStateDto
                             {
                                 Key = "proj-1",
                                 Name = "Cyl",
-                                MethodId = ProjectionMethodIds.CylindricalSource,
+                                MethodId = ProjectionMethodIds.AxisymmetricSource,
                                 SourceFrame = new PointSourceFrameStateDto
                                 {
                                     Origin = new Point3(1, 2, 3),
@@ -513,14 +513,14 @@ public class PersistenceRoundTripTests
                         Name = "Scene LS",
                         Projection = new SceneProjectionStateDto
                         {
-                            SelectedMethodId = ProjectionMethodIds.LeastSquaresCylindricalAlignmentSource,
+                            SelectedMethodId = ProjectionMethodIds.LeastSquaresAxisymmetricAlignmentSource,
                             Results =
                             [
                                 new ProjectionResultStateDto
                                 {
                                     Key = "k-ls",
                                     Name = "r-ls",
-                                    MethodId = ProjectionMethodIds.LeastSquaresCylindricalAlignmentSource,
+                                    MethodId = ProjectionMethodIds.LeastSquaresAxisymmetricAlignmentSource,
                                     SourceFrame = new PointSourceFrameStateDto
                                     {
                                         Origin = new Point3(0, 0, 0),
