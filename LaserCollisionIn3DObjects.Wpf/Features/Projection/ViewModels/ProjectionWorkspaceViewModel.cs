@@ -631,21 +631,17 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
                 new Point3(BeamOriginX, BeamOriginY, BeamOriginZ),
                 new Vector3D(SourceFrameXx, SourceFrameXy, SourceFrameXz),
                 new Vector3D(SourceFrameYx, SourceFrameYy, SourceFrameYz),
-                profileDefinition.Radius,
-                profileDefinition.Length,
+                profileDefinition,
                 new Point3(TiltPointX, TiltPointY, TiltPointZ));
         }
 
         if (method.Metadata.Id == ProjectionMethodIds.LeastSquaresAxisymmetricAlignmentSource)
-        if (method.Metadata.Id == ProjectionMethodIds.LeastSquaresAxisymmetricAlignmentSource)
         {
-            return new LeastSquaresAxisymmetricAlignmentProjectionParameters(
             return new LeastSquaresAxisymmetricAlignmentProjectionParameters(
                 new Point3(BeamOriginX, BeamOriginY, BeamOriginZ),
                 new Vector3D(SourceFrameXx, SourceFrameXy, SourceFrameXz),
                 new Vector3D(SourceFrameYx, SourceFrameYy, SourceFrameYz),
-                profileDefinition.Radius,
-                profileDefinition.Length,
+                profileDefinition,
                 new Point3(TiltPointX, TiltPointY, TiltPointZ));
         }
 

@@ -69,11 +69,10 @@ public sealed class LeastSquaresAxisymmetricAlignmentProjectionMethodTests
         {
             HolePoints = holes,
             Parameters = new LeastSquaresAxisymmetricAlignmentProjectionParameters(
-            Parameters = new LeastSquaresAxisymmetricAlignmentProjectionParameters(
                 new Point3(0, 0, 0),
                 new Vector3D(1, 0, 0),
                 new Vector3D(0, 1, 0),
-                new AxisymmetricSourceProfileDefinition(new CylindricalSourceProfile(1f, 10f)),
+                new AxisymmetricSourceProfileDefinition { Kind = AxisymmetricSourceKind.Cylinder, Radius = 1f, Length = 10f },
                 new Point3(0.2, -0.3, 0.1)),
         });
 
@@ -92,11 +91,10 @@ public sealed class LeastSquaresAxisymmetricAlignmentProjectionMethodTests
         {
             HolePoints = holes,
             Parameters = new LeastSquaresAxisymmetricAlignmentProjectionParameters(
-            Parameters = new LeastSquaresAxisymmetricAlignmentProjectionParameters(
                 new Point3(0, 0, 0),
                 new Vector3D(1, 0, 0),
                 new Vector3D(0, 1, 0),
-                new AxisymmetricSourceProfileDefinition(new CylindricalSourceProfile((float)radius, (float)length)),
+                new AxisymmetricSourceProfileDefinition { Kind = AxisymmetricSourceKind.Cylinder, Radius = (float)radius, Length = (float)length },
                 new Point3(0.2, -0.3, 0.1)),
         });
 
@@ -122,11 +120,10 @@ public sealed class LeastSquaresAxisymmetricAlignmentProjectionMethodTests
         {
             HolePoints = holes,
             Parameters = new LeastSquaresAxisymmetricAlignmentProjectionParameters(
-            Parameters = new LeastSquaresAxisymmetricAlignmentProjectionParameters(
                 new Point3(0, 0, 0),
                 new Vector3D(1, 0, 0),
                 new Vector3D(0, 1, 0),
-                new AxisymmetricSourceProfileDefinition(new CylindricalSourceProfile(1f, 10f)),
+                new AxisymmetricSourceProfileDefinition { Kind = AxisymmetricSourceKind.Cylinder, Radius = 1f, Length = 10f },
                 new Point3(0.2, -0.3, 0.1)),
         });
 
@@ -142,11 +139,10 @@ public sealed class LeastSquaresAxisymmetricAlignmentProjectionMethodTests
         {
             HolePoints = holes,
             Parameters = new LeastSquaresAxisymmetricAlignmentProjectionParameters(
-            Parameters = new LeastSquaresAxisymmetricAlignmentProjectionParameters(
                 new Point3(0, 0, 0),
                 new Vector3D(1, 0, 0),
                 new Vector3D(0, 1, 0),
-                new AxisymmetricSourceProfileDefinition(new CylindricalSourceProfile(1f, 10f)),
+                new AxisymmetricSourceProfileDefinition { Kind = AxisymmetricSourceKind.Cylinder, Radius = 1f, Length = 10f },
                 new Point3(0.2, -0.3, 0.1)),
         });
 

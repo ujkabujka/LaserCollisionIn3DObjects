@@ -40,13 +40,3 @@ public sealed class ProjectionComputationResult
     };
 }
 
-public sealed class AxisymmetricProjectionState
-{
-    public required PointSourceFrameState SourceFrame { get; init; }
-    public required AxisymmetricSourceProfileDefinition ProfileDefinition { get; init; }
-    public Point3? LocalTiltPoint { get; init; }
-    public double? EstimatedTiltWeight { get; init; }
-    public SelfCalibratingAxisymmetricProjectionDiagnostics? Diagnostics { get; init; }
-    public LeastSquaresAxisymmetricAlignmentDiagnostics? LeastSquaresDiagnostics { get; init; }
-    public required IReadOnlyList<AxisymmetricProjectionPoint> Points { get; init; }
-}

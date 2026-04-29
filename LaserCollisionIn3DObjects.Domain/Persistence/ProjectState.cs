@@ -207,7 +207,7 @@ public sealed class LeastSquaresAxisymmetricAlignmentDiagnosticsDto
     public int Iterations { get; set; }
     public bool Converged { get; set; }
     public bool UsesRegularization { get; set; }
-    public List<LeastSquaresAxisymmetricAlignmentIterationDiagnosticsDto> IterationHistory { get; set; } = new();
+    public List<AxisymmetricLeastSquaresIterationDiagnosticsDto> IterationHistory { get; set; } = new();
 }
 
 public sealed class AxisymmetricLeastSquaresIterationDiagnosticsDto
