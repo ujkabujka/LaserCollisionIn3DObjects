@@ -127,8 +127,8 @@ public sealed class CylindricalSourceProjectionMethodTests
             new CylindricalSourceProjectionMethod(),
         });
 
-        var method = registry.GetRequired(ProjectionMethodIds.CylindricalSource);
-        Assert.Equal(ProjectionMethodIds.CylindricalSource, method.Metadata.Id);
+        var method = registry.GetRequired(ProjectionMethodIds.AxisymmetricSource);
+        Assert.Equal(ProjectionMethodIds.AxisymmetricSource, method.Metadata.Id);
     }
 
     private static ProjectionRequest BuildRequest(

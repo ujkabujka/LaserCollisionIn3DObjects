@@ -5,9 +5,9 @@ namespace LaserCollisionIn3DObjects.Domain.Projection;
 public sealed class LeastSquaresCylindricalAlignmentProjectionMethod : IProjectionMethod
 {
     public ProjectionMethodMetadata Metadata { get; } = new(
-        ProjectionMethodIds.LeastSquaresCylindricalAlignmentSource,
-        "Least-squares cylindrical alignment",
-        "Refines cylindrical source-surface points by minimizing direction-alignment error between modeled cylindrical rays and source-to-hole directions.");
+        ProjectionMethodIds.LeastSquaresAxisymmetricAlignmentSource,
+        "Least-squares axisymmetric alignment",
+        "Refines axisymmetric source-surface points by minimizing direction-alignment error between modeled axisymmetric rays and source-to-hole directions for cylinder, conical frustum, circular ogive, and hybrid profiles.");
 
     private readonly LeastSquaresCylindricalAlignmentSolver _solver;
 
