@@ -16,6 +16,8 @@ public sealed class ProjectionComputationResult
 
     public CylindricalProjectionState? CylindricalSource { get; init; }
 
+    public AxisymmetricProjectionState? AxisymmetricSource { get; init; }
+
     public IReadOnlyList<ProjectionRay> GetEffectiveRays()
     {
         if (Rays.Count > 0)
@@ -46,4 +48,13 @@ public sealed class ProjectionComputationResult
             Rays = GetEffectiveRays(),
         };
     }
+}
+
+public sealed class AxisymmetricProjectionState
+{
+    public required PointSourceFrameState SourceFrame { get; init; }
+
+    public required AxisymmetricProfileDefinition ProfileDefinition { get; init; }
+
+    public required IReadOnlyList<CylindricalProjectionPoint> Points { get; init; }
 }

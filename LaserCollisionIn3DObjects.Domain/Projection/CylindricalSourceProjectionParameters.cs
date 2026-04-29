@@ -7,4 +7,18 @@ public sealed record CylindricalSourceProjectionParameters(
     Vector3D SourceFrameX,
     Vector3D SourceFrameY,
     double Radius,
-    double Length) : IProjectionParameters;
+    double Length) : IProjectionParameters
+{
+    public AxisymmetricProfileDefinition ProfileDefinition { get; init; } =
+        new CylindricalAxisymmetricProfileDefinition(Radius, Length);
+}
+
+public interface AxisymmetricProfileDefinition
+{
+    IAxisymmetricSourceProfile BuildProfile();
+}
+
+public sealed record CylindricalAxisymmetricProfileDefinition(double Radius, double Length) : AxisymmetricProfileDefinition
+{
+    public IAxisymmetricSourceProfile BuildProfile() => new CylindricalSourceProfile((float)Radius, (float)Length);
+}

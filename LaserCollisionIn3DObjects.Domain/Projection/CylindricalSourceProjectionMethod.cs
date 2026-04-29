@@ -26,15 +26,7 @@ public sealed class CylindricalSourceProjectionMethod : IProjectionMethod
             throw new ArgumentException("Projection requires at least one hole point.", nameof(request));
         }
 
-        if (parameters.Radius <= 0d)
-        {
-            throw new ArgumentException("Cylinder radius must be greater than zero.", nameof(request));
-        }
-
-        if (parameters.Length <= 0d)
-        {
-            throw new ArgumentException("Cylinder length must be greater than zero.", nameof(request));
-        }
+        var profile = parameters.ProfileDefinition.BuildProfile();
 
         var sourceFrame = PointSourceFrameBuilder.Build(
             parameters.SourceFrameOrigin,
@@ -57,21 +49,11 @@ public sealed class CylindricalSourceProjectionMethod : IProjectionMethod
         for (var i = 0; i < request.HolePoints.Count; i++)
         {
             var localHole = localHolePoints[i];
-            var normalizedX = (localHole.X - xMin) * (parameters.Length / span);
+            var u = (localHole.X - xMin) * (profile.Length / span);
+            var theta = Math.Atan2(localHole.Z, localHole.Y);
 
-            var radialLength = Math.Sqrt((localHole.Y * localHole.Y) + (localHole.Z * localHole.Z));
-            if (radialLength <= ZeroTolerance)
-            {
-                throw new ArgumentException(
-                    $"Hole point at index {i} collapses to local radial (0,0). Unable to reconstruct cylindrical surface point.",
-                    nameof(request));
-            }
-
-            var radialScale = parameters.Radius / radialLength;
-            var reconstructedLocal = new Point3(
-                normalizedX,
-                localHole.Y * radialScale,
-                localHole.Z * radialScale);
+            var sourceLocalVector = profile.EvaluateSurfacePoint((float)u, (float)theta);
+            var reconstructedLocal = new Point3(sourceLocalVector.X, sourceLocalVector.Y, sourceLocalVector.Z);
 
             var surfaceWorld = ToWorld(reconstructedLocal, sourceFrame);
             var holeWorld = request.HolePoints[i];
@@ -90,7 +72,13 @@ public sealed class CylindricalSourceProjectionMethod : IProjectionMethod
                 holeWorld,
                 surfaceWorld,
                 new Vector3D(direction.X, direction.Y, direction.Z),
-                surfaceWorld));
+                surfaceWorld)
+            {
+                LocalU = u,
+                LocalTheta = theta,
+                UnwrappedU = u,
+                UnwrappedV = profile.RadiusAt((float)u) * theta,
+            });
         }
 
         return new ProjectionComputationResult
@@ -101,8 +89,14 @@ public sealed class CylindricalSourceProjectionMethod : IProjectionMethod
             CylindricalSource = new CylindricalProjectionState
             {
                 SourceFrame = sourceFrame,
-                Radius = parameters.Radius,
-                Length = parameters.Length,
+                Radius = profile.RadiusAt(0f),
+                Length = profile.Length,
+                Points = reconstructedPoints,
+            },
+            AxisymmetricSource = new AxisymmetricProjectionState
+            {
+                SourceFrame = sourceFrame,
+                ProfileDefinition = parameters.ProfileDefinition,
                 Points = reconstructedPoints,
             },
         };
