@@ -9,16 +9,28 @@ public sealed class CylindricalSourceProjectionMethod : IProjectionMethod
 
     public ProjectionMethodMetadata Metadata { get; } = new(
         ProjectionMethodIds.CylindricalSource,
-        "User-defined cylindrical source",
+        "User-defined axisymmetric source",
         "Reconstructs one source-surface point per hole by normalizing local X into source length and projecting local YZ onto radius.");
 
     public ProjectionComputationResult Execute(ProjectionRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);
 
-        if (request.Parameters is not CylindricalSourceProjectionParameters parameters)
+        var parameters = request.Parameters switch
         {
-            throw new ArgumentException("Cylindrical-source projection requires cylindrical parameters.", nameof(request));
+            AxisymmetricSourceProjectionParameters axisymmetric => new CylindricalSourceProjectionParameters(
+                axisymmetric.SourceFrameOrigin,
+                axisymmetric.SourceFrameX,
+                axisymmetric.SourceFrameY,
+                axisymmetric.Radius,
+                axisymmetric.Length),
+            CylindricalSourceProjectionParameters cylindrical => cylindrical,
+            _ => null,
+        };
+
+        if (parameters is null)
+        {
+            throw new ArgumentException("Axisymmetric-source projection requires axisymmetric parameters.", nameof(request));
         }
 
         if (request.HolePoints is null || request.HolePoints.Count == 0)
@@ -26,7 +38,19 @@ public sealed class CylindricalSourceProjectionMethod : IProjectionMethod
             throw new ArgumentException("Projection requires at least one hole point.", nameof(request));
         }
 
-        var profile = parameters.ProfileDefinition.BuildProfile();
+        var profile = parameters.ProfileDefinition.Profile;
+        var radius = profile.RadiusAt(0f);
+        var length = profile.Length;
+
+        if (radius <= 0d)
+        {
+            throw new ArgumentException("Cylinder radius must be greater than zero.", nameof(request));
+        }
+
+        if (length <= 0d)
+        {
+            throw new ArgumentException("Cylinder length must be greater than zero.", nameof(request));
+        }
 
         var sourceFrame = PointSourceFrameBuilder.Build(
             parameters.SourceFrameOrigin,
@@ -49,11 +73,21 @@ public sealed class CylindricalSourceProjectionMethod : IProjectionMethod
         for (var i = 0; i < request.HolePoints.Count; i++)
         {
             var localHole = localHolePoints[i];
-            var u = (localHole.X - xMin) * (profile.Length / span);
-            var theta = Math.Atan2(localHole.Z, localHole.Y);
+            var normalizedX = (localHole.X - xMin) * (length / span);
 
-            var sourceLocalVector = profile.EvaluateSurfacePoint((float)u, (float)theta);
-            var reconstructedLocal = new Point3(sourceLocalVector.X, sourceLocalVector.Y, sourceLocalVector.Z);
+            var radialLength = Math.Sqrt((localHole.Y * localHole.Y) + (localHole.Z * localHole.Z));
+            if (radialLength <= ZeroTolerance)
+            {
+                throw new ArgumentException(
+                    $"Hole point at index {i} collapses to local radial (0,0). Unable to reconstruct cylindrical surface point.",
+                    nameof(request));
+            }
+
+            var radialScale = radius / radialLength;
+            var reconstructedLocal = new Point3(
+                normalizedX,
+                localHole.Y * radialScale,
+                localHole.Z * radialScale);
 
             var surfaceWorld = ToWorld(reconstructedLocal, sourceFrame);
             var holeWorld = request.HolePoints[i];
@@ -89,14 +123,8 @@ public sealed class CylindricalSourceProjectionMethod : IProjectionMethod
             CylindricalSource = new CylindricalProjectionState
             {
                 SourceFrame = sourceFrame,
-                Radius = profile.RadiusAt(0f),
-                Length = profile.Length,
-                Points = reconstructedPoints,
-            },
-            AxisymmetricSource = new AxisymmetricProjectionState
-            {
-                SourceFrame = sourceFrame,
-                ProfileDefinition = parameters.ProfileDefinition,
+                Radius = radius,
+                Length = length,
                 Points = reconstructedPoints,
             },
         };

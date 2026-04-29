@@ -138,4 +138,32 @@ public sealed class AxisymmetricSourceProfileTests
             Assert.Equal(expected.Z, actual.Z, 3);
         }
     }
+
+    [Theory]
+    [InlineData(AxisymmetricSourceKind.Cylinder)]
+    [InlineData(AxisymmetricSourceKind.ConicalFrustum)]
+    [InlineData(AxisymmetricSourceKind.CircularOgive)]
+    [InlineData(AxisymmetricSourceKind.Hybrid)]
+    public void ProfileDefinitionBuilder_SupportsAllGeometryKinds(AxisymmetricSourceKind kind)
+    {
+        var profile = BuildProfile(kind);
+        Assert.True(profile.Length > 0f);
+        var direction = profile.EvaluateBaseDirection(profile.Length * 0.5f, 0.25f);
+        Assert.Equal(1f, direction.Length(), 3);
+    }
+
+    private static IAxisymmetricSourceProfile BuildProfile(AxisymmetricSourceKind kind)
+    {
+        return kind switch
+        {
+            AxisymmetricSourceKind.Cylinder => new CylindricalSourceProfile(2f, 5f),
+            AxisymmetricSourceKind.ConicalFrustum => new ConicalFrustumSourceProfile(2f, 3f, 5f),
+            AxisymmetricSourceKind.CircularOgive => new CircularOgiveSourceProfile(2f, 3f, 5f, 15f, OgiveCurvatureDirection.Outward),
+            AxisymmetricSourceKind.Hybrid => new HybridAxisymmetricSourceProfile([
+                new HybridAxisymmetricSourceSegmentDefinition(HybridAxisymmetricSourceSegmentKind.Cylinder, 2f, 2f, 2f),
+                new HybridAxisymmetricSourceSegmentDefinition(HybridAxisymmetricSourceSegmentKind.ConicalFrustum, 3f, 2f, 3f),
+            ]),
+            _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, null),
+        };
+    }
 }
