@@ -18,8 +18,7 @@ public sealed class LeastSquaresAxisymmetricAlignmentSolver
     public LeastSquaresAxisymmetricAlignmentSolveResult Solve(
         IReadOnlyList<Point3> localHolePoints,
         PointSourceFrameState frame,
-        double radius,
-        double length,
+        IAxisymmetricSourceProfile profile,
         Point3 localTiltPoint,
         IReadOnlyList<Point3> worldHolePoints,
         IProgress<ProjectionProgress>? progress = null)
@@ -36,9 +35,9 @@ public sealed class LeastSquaresAxisymmetricAlignmentSolver
         });
 
         progress?.Report(new ProjectionProgress(5d, "Running initial self-calibrating estimate..."));
-        var init = initSolver.Solve(localHolePoints, frame, radius, length, localTiltPoint, worldHolePoints, progress: null);
+        var init = initSolver.Solve(localHolePoints, frame, profile, localTiltPoint, worldHolePoints, progress: null);
 
-        var scale = Math.Max(Math.Max(radius, length), Math.Max(Norm(localTiltPoint), Epsilon));
+        var scale = Math.Max(profile.Length, Math.Max(Norm(localTiltPoint), Epsilon));
         var beta = InverseSoftplus(Math.Max(0d, init.EstimatedTiltWeight * scale));
         var a = new double[localHolePoints.Count];
         var theta = new double[localHolePoints.Count];
@@ -47,7 +46,7 @@ public sealed class LeastSquaresAxisymmetricAlignmentSolver
         {
             var p = init.Points[i];
             var u0 = p.LocalU ?? 0d;
-            var q = Math.Clamp(u0 / Math.Max(length, Epsilon), Epsilon, 1d - Epsilon);
+            var q = Math.Clamp(u0 / Math.Max(profile.Length, Epsilon), Epsilon, 1d - Epsilon);
             a[i] = Math.Log(q / (1d - q));
             theta[i] = p.LocalTheta ?? 0d;
         }
@@ -64,14 +63,13 @@ public sealed class LeastSquaresAxisymmetricAlignmentSolver
         {
             for (var i = 0; i < localHolePoints.Count; i++)
             {
-                RefinePoint(localHolePoints[i], ref a[i], ref theta[i], beta, radius, length, localTiltPoint, scale, profile);
+                RefinePoint(localHolePoints[i], ref a[i], ref theta[i], beta, localTiltPoint, scale, profile);
             }
 
-            beta = RefineBeta(localHolePoints, a, theta, beta, radius, length, localTiltPoint, scale, profile);
+            beta = RefineBeta(localHolePoints, a, theta, beta, localTiltPoint, scale, profile);
 
-            var metrics = ComputeMetrics(localHolePoints, a, theta, beta, radius, length, localTiltPoint, scale, profile);
+            var metrics = ComputeMetrics(localHolePoints, a, theta, beta, localTiltPoint, scale, profile);
             var lambda = Softplus(beta) / scale;
-            iterationHistory.Add(new LeastSquaresAxisymmetricAlignmentIterationDiagnostics(iter, lambda, metrics.MeanAlignmentError, metrics.MeanAngularErrorDegrees));
             iterationHistory.Add(new LeastSquaresAxisymmetricAlignmentIterationDiagnostics(iter, lambda, metrics.MeanAlignmentError, metrics.MeanAngularErrorDegrees));
             iterationsCompleted = iter;
 
@@ -87,9 +85,9 @@ public sealed class LeastSquaresAxisymmetricAlignmentSolver
             previousCost = metrics.TotalAlignmentError;
         }
 
-        var refinedMetrics = ComputeMetrics(localHolePoints, a, theta, beta, radius, length, localTiltPoint, scale, profile);
+        var refinedMetrics = ComputeMetrics(localHolePoints, a, theta, beta, localTiltPoint, scale, profile);
         var refinedLambda = Softplus(beta) / scale;
-        var points = BuildPoints(localHolePoints, worldHolePoints, frame, a, theta, refinedLambda, radius, length, localTiltPoint, profile);
+        var points = BuildPoints(localHolePoints, worldHolePoints, frame, a, theta, refinedLambda, localTiltPoint, profile);
 
         progress?.Report(new ProjectionProgress(100d, "Least-squares axisymmetric alignment completed."));
 
@@ -97,7 +95,6 @@ public sealed class LeastSquaresAxisymmetricAlignmentSolver
             init.EstimatedTiltWeight,
             refinedLambda,
             points,
-            new LeastSquaresAxisymmetricAlignmentDiagnostics
             new LeastSquaresAxisymmetricAlignmentDiagnostics
             {
                 InitialLambda = init.EstimatedTiltWeight,
@@ -122,8 +119,7 @@ public sealed class LeastSquaresAxisymmetricAlignmentSolver
         IReadOnlyList<double> a,
         IReadOnlyList<double> theta,
         double lambda,
-        double radius,
-        double length,
+        IAxisymmetricSourceProfile profile,
         Point3 localTiltPoint,
         IAxisymmetricSourceProfile? profile = null)
     {
@@ -168,8 +164,7 @@ public sealed class LeastSquaresAxisymmetricAlignmentSolver
         ref double a,
         ref double theta,
         double beta,
-        double radius,
-        double length,
+        IAxisymmetricSourceProfile profile,
         Point3 localTiltPoint,
         double scale,
         IAxisymmetricSourceProfile? profile = null)
@@ -210,8 +205,7 @@ public sealed class LeastSquaresAxisymmetricAlignmentSolver
         IReadOnlyList<double> a,
         IReadOnlyList<double> theta,
         double beta,
-        double radius,
-        double length,
+        IAxisymmetricSourceProfile profile,
         Point3 localTiltPoint,
         double scale,
         IAxisymmetricSourceProfile? profile = null)
@@ -253,8 +247,7 @@ public sealed class LeastSquaresAxisymmetricAlignmentSolver
         IReadOnlyList<double> a,
         IReadOnlyList<double> theta,
         double beta,
-        double radius,
-        double length,
+        IAxisymmetricSourceProfile profile,
         Point3 localTiltPoint,
         double scale,
         IAxisymmetricSourceProfile? profile = null)
@@ -302,8 +295,7 @@ public sealed class LeastSquaresAxisymmetricAlignmentSolver
         IReadOnlyList<double> a,
         IReadOnlyList<double> theta,
         double beta,
-        double radius,
-        double length,
+        IAxisymmetricSourceProfile profile,
         Point3 localTiltPoint,
         double scale,
         IAxisymmetricSourceProfile? profile = null)
@@ -325,8 +317,7 @@ public sealed class LeastSquaresAxisymmetricAlignmentSolver
         double a,
         double theta,
         double beta,
-        double radius,
-        double length,
+        IAxisymmetricSourceProfile profile,
         Point3 localTiltPoint,
         double scale,
         IAxisymmetricSourceProfile? profile = null)
