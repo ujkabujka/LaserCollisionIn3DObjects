@@ -237,10 +237,10 @@ public sealed class ProjectPersistenceCoordinator
                 Length = namedResult.Result.CylindricalSource.Length,
                 LocalTiltPoint = namedResult.Result.CylindricalSource.LocalTiltPoint,
                 EstimatedTiltWeight = namedResult.Result.CylindricalSource.EstimatedTiltWeight,
-                Diagnostics = namedResult.Result.CylindricalSource.Diagnostics is null ? null : new SelfCalibratingCylindricalProjectionDiagnosticsDto
+                Diagnostics = namedResult.Result.CylindricalSource.Diagnostics is null ? null : new SelfCalibratingAxisymmetricProjectionDiagnosticsDto
                 {
                     RegularityWeight = namedResult.Result.CylindricalSource.Diagnostics.RegularityWeight,
-                    CandidateScores = namedResult.Result.CylindricalSource.Diagnostics.CandidateScores.Select(candidate => new SelfCalibratingCylindricalCandidateDiagnosticsDto
+                    CandidateScores = namedResult.Result.CylindricalSource.Diagnostics.CandidateScores.Select(candidate => new SelfCalibratingAxisymmetricCandidateDiagnosticsDto
                     {
                         Lambda = candidate.Lambda,
                         MeanFitError = candidate.MeanFitError,
@@ -465,10 +465,10 @@ public sealed class ProjectPersistenceCoordinator
                         Length = result.CylindricalSource.Length,
                         LocalTiltPoint = result.CylindricalSource.LocalTiltPoint,
                         EstimatedTiltWeight = result.CylindricalSource.EstimatedTiltWeight,
-                        Diagnostics = result.CylindricalSource.Diagnostics is null ? null : new SelfCalibratingCylindricalProjectionDiagnostics
+                        Diagnostics = result.CylindricalSource.Diagnostics is null ? null : new SelfCalibratingAxisymmetricProjectionDiagnostics
                         {
                             RegularityWeight = result.CylindricalSource.Diagnostics.RegularityWeight,
-                            CandidateScores = result.CylindricalSource.Diagnostics.CandidateScores.Select(candidate => new SelfCalibratingCylindricalCandidateDiagnostics(
+                            CandidateScores = result.CylindricalSource.Diagnostics.CandidateScores.Select(candidate => new SelfCalibratingAxisymmetricCandidateDiagnostics(
                                 candidate.Lambda,
                                 candidate.MeanFitError,
                                 candidate.RegularityError,

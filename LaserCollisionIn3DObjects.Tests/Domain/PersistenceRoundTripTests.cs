@@ -410,14 +410,14 @@ public class PersistenceRoundTripTests
                         Name = "Scene SC",
                         Projection = new SceneProjectionStateDto
                         {
-                            SelectedMethodId = ProjectionMethodIds.SelfCalibratingCylindricalSource,
+                            SelectedMethodId = ProjectionMethodIds.SelfCalibratingAxisymmetricSource,
                             Results =
                             [
                                 new ProjectionResultStateDto
                                 {
                                     Key = "k",
                                     Name = "r",
-                                    MethodId = ProjectionMethodIds.SelfCalibratingCylindricalSource,
+                                    MethodId = ProjectionMethodIds.SelfCalibratingAxisymmetricSource,
                                     SourceFrame = new PointSourceFrameStateDto
                                     {
                                         Origin = new Point3(0, 0, 0),
@@ -438,12 +438,12 @@ public class PersistenceRoundTripTests
                                         Length = 6,
                                         LocalTiltPoint = new Point3(1, 2, 3),
                                         EstimatedTiltWeight = 0.42,
-                                        Diagnostics = new SelfCalibratingCylindricalProjectionDiagnosticsDto
+                                        Diagnostics = new SelfCalibratingAxisymmetricProjectionDiagnosticsDto
                                         {
                                             RegularityWeight = 0.1,
                                             CandidateScores =
                                             [
-                                                new SelfCalibratingCylindricalCandidateDiagnosticsDto
+                                                new SelfCalibratingAxisymmetricCandidateDiagnosticsDto
                                                 {
                                                     Lambda = 0.42,
                                                     MeanFitError = 0.01,

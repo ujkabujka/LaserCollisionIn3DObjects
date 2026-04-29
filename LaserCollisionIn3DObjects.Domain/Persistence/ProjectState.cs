@@ -160,7 +160,7 @@ public sealed class CylindricalProjectionStateDto
     public double Length { get; set; }
     public Point3? LocalTiltPoint { get; set; }
     public double? EstimatedTiltWeight { get; set; }
-    public SelfCalibratingCylindricalProjectionDiagnosticsDto? Diagnostics { get; set; }
+    public SelfCalibratingAxisymmetricProjectionDiagnosticsDto? Diagnostics { get; set; }
     public LeastSquaresCylindricalAlignmentDiagnosticsDto? LeastSquaresDiagnostics { get; set; }
     public List<CylindricalProjectionPointStateDto> Points { get; set; } = new();
 }
@@ -181,13 +181,13 @@ public sealed class CylindricalProjectionPointStateDto
     public double? AngularErrorDegrees { get; set; }
 }
 
-public sealed class SelfCalibratingCylindricalProjectionDiagnosticsDto
+public sealed class SelfCalibratingAxisymmetricProjectionDiagnosticsDto
 {
     public double RegularityWeight { get; set; }
-    public List<SelfCalibratingCylindricalCandidateDiagnosticsDto> CandidateScores { get; set; } = new();
+    public List<SelfCalibratingAxisymmetricCandidateDiagnosticsDto> CandidateScores { get; set; } = new();
 }
 
-public sealed class SelfCalibratingCylindricalCandidateDiagnosticsDto
+public sealed class SelfCalibratingAxisymmetricCandidateDiagnosticsDto
 {
     public double Lambda { get; set; }
     public double MeanFitError { get; set; }

@@ -3,16 +3,16 @@ using LaserCollisionIn3DObjects.Domain.Geometry;
 
 namespace LaserCollisionIn3DObjects.Domain.Projection;
 
-public sealed class SelfCalibratingCylindricalProjectionSolver
+public sealed class SelfCalibratingAxisymmetricProjectionSolver
 {
     private const double TwoPi = Math.PI * 2d;
     private const double Epsilon = 1e-9;
 
-    public SelfCalibratingCylindricalProjectionSolverSettings Settings { get; }
+    public SelfCalibratingAxisymmetricProjectionSolverSettings Settings { get; }
 
-    public SelfCalibratingCylindricalProjectionSolver(SelfCalibratingCylindricalProjectionSolverSettings? settings = null)
+    public SelfCalibratingAxisymmetricProjectionSolver(SelfCalibratingAxisymmetricProjectionSolverSettings? settings = null)
     {
-        Settings = settings ?? SelfCalibratingCylindricalProjectionSolverSettings.Default;
+        Settings = settings ?? SelfCalibratingAxisymmetricProjectionSolverSettings.Default;
     }
 
     public SelfCalibratingSolveResult Solve(
@@ -24,8 +24,9 @@ public sealed class SelfCalibratingCylindricalProjectionSolver
         IReadOnlyList<Point3> worldHolePoints,
         IProgress<ProjectionProgress>? progress = null)
     {
+        IAxisymmetricSourceProfile profile = new CylindricalSourceProfile((float)radius, (float)length);
         var scale = Math.Max(Math.Max(radius, length), Math.Max(Math.Sqrt(Math.Pow(localTiltPoint.X - (length * 0.5d), 2d) + Math.Pow(localTiltPoint.Y, 2d) + Math.Pow(localTiltPoint.Z, 2d)), Epsilon));
-        var candidateDiagnostics = new List<SelfCalibratingCylindricalCandidateDiagnostics>(Settings.KappaCandidates.Count);
+        var candidateDiagnostics = new List<SelfCalibratingAxisymmetricCandidateDiagnostics>(Settings.KappaCandidates.Count);
 
         CandidateResult? best = null;
 
@@ -46,7 +47,7 @@ public sealed class SelfCalibratingCylindricalProjectionSolver
                     progress?.Report(new ProjectionProgress((coarse + (fine / Settings.KappaCandidates.Count)) * 100d, $"Reconstructing hole {i + 1}/{localHolePoints.Count}..."));
                 }
 
-                var solved = SolveSingleHole(localHolePoints[i], lambda, radius, length, localTiltPoint);
+                var solved = SolveSingleHole(localHolePoints[i], lambda, profile, localTiltPoint);
                 fitErrorSum += solved.FitError;
 
                 var sourceWorld = ToWorld(solved.SourceLocal, frame);
@@ -63,7 +64,7 @@ public sealed class SelfCalibratingCylindricalProjectionSolver
                     LocalU = solved.U,
                     LocalTheta = solved.Theta,
                     UnwrappedU = solved.U,
-                    UnwrappedV = radius * solved.Theta,
+                    UnwrappedV = profile.RadiusAt((float)solved.U) * solved.Theta,
                     FitError = solved.FitError,
                 });
             }
@@ -71,7 +72,7 @@ public sealed class SelfCalibratingCylindricalProjectionSolver
             var meanFit = fitErrorSum / Math.Max(localHolePoints.Count, 1);
             var regularity = ComputeRegularity(points);
             var score = meanFit + (Settings.RegularityWeight * regularity);
-            candidateDiagnostics.Add(new SelfCalibratingCylindricalCandidateDiagnostics(lambda, meanFit, regularity, score));
+            candidateDiagnostics.Add(new SelfCalibratingAxisymmetricCandidateDiagnostics(lambda, meanFit, regularity, score));
 
             if (best is null || score < best.Score)
             {
@@ -89,14 +90,14 @@ public sealed class SelfCalibratingCylindricalProjectionSolver
         return new SelfCalibratingSolveResult(
             best.Lambda,
             best.Points,
-            new SelfCalibratingCylindricalProjectionDiagnostics
+            new SelfCalibratingAxisymmetricProjectionDiagnostics
             {
                 CandidateScores = candidateDiagnostics,
                 RegularityWeight = Settings.RegularityWeight,
             });
     }
 
-    private SolvedPoint SolveSingleHole(Point3 holeLocal, double lambda, double radius, double length, Point3 localTiltPoint)
+    private SolvedPoint SolveSingleHole(Point3 holeLocal, double lambda, IAxisymmetricSourceProfile profile, Point3 localTiltPoint)
     {
         var bestU = 0d;
         var bestTheta = 0d;
@@ -104,11 +105,11 @@ public sealed class SelfCalibratingCylindricalProjectionSolver
 
         for (var iu = 0; iu < Settings.AxialSamples; iu++)
         {
-            var u = (length * iu) / (Settings.AxialSamples - 1d);
+            var u = (profile.Length * iu) / (Settings.AxialSamples - 1d);
             for (var it = 0; it < Settings.AngularSamples; it++)
             {
                 var theta = (TwoPi * it) / Settings.AngularSamples;
-                var errorSq = PointToRayError(holeLocal, u, theta, lambda, radius, localTiltPoint);
+                var errorSq = PointToRayError(holeLocal, u, theta, lambda, profile, localTiltPoint);
                 if (errorSq < bestErrorSq)
                 {
                     bestErrorSq = errorSq;
@@ -118,7 +119,7 @@ public sealed class SelfCalibratingCylindricalProjectionSolver
             }
         }
 
-        var uStep = length / Math.Max(1d, Settings.AxialSamples - 1d);
+        var uStep = profile.Length / Math.Max(1d, Settings.AxialSamples - 1d);
         var tStep = TwoPi / Math.Max(1d, Settings.AngularSamples);
 
         for (var iteration = 0; iteration < Settings.RefinementIterations; iteration++)
@@ -126,11 +127,11 @@ public sealed class SelfCalibratingCylindricalProjectionSolver
             var candidateImproved = false;
             foreach (var uCandidate in new[] { bestU - uStep, bestU, bestU + uStep })
             {
-                var clampedU = Math.Clamp(uCandidate, 0d, length);
+                var clampedU = Math.Clamp(uCandidate, 0d, profile.Length);
                 foreach (var tCandidate in new[] { bestTheta - tStep, bestTheta, bestTheta + tStep })
                 {
                     var wrappedTheta = WrapTheta(tCandidate);
-                    var errorSq = PointToRayError(holeLocal, clampedU, wrappedTheta, lambda, radius, localTiltPoint);
+                    var errorSq = PointToRayError(holeLocal, clampedU, wrappedTheta, lambda, profile, localTiltPoint);
                     if (errorSq < bestErrorSq)
                     {
                         bestErrorSq = errorSq;
@@ -148,27 +149,29 @@ public sealed class SelfCalibratingCylindricalProjectionSolver
             }
         }
 
-        var sourceLocal = ParameterizeSurface(bestU, bestTheta, radius, length);
-        var modeledLocalDirection = BuildModeledDirection(bestU, bestTheta, lambda, radius, localTiltPoint);
+        var sourceLocal = ParameterizeSurface(profile, bestU, bestTheta);
+        var modeledLocalDirection = BuildModeledDirection(profile, bestU, bestTheta, lambda, localTiltPoint);
 
         return new SolvedPoint(bestU, bestTheta, sourceLocal, modeledLocalDirection, Math.Sqrt(bestErrorSq));
     }
 
-    public static Point3 ParameterizeSurface(double u, double theta, double radius, double length)
+    public static Point3 ParameterizeSurface(IAxisymmetricSourceProfile profile, double u, double theta)
     {
-        var clampedU = Math.Clamp(u, 0d, length);
+        var clampedU = Math.Clamp(u, 0d, profile.Length);
         var wrappedTheta = WrapTheta(theta);
-        return new Point3(clampedU, radius * Math.Cos(wrappedTheta), radius * Math.Sin(wrappedTheta));
+        var p = profile.EvaluateSurfacePoint((float)clampedU, (float)wrappedTheta);
+        return new Point3(p.X, p.Y, p.Z);
     }
 
-    public static Vector3D BuildModeledDirection(double u, double theta, double lambda, double radius, Point3 localTiltPoint)
+    public static Vector3D BuildModeledDirection(IAxisymmetricSourceProfile profile, double u, double theta, double lambda, Point3 localTiltPoint)
     {
         var wrappedTheta = WrapTheta(theta);
-        var surface = new Point3(u, radius * Math.Cos(wrappedTheta), radius * Math.Sin(wrappedTheta));
+        var surface = ParameterizeSurface(profile, u, wrappedTheta);
+        var baseDirection = profile.EvaluateBaseDirection((float)u, (float)wrappedTheta);
         var raw = new Vector3(
-            (float)(lambda * (surface.X - localTiltPoint.X)),
-            (float)(Math.Cos(wrappedTheta) + (lambda * (surface.Y - localTiltPoint.Y))),
-            (float)(Math.Sin(wrappedTheta) + (lambda * (surface.Z - localTiltPoint.Z))));
+            baseDirection.X + (float)(lambda * (surface.X - localTiltPoint.X)),
+            baseDirection.Y + (float)(lambda * (surface.Y - localTiltPoint.Y)),
+            baseDirection.Z + (float)(lambda * (surface.Z - localTiltPoint.Z)));
 
         if (raw.LengthSquared() <= 0f)
         {
@@ -179,10 +182,10 @@ public sealed class SelfCalibratingCylindricalProjectionSolver
         return new Vector3D(normalized.X, normalized.Y, normalized.Z);
     }
 
-    public static double PointToRayError(Point3 localHole, double u, double theta, double lambda, double radius, Point3 localTiltPoint)
+    public static double PointToRayError(Point3 localHole, double u, double theta, double lambda, IAxisymmetricSourceProfile profile, Point3 localTiltPoint)
     {
-        var source = ParameterizeSurface(u, theta, radius, length: double.MaxValue);
-        var direction = BuildModeledDirection(u, theta, lambda, radius, localTiltPoint);
+        var source = ParameterizeSurface(profile, u, theta);
+        var direction = BuildModeledDirection(profile, u, theta, lambda, localTiltPoint);
 
         var px = localHole.X - source.X;
         var py = localHole.Y - source.Y;
@@ -277,4 +280,4 @@ public sealed class SelfCalibratingCylindricalProjectionSolver
 public sealed record SelfCalibratingSolveResult(
     double EstimatedTiltWeight,
     IReadOnlyList<CylindricalProjectionPoint> Points,
-    SelfCalibratingCylindricalProjectionDiagnostics Diagnostics);
+    SelfCalibratingAxisymmetricProjectionDiagnostics Diagnostics);

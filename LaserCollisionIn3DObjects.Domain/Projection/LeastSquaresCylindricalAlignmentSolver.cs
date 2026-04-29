@@ -26,12 +26,12 @@ public sealed class LeastSquaresCylindricalAlignmentSolver
     {
         progress?.Report(new ProjectionProgress(0d, "Initializing least-squares cylindrical alignment..."));
 
-        var initSolver = new SelfCalibratingCylindricalProjectionSolver(new SelfCalibratingCylindricalProjectionSolverSettings
+        var initSolver = new SelfCalibratingAxisymmetricProjectionSolver(new SelfCalibratingAxisymmetricProjectionSolverSettings
         {
-            KappaCandidates = SelfCalibratingCylindricalProjectionSolverSettings.Default.KappaCandidates,
-            AxialSamples = SelfCalibratingCylindricalProjectionSolverSettings.Default.AxialSamples,
-            AngularSamples = SelfCalibratingCylindricalProjectionSolverSettings.Default.AngularSamples,
-            RefinementIterations = SelfCalibratingCylindricalProjectionSolverSettings.Default.RefinementIterations,
+            KappaCandidates = SelfCalibratingAxisymmetricProjectionSolverSettings.Default.KappaCandidates,
+            AxialSamples = SelfCalibratingAxisymmetricProjectionSolverSettings.Default.AxialSamples,
+            AngularSamples = SelfCalibratingAxisymmetricProjectionSolverSettings.Default.AngularSamples,
+            RefinementIterations = SelfCalibratingAxisymmetricProjectionSolverSettings.Default.RefinementIterations,
             RegularityWeight = 0d,
         });
 

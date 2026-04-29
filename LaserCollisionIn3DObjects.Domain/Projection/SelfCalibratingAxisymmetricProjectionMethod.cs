@@ -2,25 +2,25 @@ using LaserCollisionIn3DObjects.Domain.Geometry;
 
 namespace LaserCollisionIn3DObjects.Domain.Projection;
 
-public sealed class SelfCalibratingCylindricalProjectionMethod : IProjectionMethod
+public sealed class SelfCalibratingAxisymmetricProjectionMethod : IProjectionMethod
 {
     public ProjectionMethodMetadata Metadata { get; } = new(
-        ProjectionMethodIds.SelfCalibratingCylindricalSource,
+        ProjectionMethodIds.SelfCalibratingAxisymmetricSource,
         "Self-calibrating cylindrical inverse projection",
         "Fits source-surface points on a cylinder and estimates one global tilt weight from all hole points.");
 
-    private readonly SelfCalibratingCylindricalProjectionSolver _solver;
+    private readonly SelfCalibratingAxisymmetricProjectionSolver _solver;
 
-    public SelfCalibratingCylindricalProjectionMethod(SelfCalibratingCylindricalProjectionSolver? solver = null)
+    public SelfCalibratingAxisymmetricProjectionMethod(SelfCalibratingAxisymmetricProjectionSolver? solver = null)
     {
-        _solver = solver ?? new SelfCalibratingCylindricalProjectionSolver();
+        _solver = solver ?? new SelfCalibratingAxisymmetricProjectionSolver();
     }
 
     public ProjectionComputationResult Execute(ProjectionRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);
 
-        if (request.Parameters is not SelfCalibratingCylindricalProjectionParameters parameters)
+        if (request.Parameters is not SelfCalibratingAxisymmetricProjectionParameters parameters)
         {
             throw new ArgumentException("Self-calibrating cylindrical projection requires self-calibrating cylindrical parameters.", nameof(request));
         }

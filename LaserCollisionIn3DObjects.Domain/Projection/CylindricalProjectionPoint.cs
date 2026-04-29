@@ -30,21 +30,21 @@ public sealed class CylindricalProjectionState
 
     public double? EstimatedTiltWeight { get; init; }
 
-    public SelfCalibratingCylindricalProjectionDiagnostics? Diagnostics { get; init; }
+    public SelfCalibratingAxisymmetricProjectionDiagnostics? Diagnostics { get; init; }
 
     public LeastSquaresCylindricalAlignmentDiagnostics? LeastSquaresDiagnostics { get; init; }
 
     public required IReadOnlyList<CylindricalProjectionPoint> Points { get; init; }
 }
 
-public sealed class SelfCalibratingCylindricalProjectionDiagnostics
+public sealed class SelfCalibratingAxisymmetricProjectionDiagnostics
 {
-    public required IReadOnlyList<SelfCalibratingCylindricalCandidateDiagnostics> CandidateScores { get; init; }
+    public required IReadOnlyList<SelfCalibratingAxisymmetricCandidateDiagnostics> CandidateScores { get; init; }
 
     public double RegularityWeight { get; init; }
 }
 
-public sealed record SelfCalibratingCylindricalCandidateDiagnostics(
+public sealed record SelfCalibratingAxisymmetricCandidateDiagnostics(
     double Lambda,
     double MeanFitError,
     double RegularityError,
