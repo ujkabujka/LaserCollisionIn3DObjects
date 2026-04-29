@@ -144,4 +144,36 @@ public sealed class SelfCalibratingCylindricalProjectionMethodTests
         var rays = result.GetEffectiveRays();
         Assert.Single(rays);
     }
+
+    [Theory]
+    [InlineData(AxisymmetricSourceKind.Cylinder)]
+    [InlineData(AxisymmetricSourceKind.ConicalFrustum)]
+    [InlineData(AxisymmetricSourceKind.CircularOgive)]
+    [InlineData(AxisymmetricSourceKind.Hybrid)]
+    public void Method_ProducesFiniteFitErrorAcrossGeometries(AxisymmetricSourceKind geometryKind)
+    {
+        var holes = BuildAxisymmetricHoles(geometryKind);
+        var result = new SelfCalibratingCylindricalProjectionMethod().Execute(new ProjectionRequest
+        {
+            HolePoints = holes,
+            Parameters = new SelfCalibratingCylindricalProjectionParameters(new Point3(0, 0, 0), new Vector3D(1, 0, 0), new Vector3D(0, 1, 0), 1d, 8d, new Point3(0, 0, 0)),
+        });
+
+        var points = Assert.IsType<CylindricalProjectionState>(result.CylindricalSource).Points;
+        Assert.All(points, point => Assert.True(double.IsFinite(point.FitError ?? double.NaN)));
+    }
+
+    private static List<Point3> BuildAxisymmetricHoles(AxisymmetricSourceKind kind)
+    {
+        var holes = new List<Point3>();
+        foreach (var (u, theta) in new[] { (1d, 0.2d), (3d, 1.1d), (5d, 2.2d), (7d, 4.1d) })
+        {
+            var lambda = kind == AxisymmetricSourceKind.Cylinder ? 0.08d : 0.12d;
+            var source = SelfCalibratingCylindricalProjectionSolver.ParameterizeSurface(u, theta, 1d, 8d);
+            var direction = SelfCalibratingCylindricalProjectionSolver.BuildModeledDirection(u, theta, lambda, 1d, new Point3(0, 0, 0));
+            holes.Add(new Point3(source.X + (direction.X * 6d), source.Y + (direction.Y * 6d), source.Z + (direction.Z * 6d)));
+        }
+
+        return holes;
+    }
 }
