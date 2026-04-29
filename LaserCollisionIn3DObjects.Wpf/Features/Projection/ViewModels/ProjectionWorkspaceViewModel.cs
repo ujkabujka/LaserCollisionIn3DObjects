@@ -44,8 +44,6 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
     private double _geometryArcRadius = 20;
     private OgiveCurvatureDirection _geometryOgiveCurvatureDirection = OgiveCurvatureDirection.Outward;
     private HybridSourceSegmentItemViewModel? _selectedHybridSegment;
-    private int _hybridRayCount = 200;
-    private float _hybridTiltWeight = 0.1f;
 
     public ProjectionWorkspaceViewModel(
         SceneCollectionService sceneCollectionService,
@@ -113,9 +111,9 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
 
     public double CylindricalRadius { get; set; } = 1;
     public double CylindricalLength { get; set; } = 10;
-    public double TiltPointX { get; set; }
-    public double TiltPointY { get; set; }
-    public double TiltPointZ { get; set; }
+    public double TiltPointX { get => _tiltPointX; set => SetGeometryProperty(ref _tiltPointX, value); }
+    public double TiltPointY { get => _tiltPointY; set => SetGeometryProperty(ref _tiltPointY, value); }
+    public double TiltPointZ { get => _tiltPointZ; set => SetGeometryProperty(ref _tiltPointZ, value); }
 
     public AxisymmetricSourceKind[] AxisymmetricSourceKinds { get; } = Enum.GetValues<AxisymmetricSourceKind>();
     public AxisymmetricSourceKind SelectedProjectionGeometryKind
@@ -165,18 +163,15 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
     }
     public HybridAxisymmetricSourceSegmentKind[] HybridSegmentKinds { get; } = Enum.GetValues<HybridAxisymmetricSourceSegmentKind>();
     public OgiveCurvatureDirection[] OgiveCurvatureDirections { get; } = Enum.GetValues<OgiveCurvatureDirection>();
-    public int HybridRayCount { get => _hybridRayCount; set => SetProperty(ref _hybridRayCount, value); }
-    public float HybridTiltWeight { get => _hybridTiltWeight; set => SetProperty(ref _hybridTiltWeight, value); }
-    public float HybridTiltPointX { get; set; }
-    public float HybridTiltPointY { get; set; }
-    public float HybridTiltPointZ { get; set; }
+    private double _tiltPointX;
+    private double _tiltPointY;
+    private double _tiltPointZ;
 
     public bool IsPointSourceMethodSelected => string.Equals(SelectedMethod?.Id, ProjectionMethodIds.PointSource, StringComparison.OrdinalIgnoreCase);
     public bool IsAxisymmetricSourceMethodSelected => string.Equals(SelectedMethod?.Id, ProjectionMethodIds.AxisymmetricSource, StringComparison.OrdinalIgnoreCase);
     public bool IsSelfCalibratingAxisymmetricMethodSelected => string.Equals(SelectedMethod?.Id, ProjectionMethodIds.SelfCalibratingAxisymmetricSource, StringComparison.OrdinalIgnoreCase);
     public bool IsLeastSquaresAxisymmetricAlignmentMethodSelected => string.Equals(SelectedMethod?.Id, ProjectionMethodIds.LeastSquaresAxisymmetricAlignmentSource, StringComparison.OrdinalIgnoreCase);
     public bool IsAnyAxisymmetricMethodSelected => IsAxisymmetricSourceMethodSelected || IsSelfCalibratingAxisymmetricMethodSelected || IsLeastSquaresAxisymmetricAlignmentMethodSelected;
-    public bool IsTiltPointVisibleForSelectedMethod => IsSelfCalibratingAxisymmetricMethodSelected || IsLeastSquaresAxisymmetricAlignmentMethodSelected;
 
     public bool IsProjectionRunning
     {
@@ -266,7 +261,6 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
             RaisePropertyChanged(nameof(IsSelfCalibratingAxisymmetricMethodSelected));
             RaisePropertyChanged(nameof(IsLeastSquaresAxisymmetricAlignmentMethodSelected));
             RaisePropertyChanged(nameof(IsAnyAxisymmetricMethodSelected));
-            RaisePropertyChanged(nameof(IsTiltPointVisibleForSelectedMethod));
             RaiseCanExecuteChanged();
         }
     }
@@ -334,11 +328,9 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
                 ArcRadius = segment.IsOgive ? segment.ArcRadius : null,
                 OgiveCurvatureDirection = segment.OgiveCurvatureDirection,
             }).ToList(),
-            HybridRayCount = HybridRayCount,
-            HybridTiltWeight = HybridTiltWeight,
-            HybridTiltPointX = HybridTiltPointX,
-            HybridTiltPointY = HybridTiltPointY,
-            HybridTiltPointZ = HybridTiltPointZ,
+            TiltPointX = (float)TiltPointX,
+            TiltPointY = (float)TiltPointY,
+            TiltPointZ = (float)TiltPointZ,
         };
     }
 
@@ -383,11 +375,9 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
         }
         EnsureDefaultHybridSegment();
 
-        HybridRayCount = state.HybridRayCount > 0 ? state.HybridRayCount : HybridRayCount;
-        HybridTiltWeight = state.HybridTiltWeight;
-        HybridTiltPointX = state.HybridTiltPointX;
-        HybridTiltPointY = state.HybridTiltPointY;
-        HybridTiltPointZ = state.HybridTiltPointZ;
+        TiltPointX = state.TiltPointX != 0f ? state.TiltPointX : state.HybridTiltPointX;
+        TiltPointY = state.TiltPointY != 0f ? state.TiltPointY : state.HybridTiltPointY;
+        TiltPointZ = state.TiltPointZ != 0f ? state.TiltPointZ : state.HybridTiltPointZ;
 
         SelectedScene = AvailableScenes.FirstOrDefault(scene => scene.Name == state.SelectedSceneName)
             ?? AvailableScenes.FirstOrDefault();
@@ -752,7 +742,13 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
         var scene = SelectedScene;
         var holePoints = scene?.HolePoints?.ToList() ?? new List<Point3>();
         var result = scene?.ProjectionState.SelectedResult;
-        _projectionRenderSyncService.SyncProjectionScene(holePoints, result, BuildSelectedProjectionGeometryProfile(), BuildPreviewFrame(), previewAsGhost: result is null);
+        _projectionRenderSyncService.SyncProjectionScene(
+            holePoints,
+            result,
+            BuildSelectedProjectionGeometryProfile(),
+            BuildPreviewFrame(),
+            previewAsGhost: true,
+            previewTiltPointLocal: new Point3(TiltPointX, TiltPointY, TiltPointZ));
     }
 
     private void OnScenesCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e) => RefreshAvailableScenes();
@@ -1009,6 +1005,17 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
             return;
         }
 
+        var selectedResult = SelectedResult?.Result;
+        var rayCount = selectedResult?.GetEffectiveRays().Count ?? 0;
+        if (rayCount <= 0)
+        {
+            SetStatus("Run or select a projection result first so the collision source can use the reconstructed ray count.", ApplicationLogLevel.Warning);
+            return;
+        }
+
+        var tiltWeight = selectedResult?.AxisymmetricSource?.EstimatedTiltWeight is double estimatedTiltWeight
+            ? (float)estimatedTiltWeight
+            : 0f;
         var frame = BuildPreviewFrame();
         var source = new CylindricalLightSourceItemViewModel
         {
@@ -1031,11 +1038,11 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
             Length = (float)GeometryLength,
             ArcRadius = (float)GeometryArcRadius,
             OgiveCurvatureDirection = GeometryOgiveCurvatureDirection,
-            RayCount = HybridRayCount,
-            TiltWeight = HybridTiltWeight,
-            TiltPointX = HybridTiltPointX,
-            TiltPointY = HybridTiltPointY,
-            TiltPointZ = HybridTiltPointZ,
+            RayCount = rayCount,
+            TiltWeight = tiltWeight,
+            TiltPointX = (float)TiltPointX,
+            TiltPointY = (float)TiltPointY,
+            TiltPointZ = (float)TiltPointZ,
         };
 
         if (SelectedAxisymmetricSourceKind == AxisymmetricSourceKind.Hybrid)
