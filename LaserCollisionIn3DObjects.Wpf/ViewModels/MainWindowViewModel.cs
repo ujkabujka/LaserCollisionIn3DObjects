@@ -172,6 +172,7 @@ public sealed class MainWindowViewModel : ObservableObject
     public ObservableCollection<PrismItemViewModel> Prisms => SelectedScene?.Prisms ?? EmptyPrisms;
     public ObservableCollection<RayItemViewModel> Rays => SelectedScene?.Rays ?? EmptyRays;
     public ObservableCollection<CylindricalLightSourceItemViewModel> LightSources => SelectedScene?.LightSources ?? EmptyLightSources;
+    public ObservableCollection<ProjectedLightSourceItemViewModel> ProjectedLightSources => SelectedScene?.ProjectedLightSources ?? EmptyProjectedLightSources;
     public ObservableCollection<HitResultItemViewModel> HitResults => SelectedScene?.HitResults ?? EmptyHitResults;
 
     public PrismArrayPlacementMode[] PrismArrayPlacementModes { get; } = Enum.GetValues<PrismArrayPlacementMode>();
@@ -1450,6 +1451,7 @@ public sealed class MainWindowViewModel : ObservableObject
         RaisePropertyChanged(nameof(Prisms));
         RaisePropertyChanged(nameof(Rays));
         RaisePropertyChanged(nameof(LightSources));
+        RaisePropertyChanged(nameof(ProjectedLightSources));
         RaisePropertyChanged(nameof(HitResults));
         RaisePropertyChanged(nameof(SelectedPrism));
         RaisePropertyChanged(nameof(SelectedRay));

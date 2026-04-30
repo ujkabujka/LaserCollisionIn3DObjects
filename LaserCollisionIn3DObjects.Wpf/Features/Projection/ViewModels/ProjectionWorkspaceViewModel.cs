@@ -45,6 +45,7 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
     private double _geometryArcRadius = 20;
     private OgiveCurvatureDirection _geometryOgiveCurvatureDirection = OgiveCurvatureDirection.Outward;
     private HybridSourceSegmentItemViewModel? _selectedHybridSegment;
+    private CollisionSceneViewModel? _selectedTargetCollisionScene;
 
     public ProjectionWorkspaceViewModel(
         SceneCollectionService sceneCollectionService,
@@ -77,16 +78,18 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
         DeleteSelectedProjectionSceneCommand = new RelayCommand(DeleteSelectedProjectionScene, () => CanDeleteSelectedProjectionScene);
         AddHybridSegmentCommand = new RelayCommand(AddHybridSegment);
         RemoveSelectedHybridSegmentCommand = new RelayCommand(RemoveSelectedHybridSegment, () => SelectedHybridSegment is not null);
-        AddProjectedLightSourceToCollisionSceneCommand = new RelayCommand(AddProjectedLightSourceToCollision, () => SelectedScene is not null);
+        AddProjectedLightSourceToCollisionSceneCommand = new RelayCommand(AddProjectedLightSourceToCollision, CanAddProjectedLightSourceToCollision);
 
         _sceneCollectionService.Scenes.CollectionChanged += OnScenesCollectionChanged;
         AddHybridSegment();
         RefreshAvailableScenes();
+        RefreshTargetCollisionScenes();
     }
 
     public ObservableCollection<ProjectionMethodOptionViewModel> ProjectionMethods { get; }
 
     public ObservableCollection<CollisionSceneViewModel> AvailableScenes { get; } = new();
+    public ObservableCollection<CollisionSceneViewModel> TargetCollisionScenes { get; } = new();
 
     public ICommand RunProjectionCommand { get; }
     public ICommand ImportHitPointsCsvCommand { get; }
@@ -304,6 +307,19 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
         }
     }
 
+
+    public CollisionSceneViewModel? SelectedTargetCollisionScene
+    {
+        get => _selectedTargetCollisionScene;
+        set
+        {
+            if (SetProperty(ref _selectedTargetCollisionScene, value))
+            {
+                RaiseCanExecuteChanged();
+            }
+        }
+    }
+
     public string StatusMessage
     {
         get => _statusMessage;
@@ -445,6 +461,7 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
         _sceneCollectionService.AddScene(scene, selectScene: false);
         EnsureDefaultHybridSegment();
         RefreshAvailableScenes();
+        RefreshTargetCollisionScenes();
         SelectedScene = scene;
 
         SetStatus($"Imported {importResult.HolePoints.Count} hole points into projection scene '{sceneName}'. Skipped {importResult.SkippedRowCount} invalid rows.", ApplicationLogLevel.Success);
@@ -573,6 +590,7 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
         _sceneCollectionService.RemoveScene(SelectedScene);
         EnsureDefaultHybridSegment();
         RefreshAvailableScenes();
+        RefreshTargetCollisionScenes();
         RefreshViewport();
         SetStatus($"Deleted projection scene '{deletedName}'.", ApplicationLogLevel.Success);
     }
@@ -764,7 +782,11 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
             previewTiltPointLocal: new Point3(TiltPointX, TiltPointY, TiltPointZ));
     }
 
-    private void OnScenesCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e) => RefreshAvailableScenes();
+    private void OnScenesCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        RefreshAvailableScenes();
+        RefreshTargetCollisionScenes();
+    }
 
     private void RefreshAvailableScenes()
     {
@@ -781,6 +803,21 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
             : AvailableScenes.FirstOrDefault();
 
         RaiseCanExecuteChanged();
+    }
+
+    private void RefreshTargetCollisionScenes()
+    {
+        var previous = SelectedTargetCollisionScene;
+
+        TargetCollisionScenes.Clear();
+        foreach (var scene in _sceneCollectionService.Scenes.Where(scene => !scene.IsProjectionOnly))
+        {
+            TargetCollisionScenes.Add(scene);
+        }
+
+        SelectedTargetCollisionScene = previous is not null && TargetCollisionScenes.Contains(previous)
+            ? previous
+            : TargetCollisionScenes.FirstOrDefault();
     }
 
     private string ResolveImportedSceneName(string baseName)
@@ -1011,10 +1048,9 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
 
     private void AddProjectedLightSourceToCollision()
     {
-        var scene = SelectedScene;
-        if (scene is null)
+        if (SelectedScene is null)
         {
-            SetStatus("Select a collision scene before adding a projected light source.", ApplicationLogLevel.Warning);
+            SetStatus("Select a projection scene first.", ApplicationLogLevel.Warning);
             return;
         }
 
@@ -1025,6 +1061,20 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
             return;
         }
 
+        var targetScene = SelectedTargetCollisionScene;
+        if (targetScene is null)
+        {
+            SetStatus("Select a target collision scene before adding the projected light source.", ApplicationLogLevel.Warning);
+            return;
+        }
+
+        if (targetScene.IsProjectionOnly)
+        {
+            SetStatus("Target scene must be a collision scene, not a projection-only scene.", ApplicationLogLevel.Warning);
+            return;
+        }
+    }
+
         var fallbackProfileDefinition = BuildAxisymmetricSourceProfileDefinition(SelectedMethod?.Method ?? new AxisymmetricSourceProjectionMethod());
 
         try
@@ -1033,11 +1083,13 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
                 selectedResult,
                 fallbackProfileDefinition);
 
-            scene.ProjectedLightSources.Add(projectedSource);
+            targetScene.ProjectedLightSources.Add(projectedSource);
+            _sceneCollectionService.SelectedScene = targetScene;
             SetStatus(
-                $"Added projected light source '{projectedSource.Name}' to collision scene with {projectedSource.Rays.Count} exact ray(s).",
+                $"Added projected light source '{projectedSource.Name}' to collision scene '{targetScene.Name}' with {projectedSource.Rays.Count} exact ray(s).",
                 ApplicationLogLevel.Success);
-            _applicationLogService?.LogSuccess($"Added projected light source '{projectedSource.Name}' with {projectedSource.Rays.Count} exact rays.", nameof(ProjectionWorkspaceViewModel));
+            _applicationLogService?.LogSuccess($"Added projected light source '{projectedSource.Name}' with {projectedSource.Rays.Count} exact rays to '{targetScene.Name}'.", nameof(ProjectionWorkspaceViewModel));
+            RaiseCanExecuteChanged();
         }
         catch (InvalidOperationException ex)
         {
@@ -1045,6 +1097,11 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
             _applicationLogService?.LogWarning(ex.Message, nameof(ProjectionWorkspaceViewModel));
         }
     }
+
+    private bool CanAddProjectedLightSourceToCollision() =>
+        SelectedResult is not null
+        && SelectedTargetCollisionScene is not null
+        && !SelectedTargetCollisionScene.IsProjectionOnly;
 
     private static System.Numerics.Quaternion BuildOrientationFromFrame(PointSourceFrameState sourceFrame)
     {

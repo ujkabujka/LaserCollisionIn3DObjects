@@ -84,6 +84,7 @@
 
                             <TextBlock Text="Local Tilt Point"/>
                             <UniformGrid Columns="3" Margin="0,0,0,6"><StackPanel Margin="2"><TextBlock Text="Tilt X"/><TextBox Text="{Binding ProjectionWorkspace.TiltPointX, Converter={StaticResource FlexibleNumericConverter}}"/></StackPanel><StackPanel Margin="2"><TextBlock Text="Tilt Y"/><TextBox Text="{Binding ProjectionWorkspace.TiltPointY, Converter={StaticResource FlexibleNumericConverter}}"/></StackPanel><StackPanel Margin="2"><TextBlock Text="Tilt Z"/><TextBox Text="{Binding ProjectionWorkspace.TiltPointZ, Converter={StaticResource FlexibleNumericConverter}}"/></StackPanel></UniformGrid>
+                            <Grid Margin="0,0,0,6"><Grid.ColumnDefinitions><ColumnDefinition Width="140"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><TextBlock Grid.Column="0" Text="Target Collision Scene" VerticalAlignment="Center"/><ComboBox Grid.Column="1" ItemsSource="{Binding ProjectionWorkspace.TargetCollisionScenes}" SelectedItem="{Binding ProjectionWorkspace.SelectedTargetCollisionScene}" DisplayMemberPath="Name"/></Grid>
                             <Button Content="Add Projected Light Source to Collision Scene" Command="{Binding ProjectionWorkspace.AddProjectedLightSourceToCollisionSceneCommand}" Height="28"/>
                         </StackPanel>
                     </GroupBox>
