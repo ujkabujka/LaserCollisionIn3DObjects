@@ -1,5 +1,6 @@
 using System.Numerics;
 using System.Windows.Media.Media3D;
+using NumericsQuaternion = System.Numerics.Quaternion;
 using HelixToolkit.Wpf;
 using LaserCollisionIn3DObjects.Domain.Collision;
 using LaserCollisionIn3DObjects.Domain.Export;
@@ -45,13 +46,14 @@ public sealed class SceneRenderSyncService
         IReadOnlyList<PrismItemViewModel> prismItems,
         IReadOnlyList<CylindricalLightSourceItemViewModel> lightSourceItems,
         IReadOnlyList<RayItemViewModel> rayItems,
+        IReadOnlyList<ProjectedLightSourceItemViewModel> projectedLightSources,
         IReadOnlyList<Point3> holePoints,
         ProjectionComputationResult? projectionResult,
         string sceneName,
         bool runCollision,
         CollisionAlgorithmOption algorithm)
     {
-        var buildResult = BuildDomainScene(prismItems, lightSourceItems, rayItems, holePoints, projectionResult);
+        var buildResult = BuildDomainScene(prismItems, lightSourceItems, rayItems, projectedLightSources, holePoints, projectionResult);
         var scene = buildResult.Scene;
         var stopwatch = System.Diagnostics.Stopwatch.StartNew();
         var collisionResults = runCollision ? CalculateFirstHits(scene, algorithm) : new List<(DomainRay3D Ray, RayHitResult Hit)>();
@@ -75,6 +77,7 @@ public sealed class SceneRenderSyncService
         IReadOnlyList<PrismItemViewModel> prisms,
         IReadOnlyList<CylindricalLightSourceItemViewModel> lightSources,
         IReadOnlyList<RayItemViewModel> rays,
+        IReadOnlyList<ProjectedLightSourceItemViewModel> projectedLightSources,
         IReadOnlyList<Point3> holePoints,
         ProjectionComputationResult? projectionResult)
     {
@@ -156,6 +159,29 @@ public sealed class SceneRenderSyncService
             raySourceTypes.AddRange(Enumerable.Repeat(sourceType, generatedRays.Count));
         }
 
+
+        foreach (var projectedSource in projectedLightSources)
+        {
+            var frame = BuildFrame(projectedSource.SourceFrame, projectedSource.BaseOrientation);
+            var profile = projectedSource.ProfileDefinition.BuildProfile();
+            var axisymmetricSource = new AxisymmetricLightSource(
+                string.IsNullOrWhiteSpace(projectedSource.Name) ? "Projected Source" : projectedSource.Name,
+                frame,
+                projectedSource.ProfileDefinition.Kind,
+                profile,
+                projectedSource.Rays.Count,
+                0f,
+                Vector3.Zero);
+
+            scene.AxisymmetricLightSources.Add(axisymmetricSource);
+
+            foreach (var projectionRay in projectedSource.Rays)
+            {
+                scene.Rays.Add(projectionRay.Ray);
+                raySourceTypes.Add(CollisionRaySourceType.ProjectionResult);
+            }
+        }
+
         foreach (var ray in rays)
         {
             scene.Rays.Add(
@@ -212,6 +238,26 @@ public sealed class SceneRenderSyncService
         return results;
     }
 
+
+
+    private static Frame3D BuildFrame(PointSourceFrameState sourceFrame, NumericsQuaternion fallbackOrientation)
+    {
+        var x = new Vector3((float)sourceFrame.AxisX.X, (float)sourceFrame.AxisX.Y, (float)sourceFrame.AxisX.Z);
+        var y = new Vector3((float)sourceFrame.AxisY.X, (float)sourceFrame.AxisY.Y, (float)sourceFrame.AxisY.Z);
+        var z = new Vector3((float)sourceFrame.AxisZ.X, (float)sourceFrame.AxisZ.Y, (float)sourceFrame.AxisZ.Z);
+        var matrix = new Matrix4x4(
+            x.X, x.Y, x.Z, 0,
+            y.X, y.Y, y.Z, 0,
+            z.X, z.Y, z.Z, 0,
+            0, 0, 0, 1);
+        var orientation = NumericsQuaternion.CreateFromRotationMatrix(matrix);
+        if (!float.IsFinite(orientation.X) || !float.IsFinite(orientation.Y) || !float.IsFinite(orientation.Z) || !float.IsFinite(orientation.W))
+        {
+            orientation = fallbackOrientation;
+        }
+
+        return new Frame3D(new Vector3((float)sourceFrame.Origin.X, (float)sourceFrame.Origin.Y, (float)sourceFrame.Origin.Z), orientation);
+    }
 
     private static IAxisymmetricSourceProfile BuildAxisymmetricProfile(CylindricalLightSourceItemViewModel lightSource)
     {
