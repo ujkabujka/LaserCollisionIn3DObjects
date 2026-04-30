@@ -1073,6 +1073,7 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
             SetStatus("Target scene must be a collision scene, not a projection-only scene.", ApplicationLogLevel.Warning);
             return;
         }
+    }
 
         var fallbackProfileDefinition = BuildAxisymmetricSourceProfileDefinition(SelectedMethod?.Method ?? new AxisymmetricSourceProjectionMethod());
 
