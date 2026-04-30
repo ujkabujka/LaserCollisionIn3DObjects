@@ -21,7 +21,9 @@ public sealed class ProjectionResultToCollisionSourceService
         // Projected light sources represent reconstructed source solutions.
         // Their rays must be copied exactly from projection results and must not be regenerated from geometry.
         var sourceFrame = selectedResult.Result.AxisymmetricSource?.SourceFrame ?? selectedResult.Result.SourceFrame;
-        var profileDefinition = selectedResult.Result.AxisymmetricSource?.ProfileDefinition ?? fallbackProfileDefinition;
+        // AxisymmetricProjectionState currently does not store the original profile definition.
+        // The Projection Workspace provides the current geometry definition as fallback.
+        var profileDefinition = fallbackProfileDefinition;
 
         var source = new ProjectedLightSourceItemViewModel
         {
