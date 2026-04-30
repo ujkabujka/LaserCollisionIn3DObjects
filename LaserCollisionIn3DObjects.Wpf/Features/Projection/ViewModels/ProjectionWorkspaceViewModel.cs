@@ -68,7 +68,7 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
         _selectedMethod = ProjectionMethods.FirstOrDefault(method => method.Id == ProjectionWorkspaceState.DefaultMethodId)
             ?? ProjectionMethods.FirstOrDefault();
 
-        RunProjectionCommand = new RelayCommand(() => _ = RunProjectionAsync(), CanRunProjection);
+        RunProjectionCommand = new RelayCommand(RunProjection, CanRunProjection);
         ImportHitPointsCsvCommand = new RelayCommand(ImportHitPointsCsv);
         DeleteSelectedResultCommand = new RelayCommand(DeleteSelectedResult, () => SelectedResult is not null);
         DeleteSelectedProjectionSceneCommand = new RelayCommand(DeleteSelectedProjectionScene, () => CanDeleteSelectedProjectionScene);
@@ -447,7 +447,7 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
         SetStatus($"Imported {importResult.HolePoints.Count} hole points into projection scene '{sceneName}'. Skipped {importResult.SkippedRowCount} invalid rows.", ApplicationLogLevel.Success);
     }
 
-    private async Task RunProjectionAsync()
+    private void RunProjection()
     {
         var scene = SelectedScene;
         if (scene is null)
@@ -503,7 +503,7 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
             };
 
             var method = SelectedMethod.Method;
-            var result = await Task.Run(() => method.Execute(request));
+            var result = method.Execute(request);
             var namedResult = SceneProjectionStateUpdater.SaveResult(scene.ProjectionState, NewResultName, result);
             NewResultName = $"Projection Result {scene.ProjectionState.SavedResults.Count + 1}";
             scene.ProjectionState.SelectedMethodId = SelectedMethod.Id;
