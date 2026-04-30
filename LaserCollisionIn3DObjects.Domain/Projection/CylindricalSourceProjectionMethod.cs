@@ -7,8 +7,8 @@ public sealed class AxisymmetricSourceProjectionMethod : IProjectionMethod
 {
     public ProjectionMethodMetadata Metadata { get; } = new(
         ProjectionMethodIds.AxisymmetricSource,
-        "User-defined axisymmetric source",
-        "Projects hole points to an axisymmetric source profile.");
+        "Direct linear projection method",
+        "Directly maps local hole coordinates to the selected axisymmetric source geometry using axial normalization and angular projection. Works with cylinder, conical frustum, circular ogive, and hybrid geometries.");
 
     public ProjectionComputationResult Execute(ProjectionRequest request)
     {
