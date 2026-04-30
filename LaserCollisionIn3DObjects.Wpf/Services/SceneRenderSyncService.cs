@@ -239,7 +239,7 @@ public sealed class SceneRenderSyncService
 
 
 
-    private static Frame3D BuildFrame(PointSourceFrameState sourceFrame, Quaternion fallbackOrientation)
+    private static Frame3D BuildFrame(PointSourceFrameState sourceFrame, System.Numerics.Quaternion fallbackOrientation)
     {
         var x = new Vector3((float)sourceFrame.AxisX.X, (float)sourceFrame.AxisX.Y, (float)sourceFrame.AxisX.Z);
         var y = new Vector3((float)sourceFrame.AxisY.X, (float)sourceFrame.AxisY.Y, (float)sourceFrame.AxisY.Z);
@@ -249,7 +249,7 @@ public sealed class SceneRenderSyncService
             y.X, y.Y, y.Z, 0,
             z.X, z.Y, z.Z, 0,
             0, 0, 0, 1);
-        var orientation = Quaternion.CreateFromRotationMatrix(matrix);
+        var orientation = System.Numerics.Quaternion.CreateFromRotationMatrix(matrix);
         if (!float.IsFinite(orientation.X) || !float.IsFinite(orientation.Y) || !float.IsFinite(orientation.Z) || !float.IsFinite(orientation.W))
         {
             orientation = fallbackOrientation;
