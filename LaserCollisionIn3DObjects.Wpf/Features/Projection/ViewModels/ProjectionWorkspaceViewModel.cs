@@ -68,7 +68,7 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
         _selectedMethod = ProjectionMethods.FirstOrDefault(method => method.Id == ProjectionWorkspaceState.DefaultMethodId)
             ?? ProjectionMethods.FirstOrDefault();
 
-        RunProjectionCommand = new RelayCommand(() => _ = RunProjectionAsync(), CanRunProjection);
+        RunProjectionCommand = new RelayCommand(RunProjection, CanRunProjection);
         ImportHitPointsCsvCommand = new RelayCommand(ImportHitPointsCsv);
         DeleteSelectedResultCommand = new RelayCommand(DeleteSelectedResult, () => SelectedResult is not null);
         DeleteSelectedProjectionSceneCommand = new RelayCommand(DeleteSelectedProjectionScene, () => CanDeleteSelectedProjectionScene);
@@ -447,7 +447,7 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
         SetStatus($"Imported {importResult.HolePoints.Count} hole points into projection scene '{sceneName}'. Skipped {importResult.SkippedRowCount} invalid rows.", ApplicationLogLevel.Success);
     }
 
-    private async Task RunProjectionAsync()
+    private void RunProjection()
     {
         var scene = SelectedScene;
         if (scene is null)
@@ -503,7 +503,7 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
             };
 
             var method = SelectedMethod.Method;
-            var result = await Task.Run(() => method.Execute(request));
+            var result = method.Execute(request);
             var namedResult = SceneProjectionStateUpdater.SaveResult(scene.ProjectionState, NewResultName, result);
             NewResultName = $"Projection Result {scene.ProjectionState.SavedResults.Count + 1}";
             scene.ProjectionState.SelectedMethodId = SelectedMethod.Id;
@@ -902,44 +902,44 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
             return new LaserCollisionIn3DObjects.Domain.Geometry.AxisymmetricSourceProfileDefinition();
         }
 
-        var selectedGeometry = BuildSelectedProjectionGeometryProfile();
-        if (selectedGeometry is null)
+        return SelectedAxisymmetricSourceKind switch
         {
-            throw new InvalidOperationException("Select a valid axisymmetric source geometry before running this projection method.");
-        }
-
-        return selectedGeometry switch
-        {
-            CylindricalSourceProfile cylinder => new LaserCollisionIn3DObjects.Domain.Geometry.AxisymmetricSourceProfileDefinition
+            AxisymmetricSourceKind.Cylinder => new LaserCollisionIn3DObjects.Domain.Geometry.AxisymmetricSourceProfileDefinition
             {
                 Kind = AxisymmetricSourceKind.Cylinder,
-                Radius = cylinder.Radius,
-                Length = cylinder.Length,
-                Height = cylinder.Length,
+                Radius = (float)GeometryRadiusStart,
+                Length = (float)GeometryLength,
+                Height = (float)GeometryLength,
             },
-            ConicalFrustumSourceProfile frustum => new LaserCollisionIn3DObjects.Domain.Geometry.AxisymmetricSourceProfileDefinition
+            AxisymmetricSourceKind.ConicalFrustum => new LaserCollisionIn3DObjects.Domain.Geometry.AxisymmetricSourceProfileDefinition
             {
                 Kind = AxisymmetricSourceKind.ConicalFrustum,
-                RadiusStart = frustum.RadiusStart,
-                RadiusEnd = frustum.RadiusEnd,
-                Length = frustum.Length,
+                RadiusStart = (float)GeometryRadiusStart,
+                RadiusEnd = (float)GeometryRadiusEnd,
+                Length = (float)GeometryLength,
             },
-            CircularOgiveSourceProfile ogive => new LaserCollisionIn3DObjects.Domain.Geometry.AxisymmetricSourceProfileDefinition
+            AxisymmetricSourceKind.CircularOgive => new LaserCollisionIn3DObjects.Domain.Geometry.AxisymmetricSourceProfileDefinition
             {
                 Kind = AxisymmetricSourceKind.CircularOgive,
-                RadiusStart = ogive.RadiusStart,
-                RadiusEnd = ogive.RadiusEnd,
-                Length = ogive.Length,
-                ArcRadius = ogive.ArcRadius,
-                OgiveCurvatureDirection = ogive.CurvatureDirection,
+                RadiusStart = (float)GeometryRadiusStart,
+                RadiusEnd = (float)GeometryRadiusEnd,
+                Length = (float)GeometryLength,
+                ArcRadius = (float)GeometryArcRadius,
+                OgiveCurvatureDirection = GeometryOgiveCurvatureDirection,
             },
-            HybridAxisymmetricSourceProfile hybrid => new LaserCollisionIn3DObjects.Domain.Geometry.AxisymmetricSourceProfileDefinition
+            AxisymmetricSourceKind.Hybrid => new LaserCollisionIn3DObjects.Domain.Geometry.AxisymmetricSourceProfileDefinition
             {
                 Kind = AxisymmetricSourceKind.Hybrid,
-                Length = hybrid.Length,
-                Hybrid = hybrid.Segments.Select(segment => segment.Definition).ToList(),
+                Length = HybridSegments.Sum(segment => segment.Length),
+                Hybrid = HybridSegments.Select(segment => new HybridAxisymmetricSourceSegmentDefinition(
+                    segment.SegmentKind,
+                    segment.Length,
+                    segment.RadiusStart,
+                    segment.RadiusEnd,
+                    segment.IsOgive ? segment.ArcRadius : null,
+                    segment.OgiveCurvatureDirection)).ToList(),
             },
-            _ => throw new InvalidOperationException("Unsupported axisymmetric source geometry profile.")
+            _ => throw new InvalidOperationException($"Unsupported projection geometry kind '{SelectedAxisymmetricSourceKind}'.")
         };
     }
 
