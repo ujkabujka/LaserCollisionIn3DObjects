@@ -142,6 +142,13 @@ public sealed class AxisymmetricSourceProjectionMethodTests
         Assert.All(result.AxisymmetricSource.Points, point => Assert.True(double.IsFinite(point.SourceSurfacePoint.X)));
     }
 
+
+    [Fact]
+    public void Metadata_UsesDirectLinearProjectionMethodDisplayName()
+    {
+        Assert.Equal("Direct linear projection method", _method.Metadata.DisplayName);
+        Assert.Contains("selected axisymmetric source geometry", _method.Metadata.Description, StringComparison.OrdinalIgnoreCase);
+    }
     [Fact]
     public void Registry_IncludesCylindricalMethod()
     {
@@ -174,7 +181,7 @@ public sealed class AxisymmetricSourceProjectionMethodTests
     {
         AxisymmetricSourceKind.Cylinder => new AxisymmetricSourceProfileDefinition { Kind = kind, Radius = 2f, Length = 10f },
         AxisymmetricSourceKind.ConicalFrustum => new AxisymmetricSourceProfileDefinition { Kind = kind, RadiusStart = 2f, RadiusEnd = 3f, Length = 10f },
-        AxisymmetricSourceKind.CircularOgive => new AxisymmetricSourceProfileDefinition { Kind = kind, RadiusStart = 2f, RadiusEnd = 3f, Length = 10f, ArcRadius = 20f, OgiveCurvatureDirection = OgiveCurvatureDirection.Outward },
+        AxisymmetricSourceKind.CircularOgive => new AxisymmetricSourceProfileDefinition { Kind = kind, RadiusStart = 2f, RadiusEnd = 3f, Length = 2f, ArcRadius = 20f, OgiveCurvatureDirection = OgiveCurvatureDirection.Outward },
         AxisymmetricSourceKind.Hybrid => new AxisymmetricSourceProfileDefinition
         {
             Kind = kind,
