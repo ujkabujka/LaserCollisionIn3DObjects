@@ -1,5 +1,5 @@
 using System.Collections.ObjectModel;
-using System.Numerics;
+using NumericsQuaternion = System.Numerics.Quaternion;
 using LaserCollisionIn3DObjects.Domain.Geometry;
 using LaserCollisionIn3DObjects.Wpf.Infrastructure;
 
@@ -52,7 +52,7 @@ public sealed class CylindricalLightSourceItemViewModel : ObservableObject
 
     public ObservableCollection<HybridSourceSegmentItemViewModel> HybridSegments { get; } = new();
 
-    public Quaternion BaseOrientation { get; set; } = Quaternion.Identity;
+    public NumericsQuaternion BaseOrientation { get; set; } = NumericsQuaternion.Identity;
 
     public override string ToString() => Name;
 }

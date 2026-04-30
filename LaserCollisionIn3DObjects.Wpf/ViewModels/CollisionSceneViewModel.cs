@@ -30,6 +30,7 @@ public sealed class CollisionSceneViewModel : ObservableObject
     public ObservableCollection<PrismItemViewModel> Prisms { get; } = new();
     public ObservableCollection<RayItemViewModel> Rays { get; } = new();
     public ObservableCollection<CylindricalLightSourceItemViewModel> LightSources { get; } = new();
+    public ObservableCollection<ProjectedLightSourceItemViewModel> ProjectedLightSources { get; } = new();
     public ObservableCollection<HitResultItemViewModel> HitResults { get; } = new();
     public ObservableCollection<Point3> HolePoints { get; } = new();
     public SceneProjectionState ProjectionState { get; } = new();

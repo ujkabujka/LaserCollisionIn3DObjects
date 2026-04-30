@@ -38,6 +38,7 @@ public sealed class MainWindowViewModel : ObservableObject
     private static readonly ObservableCollection<PrismItemViewModel> EmptyPrisms = new();
     private static readonly ObservableCollection<RayItemViewModel> EmptyRays = new();
     private static readonly ObservableCollection<CylindricalLightSourceItemViewModel> EmptyLightSources = new();
+    private static readonly ObservableCollection<ProjectedLightSourceItemViewModel> EmptyProjectedLightSources = new();
     private static readonly ObservableCollection<HitResultItemViewModel> EmptyHitResults = new();
     private static readonly ObservableCollection<Point3> EmptyHoles = new();
     private readonly SceneRenderSyncService _renderSyncService;
@@ -171,6 +172,7 @@ public sealed class MainWindowViewModel : ObservableObject
     public ObservableCollection<PrismItemViewModel> Prisms => SelectedScene?.Prisms ?? EmptyPrisms;
     public ObservableCollection<RayItemViewModel> Rays => SelectedScene?.Rays ?? EmptyRays;
     public ObservableCollection<CylindricalLightSourceItemViewModel> LightSources => SelectedScene?.LightSources ?? EmptyLightSources;
+    public ObservableCollection<ProjectedLightSourceItemViewModel> ProjectedLightSources => SelectedScene?.ProjectedLightSources ?? EmptyProjectedLightSources;
     public ObservableCollection<HitResultItemViewModel> HitResults => SelectedScene?.HitResults ?? EmptyHitResults;
 
     public PrismArrayPlacementMode[] PrismArrayPlacementModes { get; } = Enum.GetValues<PrismArrayPlacementMode>();
@@ -932,11 +934,12 @@ public sealed class MainWindowViewModel : ObservableObject
             var prisms = scene?.Prisms ?? EmptyPrisms;
             var lightSources = scene?.LightSources ?? EmptyLightSources;
             var rays = scene?.Rays ?? EmptyRays;
+            var projectedLightSources = scene?.ProjectedLightSources ?? EmptyProjectedLightSources;
             var holes = scene?.HolePoints ?? EmptyHoles;
             var projectionResult = scene?.ProjectionState.SelectedResult;
             var sceneName = scene?.Name ?? "Scene";
 
-            var sceneSyncResult = _renderSyncService.SyncScene(prisms, lightSources, rays, holes, projectionResult, sceneName, runCollision, SelectedCollisionAlgorithm);
+            var sceneSyncResult = _renderSyncService.SyncScene(prisms, lightSources, rays, projectedLightSources, holes, projectionResult, sceneName, runCollision, SelectedCollisionAlgorithm);
             var rows = sceneSyncResult.HitRows;
 
             if (scene is not null)
@@ -1448,6 +1451,7 @@ public sealed class MainWindowViewModel : ObservableObject
         RaisePropertyChanged(nameof(Prisms));
         RaisePropertyChanged(nameof(Rays));
         RaisePropertyChanged(nameof(LightSources));
+        RaisePropertyChanged(nameof(ProjectedLightSources));
         RaisePropertyChanged(nameof(HitResults));
         RaisePropertyChanged(nameof(SelectedPrism));
         RaisePropertyChanged(nameof(SelectedRay));
