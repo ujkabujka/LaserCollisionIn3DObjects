@@ -185,6 +185,31 @@ public sealed class ProjectPersistenceCoordinator
                     ArcRadius = segment.IsOgive ? segment.ArcRadius : null,
                     OgiveCurvatureDirection = segment.OgiveCurvatureDirection,
                 }).ToList(),
+            ProjectedLightSources = scene.ProjectedLightSources.Select(source => new ProjectedLightSourceState
+            {
+                Name = source.Name,
+                SourceFrame = new PointSourceFrameStateDto
+                {
+                    Origin = source.SourceFrame.Origin,
+                    AxisX = source.SourceFrame.AxisX,
+                    AxisY = source.SourceFrame.AxisY,
+                    AxisZ = source.SourceFrame.AxisZ,
+                },
+                ProfileDefinition = source.ProfileDefinition,
+                Rays = source.Rays.Select(ray => new ProjectionRayStateDto
+                {
+                    Ray = new RayState
+                    {
+                        OriginX = ray.Ray.Origin.X,
+                        OriginY = ray.Ray.Origin.Y,
+                        OriginZ = ray.Ray.Origin.Z,
+                        DirectionX = ray.Ray.Direction.X,
+                        DirectionY = ray.Ray.Direction.Y,
+                        DirectionZ = ray.Ray.Direction.Z,
+                    },
+                    TargetHolePoint = ray.TargetHolePoint,
+                }).ToList(),
+            }).ToList(),
             }).ToList(),
             HolePoints = scene.HolePoints.ToList(),
             Projection = new SceneProjectionStateDto
@@ -423,6 +448,33 @@ public sealed class ProjectPersistenceCoordinator
                     });
                 }
             }
+        }
+
+        foreach (var projectedSource in sceneState.ProjectedLightSources)
+        {
+            var restored = new ProjectedLightSourceItemViewModel
+            {
+                Name = projectedSource.Name,
+                SourceFrame = new PointSourceFrameState
+                {
+                    Origin = projectedSource.SourceFrame.Origin,
+                    AxisX = projectedSource.SourceFrame.AxisX,
+                    AxisY = projectedSource.SourceFrame.AxisY,
+                    AxisZ = projectedSource.SourceFrame.AxisZ,
+                },
+                ProfileDefinition = projectedSource.ProfileDefinition,
+            };
+
+            foreach (var ray in projectedSource.Rays)
+            {
+                restored.Rays.Add(new ProjectionRay(
+                    new DomainRay3D(
+                        new Vector3(ray.Ray.OriginX, ray.Ray.OriginY, ray.Ray.OriginZ),
+                        new Vector3(ray.Ray.DirectionX, ray.Ray.DirectionY, ray.Ray.DirectionZ)),
+                    ray.TargetHolePoint));
+            }
+
+            scene.ProjectedLightSources.Add(restored);
         }
 
         foreach (var hole in sceneState.HolePoints)
