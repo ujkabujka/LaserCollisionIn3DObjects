@@ -1,5 +1,6 @@
 using System.Numerics;
 using System.Windows.Media.Media3D;
+using NumericsQuaternion = System.Numerics.Quaternion;
 using HelixToolkit.Wpf;
 using LaserCollisionIn3DObjects.Domain.Collision;
 using LaserCollisionIn3DObjects.Domain.Export;

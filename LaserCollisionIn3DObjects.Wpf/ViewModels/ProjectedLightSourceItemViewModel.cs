@@ -1,5 +1,5 @@
 using System.Collections.ObjectModel;
-using System.Numerics;
+using NumericsQuaternion = System.Numerics.Quaternion;
 using LaserCollisionIn3DObjects.Domain.Geometry;
 using LaserCollisionIn3DObjects.Domain.Projection;
 using LaserCollisionIn3DObjects.Wpf.Infrastructure;
@@ -28,5 +28,5 @@ public sealed class ProjectedLightSourceItemViewModel : ObservableObject
 
     public ObservableCollection<ProjectionRay> Rays { get; } = new();
 
-    public Quaternion BaseOrientation { get; set; } = Quaternion.Identity;
+    public NumericsQuaternion BaseOrientation { get; set; } = NumericsQuaternion.Identity;
 }
