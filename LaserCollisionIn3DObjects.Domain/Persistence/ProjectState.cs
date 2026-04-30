@@ -39,6 +39,7 @@ public sealed class SceneState
     public List<RayState> ManualRays { get; set; } = new();
     public List<CylindricalLightSourceState> CylindricalLightSources { get; set; } = new();
     public List<AxisymmetricLightSourceState> LightSources { get; set; } = new();
+    public List<ProjectedLightSourceState> ProjectedLightSources { get; set; } = new();
     public List<Point3> HolePoints { get; set; } = new();
     public SceneProjectionStateDto Projection { get; set; } = new();
 }
@@ -110,6 +111,15 @@ public sealed class AxisymmetricSourceSegmentStateDto
     public float RadiusEnd { get; set; }
     public float? ArcRadius { get; set; }
     public OgiveCurvatureDirection OgiveCurvatureDirection { get; set; } = OgiveCurvatureDirection.Outward;
+}
+
+
+public sealed class ProjectedLightSourceState
+{
+    public string Name { get; set; } = string.Empty;
+    public PointSourceFrameStateDto SourceFrame { get; set; } = new();
+    public AxisymmetricSourceProfileDefinition ProfileDefinition { get; set; } = new();
+    public List<ProjectionRayStateDto> Rays { get; set; } = new();
 }
 
 public sealed class CylindricalLightSourceState

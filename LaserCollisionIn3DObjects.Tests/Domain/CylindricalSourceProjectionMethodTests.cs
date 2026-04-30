@@ -26,6 +26,62 @@ public sealed class AxisymmetricSourceProjectionMethodTests
         Assert.Equal(0d, result.SourceFrame.AxisX.Z, 6);
     }
 
+
+    [Fact]
+    public void Execute_ComputesThetaFromLocalYZ()
+    {
+        var request = BuildRequest(
+            holes: [new Point3(0, 5, 0), new Point3(0, 0, 5), new Point3(0, -5, 0)],
+            origin: new Point3(0, 0, 0),
+            axisX: new Vector3D(1, 0, 0),
+            axisY: new Vector3D(0, 1, 0),
+            radius: 2,
+            length: 10);
+
+        var points = _method.Execute(request).AxisymmetricSource!.Points;
+        Assert.NotNull(points[0].LocalTheta);
+        Assert.NotNull(points[1].LocalTheta);
+        Assert.NotNull(points[2].LocalTheta);
+        Assert.InRange(points[0].LocalTheta!.Value, -1e-6, 1e-6);
+        Assert.InRange(points[1].LocalTheta!.Value, (Math.PI / 2d) - 1e-6, (Math.PI / 2d) + 1e-6);
+        Assert.True(Math.Abs(Math.Abs(points[2].LocalTheta!.Value) - Math.PI) < 1e-6);
+    }
+
+    [Fact]
+    public void Execute_ComputesUFromLocalXRange_NotFromIndex()
+    {
+        var request = BuildRequest(
+            holes: [new Point3(-10, 2, 0), new Point3(0, 2, 0), new Point3(10, 2, 0)],
+            origin: new Point3(0, 0, 0),
+            axisX: new Vector3D(1, 0, 0),
+            axisY: new Vector3D(0, 1, 0),
+            radius: 2,
+            length: 12);
+
+        var points = _method.Execute(request).AxisymmetricSource!.Points;
+        Assert.NotNull(points[0].LocalU);
+        Assert.NotNull(points[1].LocalU);
+        Assert.NotNull(points[2].LocalU);
+        Assert.InRange(points[0].LocalU!.Value, -1e-6, 1e-6);
+        Assert.InRange(points[1].LocalU!.Value, 6d - 1e-6, 6d + 1e-6);
+        Assert.InRange(points[2].LocalU!.Value, 12d - 1e-6, 12d + 1e-6);
+    }
+
+    [Fact]
+    public void Execute_UsesFrameAxesForLocalWorldTransform()
+    {
+        var request = BuildRequest(
+            holes: [new Point3(10, 0, 0), new Point3(10, 1, 0), new Point3(10, 0, 1)],
+            origin: new Point3(10, 0, 0),
+            axisX: new Vector3D(0, 1, 0),
+            axisY: new Vector3D(0, 0, 1),
+            radius: 3,
+            length: 8);
+
+        var result = _method.Execute(request);
+        Assert.All(result.AxisymmetricSource!.Points, point => Assert.True(double.IsFinite(point.SourceSurfacePoint.X)));
+        Assert.All(result.AxisymmetricSource.Points, point => Assert.True(double.IsFinite(point.RayDirection.X)));
+    }
     [Fact]
     public void Execute_RejectsDegenerateFrame()
     {
@@ -142,6 +198,13 @@ public sealed class AxisymmetricSourceProjectionMethodTests
         Assert.All(result.AxisymmetricSource.Points, point => Assert.True(double.IsFinite(point.SourceSurfacePoint.X)));
     }
 
+
+    [Fact]
+    public void Metadata_UsesDirectLinearProjectionMethodDisplayName()
+    {
+        Assert.Equal("Direct linear projection method", _method.Metadata.DisplayName);
+        Assert.Contains("selected axisymmetric source geometry", _method.Metadata.Description, StringComparison.OrdinalIgnoreCase);
+    }
     [Fact]
     public void Registry_IncludesCylindricalMethod()
     {
@@ -174,7 +237,7 @@ public sealed class AxisymmetricSourceProjectionMethodTests
     {
         AxisymmetricSourceKind.Cylinder => new AxisymmetricSourceProfileDefinition { Kind = kind, Radius = 2f, Length = 10f },
         AxisymmetricSourceKind.ConicalFrustum => new AxisymmetricSourceProfileDefinition { Kind = kind, RadiusStart = 2f, RadiusEnd = 3f, Length = 10f },
-        AxisymmetricSourceKind.CircularOgive => new AxisymmetricSourceProfileDefinition { Kind = kind, RadiusStart = 2f, RadiusEnd = 3f, Length = 10f, ArcRadius = 20f, OgiveCurvatureDirection = OgiveCurvatureDirection.Outward },
+        AxisymmetricSourceKind.CircularOgive => new AxisymmetricSourceProfileDefinition { Kind = kind, RadiusStart = 2f, RadiusEnd = 3f, Length = 2f, ArcRadius = 20f, OgiveCurvatureDirection = OgiveCurvatureDirection.Outward },
         AxisymmetricSourceKind.Hybrid => new AxisymmetricSourceProfileDefinition
         {
             Kind = kind,
