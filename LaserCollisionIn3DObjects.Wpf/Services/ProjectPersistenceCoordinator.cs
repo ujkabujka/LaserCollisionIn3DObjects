@@ -150,67 +150,8 @@ public sealed class ProjectPersistenceCoordinator
                 DirectionY = ray.DirectionY,
                 DirectionZ = ray.DirectionZ,
             }).ToList(),
-            LightSources = scene.LightSources.Select(source => new AxisymmetricLightSourceState
-            {
-                Name = source.Name,
-                SourceKind = source.SourceKind,
-                PositionX = source.PositionX,
-                PositionY = source.PositionY,
-                PositionZ = source.PositionZ,
-                RotationX = source.RotationX,
-                RotationY = source.RotationY,
-                RotationZ = source.RotationZ,
-                Radius = source.Radius,
-                Height = source.Height,
-                RadiusStart = source.RadiusStart,
-                RadiusEnd = source.RadiusEnd,
-                Length = source.Length,
-                ArcRadius = source.ArcRadius,
-                OgiveCurvatureDirection = source.OgiveCurvatureDirection,
-                RayCount = source.RayCount,
-                TiltWeight = source.TiltWeight,
-                TiltPointX = source.TiltPointX,
-                TiltPointY = source.TiltPointY,
-                TiltPointZ = source.TiltPointZ,
-                BaseOrientationX = source.BaseOrientation.X,
-                BaseOrientationY = source.BaseOrientation.Y,
-                BaseOrientationZ = source.BaseOrientation.Z,
-                BaseOrientationW = source.BaseOrientation.W,
-                Segments = source.HybridSegments.Select(segment => new AxisymmetricSourceSegmentStateDto
-                {
-                    SegmentKind = segment.SegmentKind,
-                    Length = segment.Length,
-                    RadiusStart = segment.RadiusStart,
-                    RadiusEnd = segment.RadiusEnd,
-                    ArcRadius = segment.IsOgive ? segment.ArcRadius : null,
-                    OgiveCurvatureDirection = segment.OgiveCurvatureDirection,
-                }).ToList(),
-            ProjectedLightSources = scene.ProjectedLightSources.Select(source => new ProjectedLightSourceState
-            {
-                Name = source.Name,
-                SourceFrame = new PointSourceFrameStateDto
-                {
-                    Origin = source.SourceFrame.Origin,
-                    AxisX = source.SourceFrame.AxisX,
-                    AxisY = source.SourceFrame.AxisY,
-                    AxisZ = source.SourceFrame.AxisZ,
-                },
-                ProfileDefinition = source.ProfileDefinition,
-                Rays = source.Rays.Select(ray => new ProjectionRayStateDto
-                {
-                    Ray = new RayState
-                    {
-                        OriginX = ray.Ray.Origin.X,
-                        OriginY = ray.Ray.Origin.Y,
-                        OriginZ = ray.Ray.Origin.Z,
-                        DirectionX = ray.Ray.Direction.X,
-                        DirectionY = ray.Ray.Direction.Y,
-                        DirectionZ = ray.Ray.Direction.Z,
-                    },
-                    TargetHolePoint = ray.TargetHolePoint,
-                }).ToList(),
-            }).ToList(),
-            }).ToList(),
+            LightSources = scene.LightSources.Select(MapGeneratedLightSource).ToList(),
+            ProjectedLightSources = scene.ProjectedLightSources.Select(MapProjectedLightSource).ToList(),
             HolePoints = scene.HolePoints.ToList(),
             Projection = new SceneProjectionStateDto
             {
@@ -219,6 +160,89 @@ public sealed class ProjectPersistenceCoordinator
                 Results = scene.ProjectionState.SavedResults.Select(MapProjectionResult).ToList(),
             },
         };
+    }
+
+    private static AxisymmetricLightSourceState MapGeneratedLightSource(CylindricalLightSourceItemViewModel source)
+    {
+        return new AxisymmetricLightSourceState
+        {
+            Name = source.Name,
+            SourceKind = source.SourceKind,
+            PositionX = source.PositionX,
+            PositionY = source.PositionY,
+            PositionZ = source.PositionZ,
+            RotationX = source.RotationX,
+            RotationY = source.RotationY,
+            RotationZ = source.RotationZ,
+            Radius = source.Radius,
+            Height = source.Height,
+            RadiusStart = source.RadiusStart,
+            RadiusEnd = source.RadiusEnd,
+            Length = source.Length,
+            ArcRadius = source.ArcRadius,
+            OgiveCurvatureDirection = source.OgiveCurvatureDirection,
+            RayCount = source.RayCount,
+            TiltWeight = source.TiltWeight,
+            TiltPointX = source.TiltPointX,
+            TiltPointY = source.TiltPointY,
+            TiltPointZ = source.TiltPointZ,
+            BaseOrientationX = source.BaseOrientation.X,
+            BaseOrientationY = source.BaseOrientation.Y,
+            BaseOrientationZ = source.BaseOrientation.Z,
+            BaseOrientationW = source.BaseOrientation.W,
+            Segments = source.HybridSegments.Select(segment => new AxisymmetricSourceSegmentStateDto
+            {
+                SegmentKind = segment.SegmentKind,
+                Length = segment.Length,
+                RadiusStart = segment.RadiusStart,
+                RadiusEnd = segment.RadiusEnd,
+                ArcRadius = segment.IsOgive ? segment.ArcRadius : null,
+                OgiveCurvatureDirection = segment.OgiveCurvatureDirection,
+            }).ToList(),
+        };
+    }
+
+    private static ProjectedLightSourceState MapProjectedLightSource(ProjectedLightSourceItemViewModel source)
+    {
+        return new ProjectedLightSourceState
+        {
+            Name = source.Name,
+            SourceFrame = new PointSourceFrameStateDto
+            {
+                Origin = source.SourceFrame.Origin,
+                AxisX = source.SourceFrame.AxisX,
+                AxisY = source.SourceFrame.AxisY,
+                AxisZ = source.SourceFrame.AxisZ,
+            },
+            ProfileDefinition = source.ProfileDefinition,
+            Rays = source.Rays.Select(MapProjectionRay).ToList(),
+        };
+    }
+
+    private static ProjectionRayStateDto MapProjectionRay(ProjectionRay ray)
+    {
+        return new ProjectionRayStateDto
+        {
+            Ray = new RayState
+            {
+                OriginX = ray.Ray.Origin.X,
+                OriginY = ray.Ray.Origin.Y,
+                OriginZ = ray.Ray.Origin.Z,
+                DirectionX = ray.Ray.Direction.X,
+                DirectionY = ray.Ray.Direction.Y,
+                DirectionZ = ray.Ray.Direction.Z,
+            },
+            TargetHolePoint = ray.TargetHolePoint,
+        };
+    }
+
+    private static ProjectionRay MapProjectionRay(ProjectionRayStateDto state)
+    {
+        return new ProjectionRay(
+            new DomainRay3D(
+                new Vector3(state.Ray.OriginX, state.Ray.OriginY, state.Ray.OriginZ),
+                new Vector3(state.Ray.DirectionX, state.Ray.DirectionY, state.Ray.DirectionZ)),
+            state.TargetHolePoint);
     }
 
     private static ProjectionResultStateDto MapProjectionResult(NamedProjectionResultState namedResult)
@@ -235,19 +259,7 @@ public sealed class ProjectPersistenceCoordinator
                 AxisY = namedResult.Result.SourceFrame.AxisY,
                 AxisZ = namedResult.Result.SourceFrame.AxisZ,
             },
-            Rays = namedResult.Result.Rays.Select(ray => new ProjectionRayStateDto
-            {
-                Ray = new RayState
-                {
-                    OriginX = ray.Ray.Origin.X,
-                    OriginY = ray.Ray.Origin.Y,
-                    OriginZ = ray.Ray.Origin.Z,
-                    DirectionX = ray.Ray.Direction.X,
-                    DirectionY = ray.Ray.Direction.Y,
-                    DirectionZ = ray.Ray.Direction.Z,
-                },
-                TargetHolePoint = ray.TargetHolePoint,
-            }).ToList(),
+            Rays = namedResult.Result.Rays.Select(MapProjectionRay).ToList(),
             AxisymmetricSource = namedResult.Result.AxisymmetricSource is null ? null : new AxisymmetricProjectionStateDto
             {
                                 SourceFrame = new PointSourceFrameStateDto
@@ -359,48 +371,7 @@ public sealed class ProjectPersistenceCoordinator
         {
             foreach (var source in sceneState.LightSources)
             {
-                scene.LightSources.Add(new CylindricalLightSourceItemViewModel
-                {
-                    Name = source.Name,
-                    SourceKind = source.SourceKind,
-                    PositionX = source.PositionX,
-                    PositionY = source.PositionY,
-                    PositionZ = source.PositionZ,
-                    RotationX = source.RotationX,
-                    RotationY = source.RotationY,
-                    RotationZ = source.RotationZ,
-                    Radius = source.Radius,
-                    Height = source.Height,
-                    RadiusStart = source.RadiusStart,
-                    RadiusEnd = source.RadiusEnd,
-                    Length = source.Length,
-                    ArcRadius = source.ArcRadius,
-                    OgiveCurvatureDirection = source.OgiveCurvatureDirection,
-                    RayCount = source.RayCount,
-                    TiltWeight = source.TiltWeight,
-                    TiltPointX = source.TiltPointX,
-                    TiltPointY = source.TiltPointY,
-                    TiltPointZ = source.TiltPointZ,
-                    BaseOrientation = BaseOrientationPersistence.FromComponents(
-                        source.BaseOrientationX,
-                        source.BaseOrientationY,
-                        source.BaseOrientationZ,
-                        source.BaseOrientationW),
-                });
-
-                var restored = scene.LightSources.Last();
-                foreach (var segment in source.Segments)
-                {
-                    restored.HybridSegments.Add(new HybridSourceSegmentItemViewModel
-                    {
-                        SegmentKind = segment.SegmentKind,
-                        Length = segment.Length,
-                        RadiusStart = segment.RadiusStart,
-                        RadiusEnd = segment.RadiusEnd,
-                        ArcRadius = segment.ArcRadius ?? 20f,
-                        OgiveCurvatureDirection = segment.OgiveCurvatureDirection,
-                    });
-                }
+                scene.LightSources.Add(MapGeneratedLightSource(source));
             }
         }
         else
@@ -452,29 +423,7 @@ public sealed class ProjectPersistenceCoordinator
 
         foreach (var projectedSource in sceneState.ProjectedLightSources)
         {
-            var restored = new ProjectedLightSourceItemViewModel
-            {
-                Name = projectedSource.Name,
-                SourceFrame = new PointSourceFrameState
-                {
-                    Origin = projectedSource.SourceFrame.Origin,
-                    AxisX = projectedSource.SourceFrame.AxisX,
-                    AxisY = projectedSource.SourceFrame.AxisY,
-                    AxisZ = projectedSource.SourceFrame.AxisZ,
-                },
-                ProfileDefinition = projectedSource.ProfileDefinition,
-            };
-
-            foreach (var ray in projectedSource.Rays)
-            {
-                restored.Rays.Add(new ProjectionRay(
-                    new DomainRay3D(
-                        new Vector3(ray.Ray.OriginX, ray.Ray.OriginY, ray.Ray.OriginZ),
-                        new Vector3(ray.Ray.DirectionX, ray.Ray.DirectionY, ray.Ray.DirectionZ)),
-                    ray.TargetHolePoint));
-            }
-
-            scene.ProjectedLightSources.Add(restored);
+            scene.ProjectedLightSources.Add(MapProjectedLightSource(projectedSource));
         }
 
         foreach (var hole in sceneState.HolePoints)
@@ -501,17 +450,83 @@ public sealed class ProjectPersistenceCoordinator
                         AxisY = result.SourceFrame.AxisY,
                         AxisZ = result.SourceFrame.AxisZ,
                     },
-                    Rays = result.Rays.Select(ray => new ProjectionRay(
-                        new DomainRay3D(
-                            new Vector3(ray.Ray.OriginX, ray.Ray.OriginY, ray.Ray.OriginZ),
-                            new Vector3(ray.Ray.DirectionX, ray.Ray.DirectionY, ray.Ray.DirectionZ)),
-                        ray.TargetHolePoint)).ToList(),
+                    Rays = result.Rays.Select(MapProjectionRay).ToList(),
                     AxisymmetricSource = MapAxisymmetricProjectionState(result),
                 },
             });
         }
 
         return scene;
+    }
+
+    private static CylindricalLightSourceItemViewModel MapGeneratedLightSource(AxisymmetricLightSourceState source)
+    {
+        var restored = new CylindricalLightSourceItemViewModel
+        {
+            Name = source.Name,
+            SourceKind = source.SourceKind,
+            PositionX = source.PositionX,
+            PositionY = source.PositionY,
+            PositionZ = source.PositionZ,
+            RotationX = source.RotationX,
+            RotationY = source.RotationY,
+            RotationZ = source.RotationZ,
+            Radius = source.Radius,
+            Height = source.Height,
+            RadiusStart = source.RadiusStart,
+            RadiusEnd = source.RadiusEnd,
+            Length = source.Length,
+            ArcRadius = source.ArcRadius,
+            OgiveCurvatureDirection = source.OgiveCurvatureDirection,
+            RayCount = source.RayCount,
+            TiltWeight = source.TiltWeight,
+            TiltPointX = source.TiltPointX,
+            TiltPointY = source.TiltPointY,
+            TiltPointZ = source.TiltPointZ,
+            BaseOrientation = BaseOrientationPersistence.FromComponents(
+                source.BaseOrientationX,
+                source.BaseOrientationY,
+                source.BaseOrientationZ,
+                source.BaseOrientationW),
+        };
+
+        foreach (var segment in source.Segments)
+        {
+            restored.HybridSegments.Add(new HybridSourceSegmentItemViewModel
+            {
+                SegmentKind = segment.SegmentKind,
+                Length = segment.Length,
+                RadiusStart = segment.RadiusStart,
+                RadiusEnd = segment.RadiusEnd,
+                ArcRadius = segment.ArcRadius ?? 20f,
+                OgiveCurvatureDirection = segment.OgiveCurvatureDirection,
+            });
+        }
+
+        return restored;
+    }
+
+    private static ProjectedLightSourceItemViewModel MapProjectedLightSource(ProjectedLightSourceState state)
+    {
+        var restored = new ProjectedLightSourceItemViewModel
+        {
+            Name = state.Name,
+            SourceFrame = new PointSourceFrameState
+            {
+                Origin = state.SourceFrame.Origin,
+                AxisX = state.SourceFrame.AxisX,
+                AxisY = state.SourceFrame.AxisY,
+                AxisZ = state.SourceFrame.AxisZ,
+            },
+            ProfileDefinition = state.ProfileDefinition,
+        };
+
+        foreach (var ray in state.Rays)
+        {
+            restored.Rays.Add(MapProjectionRay(ray));
+        }
+
+        return restored;
     }
 
     private static AxisymmetricProjectionState? MapAxisymmetricProjectionState(ProjectionResultStateDto result)
