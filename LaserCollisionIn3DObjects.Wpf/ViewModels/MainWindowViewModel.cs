@@ -87,6 +87,9 @@ public sealed class MainWindowViewModel : ObservableObject
         AppLog = (Application.Current as App)?.AppLog ?? new ApplicationLogService();
         _sceneCollectionService = new SceneCollectionService();
         _sceneCollectionService.PropertyChanged += OnSceneCollectionPropertyChanged;
+        _sceneCollectionService.SceneContentChanged += OnSceneContentChanged;
+        // Generated axisymmetric sources live in LightSources.
+        // Projected light sources live in ProjectedLightSources and preserve exact rays.
 
         AnnotationWorkspace = new AnnotationWorkspaceViewModel(_sceneCollectionService);
         ProjectionWorkspace = new ProjectionWorkspaceViewModel(_sceneCollectionService, projectionRenderSyncService, applicationLogService: AppLog);
@@ -320,6 +323,22 @@ public sealed class MainWindowViewModel : ObservableObject
                 LoadLightSourceIntoEditor(value);
             }
 
+            RaiseCanExecuteChanges();
+            RaisePropertyChanged();
+        }
+    }
+
+    public ProjectedLightSourceItemViewModel? SelectedProjectedLightSource
+    {
+        get => SelectedScene?.SelectedProjectedLightSource;
+        set
+        {
+            if (SelectedScene is null || Equals(SelectedScene.SelectedProjectedLightSource, value))
+            {
+                return;
+            }
+
+            SelectedScene.SelectedProjectedLightSource = value;
             RaiseCanExecuteChanges();
             RaisePropertyChanged();
         }
@@ -1222,6 +1241,11 @@ public sealed class MainWindowViewModel : ObservableObject
         }
     }
 
+    private void OnSceneContentChanged(object? sender, EventArgs e)
+    {
+        RefreshSceneBindingsAndViewport();
+    }
+
     private void SaveProject()
     {
         var dialog = new SaveFileDialog
@@ -1456,6 +1480,7 @@ public sealed class MainWindowViewModel : ObservableObject
         RaisePropertyChanged(nameof(SelectedPrism));
         RaisePropertyChanged(nameof(SelectedRay));
         RaisePropertyChanged(nameof(SelectedLightSource));
+        RaisePropertyChanged(nameof(SelectedProjectedLightSource));
         RaiseCanExecuteChanges();
         RefreshViewport(false);
     }

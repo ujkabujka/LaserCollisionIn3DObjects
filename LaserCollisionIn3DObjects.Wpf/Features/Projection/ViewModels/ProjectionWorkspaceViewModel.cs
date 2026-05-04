@@ -1083,8 +1083,18 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
                 selectedResult,
                 fallbackProfileDefinition);
 
+        var fallbackProfileDefinition = BuildAxisymmetricSourceProfileDefinition(SelectedMethod?.Method ?? new AxisymmetricSourceProjectionMethod());
+
+        try
+        {
+            var projectedSource = _projectionResultToCollisionSourceService.CreateProjectedLightSource(
+                selectedResult,
+                fallbackProfileDefinition);
+
             targetScene.ProjectedLightSources.Add(projectedSource);
+            targetScene.SelectedProjectedLightSource = projectedSource;
             _sceneCollectionService.SelectedScene = targetScene;
+            _sceneCollectionService.NotifySceneContentChanged();
             SetStatus(
                 $"Added projected light source '{projectedSource.Name}' to collision scene '{targetScene.Name}' with {projectedSource.Rays.Count} exact ray(s).",
                 ApplicationLogLevel.Success);

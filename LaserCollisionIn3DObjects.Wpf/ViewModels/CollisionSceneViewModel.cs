@@ -15,6 +15,7 @@ public sealed class CollisionSceneViewModel : ObservableObject
     private PrismItemViewModel? _selectedPrism;
     private RayItemViewModel? _selectedRay;
     private CylindricalLightSourceItemViewModel? _selectedLightSource;
+    private ProjectedLightSourceItemViewModel? _selectedProjectedLightSource;
     private bool _isProjectionOnly;
     public CollisionSceneViewModel(string name)
     {
@@ -57,6 +58,12 @@ public sealed class CollisionSceneViewModel : ObservableObject
     {
         get => _selectedLightSource;
         set => SetProperty(ref _selectedLightSource, value);
+    }
+
+    public ProjectedLightSourceItemViewModel? SelectedProjectedLightSource
+    {
+        get => _selectedProjectedLightSource;
+        set => SetProperty(ref _selectedProjectedLightSource, value);
     }
 
 }

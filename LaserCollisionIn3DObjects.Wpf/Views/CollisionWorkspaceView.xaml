@@ -109,7 +109,7 @@
                             </DataGrid>
 
                             <GroupBox Header="Projected Light Sources" Margin="0,8,0,0" Padding="6">
-                                <ListBox ItemsSource="{Binding ProjectedLightSources}" DisplayMemberPath="Name" Height="90"/>
+                                <ListBox ItemsSource="{Binding ProjectedLightSources}" SelectedItem="{Binding SelectedProjectedLightSource}" DisplayMemberPath="Name" Height="90"/>
                             </GroupBox>
                         </StackPanel>
                     </GroupBox>
