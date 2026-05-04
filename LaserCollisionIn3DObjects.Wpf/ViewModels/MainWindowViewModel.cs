@@ -38,6 +38,7 @@ public sealed class MainWindowViewModel : ObservableObject
     private static readonly ObservableCollection<PrismItemViewModel> EmptyPrisms = new();
     private static readonly ObservableCollection<RayItemViewModel> EmptyRays = new();
     private static readonly ObservableCollection<CylindricalLightSourceItemViewModel> EmptyLightSources = new();
+    private static readonly ObservableCollection<ProjectedLightSourceItemViewModel> EmptyProjectedLightSources = new();
     private static readonly ObservableCollection<HitResultItemViewModel> EmptyHitResults = new();
     private static readonly ObservableCollection<Point3> EmptyHoles = new();
     private readonly SceneRenderSyncService _renderSyncService;
@@ -86,6 +87,9 @@ public sealed class MainWindowViewModel : ObservableObject
         AppLog = (Application.Current as App)?.AppLog ?? new ApplicationLogService();
         _sceneCollectionService = new SceneCollectionService();
         _sceneCollectionService.PropertyChanged += OnSceneCollectionPropertyChanged;
+        _sceneCollectionService.SceneContentChanged += OnSceneContentChanged;
+        // Generated axisymmetric sources live in LightSources.
+        // Projected light sources live in ProjectedLightSources and preserve exact rays.
 
         AnnotationWorkspace = new AnnotationWorkspaceViewModel(_sceneCollectionService);
         ProjectionWorkspace = new ProjectionWorkspaceViewModel(_sceneCollectionService, projectionRenderSyncService, applicationLogService: AppLog);
@@ -171,6 +175,7 @@ public sealed class MainWindowViewModel : ObservableObject
     public ObservableCollection<PrismItemViewModel> Prisms => SelectedScene?.Prisms ?? EmptyPrisms;
     public ObservableCollection<RayItemViewModel> Rays => SelectedScene?.Rays ?? EmptyRays;
     public ObservableCollection<CylindricalLightSourceItemViewModel> LightSources => SelectedScene?.LightSources ?? EmptyLightSources;
+    public ObservableCollection<ProjectedLightSourceItemViewModel> ProjectedLightSources => SelectedScene?.ProjectedLightSources ?? EmptyProjectedLightSources;
     public ObservableCollection<HitResultItemViewModel> HitResults => SelectedScene?.HitResults ?? EmptyHitResults;
 
     public PrismArrayPlacementMode[] PrismArrayPlacementModes { get; } = Enum.GetValues<PrismArrayPlacementMode>();
@@ -318,6 +323,22 @@ public sealed class MainWindowViewModel : ObservableObject
                 LoadLightSourceIntoEditor(value);
             }
 
+            RaiseCanExecuteChanges();
+            RaisePropertyChanged();
+        }
+    }
+
+    public ProjectedLightSourceItemViewModel? SelectedProjectedLightSource
+    {
+        get => SelectedScene?.SelectedProjectedLightSource;
+        set
+        {
+            if (SelectedScene is null || Equals(SelectedScene.SelectedProjectedLightSource, value))
+            {
+                return;
+            }
+
+            SelectedScene.SelectedProjectedLightSource = value;
             RaiseCanExecuteChanges();
             RaisePropertyChanged();
         }
@@ -932,11 +953,12 @@ public sealed class MainWindowViewModel : ObservableObject
             var prisms = scene?.Prisms ?? EmptyPrisms;
             var lightSources = scene?.LightSources ?? EmptyLightSources;
             var rays = scene?.Rays ?? EmptyRays;
+            var projectedLightSources = scene?.ProjectedLightSources ?? EmptyProjectedLightSources;
             var holes = scene?.HolePoints ?? EmptyHoles;
             var projectionResult = scene?.ProjectionState.SelectedResult;
             var sceneName = scene?.Name ?? "Scene";
 
-            var sceneSyncResult = _renderSyncService.SyncScene(prisms, lightSources, rays, holes, projectionResult, sceneName, runCollision, SelectedCollisionAlgorithm);
+            var sceneSyncResult = _renderSyncService.SyncScene(prisms, lightSources, rays, projectedLightSources, holes, projectionResult, sceneName, runCollision, SelectedCollisionAlgorithm);
             var rows = sceneSyncResult.HitRows;
 
             if (scene is not null)
@@ -1219,6 +1241,11 @@ public sealed class MainWindowViewModel : ObservableObject
         }
     }
 
+    private void OnSceneContentChanged(object? sender, EventArgs e)
+    {
+        RefreshSceneBindingsAndViewport();
+    }
+
     private void SaveProject()
     {
         var dialog = new SaveFileDialog
@@ -1448,10 +1475,12 @@ public sealed class MainWindowViewModel : ObservableObject
         RaisePropertyChanged(nameof(Prisms));
         RaisePropertyChanged(nameof(Rays));
         RaisePropertyChanged(nameof(LightSources));
+        RaisePropertyChanged(nameof(ProjectedLightSources));
         RaisePropertyChanged(nameof(HitResults));
         RaisePropertyChanged(nameof(SelectedPrism));
         RaisePropertyChanged(nameof(SelectedRay));
         RaisePropertyChanged(nameof(SelectedLightSource));
+        RaisePropertyChanged(nameof(SelectedProjectedLightSource));
         RaiseCanExecuteChanges();
         RefreshViewport(false);
     }
