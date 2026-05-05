@@ -14,6 +14,7 @@ using LaserCollisionIn3DObjects.Wpf.Commands;
 using LaserCollisionIn3DObjects.Wpf.Features.Annotations.ViewModels;
 using LaserCollisionIn3DObjects.Wpf.Features.GraphicMaster.ViewModels;
 using LaserCollisionIn3DObjects.Wpf.Features.Projection.ViewModels;
+using LaserCollisionIn3DObjects.Wpf.Features.SourceCompletion.ViewModels;
 using LaserCollisionIn3DObjects.Wpf.Infrastructure;
 using LaserCollisionIn3DObjects.Wpf.Services;
 
@@ -31,6 +32,7 @@ public enum WorkspaceKind
     Annotation,
     Projection,
     GraphicMaster,
+    SourceCompletion,
 }
 
 public sealed class MainWindowViewModel : ObservableObject
@@ -94,6 +96,7 @@ public sealed class MainWindowViewModel : ObservableObject
         AnnotationWorkspace = new AnnotationWorkspaceViewModel(_sceneCollectionService);
         ProjectionWorkspace = new ProjectionWorkspaceViewModel(_sceneCollectionService, projectionRenderSyncService, applicationLogService: AppLog);
         GraphicMasterWorkspace = new GraphicMasterViewModel(_sceneCollectionService);
+        SourceCompletionWorkspace = new SourceCompletionWorkspaceViewModel(_sceneCollectionService, applicationLogService: AppLog);
         CollisionScenes = CollectionViewSource.GetDefaultView(_sceneCollectionService.Scenes);
         CollisionScenes.Filter = item => item is CollisionSceneViewModel scene && !scene.IsProjectionOnly;
 
@@ -126,6 +129,7 @@ public sealed class MainWindowViewModel : ObservableObject
         ShowAnnotationWorkspaceCommand = new RelayCommand(() => SelectedWorkspace = WorkspaceKind.Annotation);
         ShowProjectionWorkspaceCommand = new RelayCommand(() => SelectedWorkspace = WorkspaceKind.Projection);
         ShowGraphicMasterWorkspaceCommand = new RelayCommand(() => SelectedWorkspace = WorkspaceKind.GraphicMaster);
+        ShowSourceCompletionWorkspaceCommand = new RelayCommand(() => SelectedWorkspace = WorkspaceKind.SourceCompletion);
         ClearConsoleCommand = new RelayCommand(() => AppLog.Clear());
         CopyConsoleCommand = new RelayCommand(CopyConsoleToClipboard);
         ShowConsoleCommand = new RelayCommand(() => IsConsoleVisible = true, () => !IsConsoleVisible);
@@ -146,6 +150,7 @@ public sealed class MainWindowViewModel : ObservableObject
     public AnnotationWorkspaceViewModel AnnotationWorkspace { get; }
     public ProjectionWorkspaceViewModel ProjectionWorkspace { get; }
     public GraphicMasterViewModel GraphicMasterWorkspace { get; }
+    public SourceCompletionWorkspaceViewModel SourceCompletionWorkspace { get; }
     public ICollectionView CollisionScenes { get; }
     public ApplicationLogService AppLog { get; }
     public ObservableCollection<ApplicationLogEntry> ConsoleEntries => AppLog.Entries;
@@ -227,6 +232,7 @@ public sealed class MainWindowViewModel : ObservableObject
     public ICommand ShowAnnotationWorkspaceCommand { get; }
     public ICommand ShowProjectionWorkspaceCommand { get; }
     public ICommand ShowGraphicMasterWorkspaceCommand { get; }
+    public ICommand ShowSourceCompletionWorkspaceCommand { get; }
     public ICommand ClearConsoleCommand { get; }
     public ICommand CopyConsoleCommand { get; }
     public ICommand ShowConsoleCommand { get; }
@@ -974,9 +980,11 @@ public sealed class MainWindowViewModel : ObservableObject
 
             if (runCollision)
             {
+                var projectedRaysTested = projectedLightSources.Sum(source => source.Rays.Count);
                 _lastCollisionHitPointRecords = sceneSyncResult.HitPointRecords;
                 var elapsedMs = sceneSyncResult.CollisionDuration.TotalMilliseconds;
                 LastCollisionDurationMs = $"{elapsedMs:F3}";
+                var projectedHits = sceneSyncResult.HitPointRecords.Count(record => record.SourceType == CollisionRaySourceType.ProjectionResult);
 
                 if (sceneSyncResult.CollisionAlgorithm == CollisionAlgorithmOption.ClosestHitSequential)
                 {
@@ -988,6 +996,7 @@ public sealed class MainWindowViewModel : ObservableObject
                 }
 
                 SetStatus($"Collision run complete ({SelectedCollisionAlgorithm}) in {elapsedMs:F3} ms. Hits: {rows.Count(r => r.HasHit)}/{rows.Count}.", ApplicationLogLevel.Success);
+                AppLog.LogInfo($"Collision: {projectedRaysTested} projected rays tested, {projectedHits} hits detected.", nameof(MainWindowViewModel));
             }
             else
             {
