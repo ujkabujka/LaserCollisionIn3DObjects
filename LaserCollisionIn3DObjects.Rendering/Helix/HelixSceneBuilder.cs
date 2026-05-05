@@ -51,6 +51,7 @@ public sealed class HelixSceneBuilder
 
         var raySegments = new List<(Ray3D Ray, float Length)>(scene.Rays.Count);
         var generatedRayOriginsWithoutHit = new List<Ray3D>();
+        var projectedRayOrigins = new List<Ray3D>();
 
         List<RayHitResult> hitResultList = new List<RayHitResult>();
         foreach (var ray in scene.Rays)
@@ -66,9 +67,17 @@ public sealed class HelixSceneBuilder
                 continue;
             }
 
-            if (isProjectedSourceRay && !hasHit)
+            // Projected source rays are collision candidates.
+            // Their origins should always be visible as source samples,
+            // but their lines are rendered only after a collision hit exists.
+            if (isProjectedSourceRay)
             {
-                continue;
+                projectedRayOrigins.Add(ray);
+
+                if (!hasHit)
+                {
+                    continue;
+                }
             }
 
             var rayLength = hasHit && hit is not null ? hit.Distance : defaultRayLength;
@@ -98,6 +107,11 @@ public sealed class HelixSceneBuilder
         if (generatedRayOriginsWithoutHit.Count > 0)
         {
             visuals.Add(_rayVisualizer.CreateRayOriginPointBatch(generatedRayOriginsWithoutHit, color: Colors.OrangeRed));
+        }
+
+        if (projectedRayOrigins.Count > 0)
+        {
+            visuals.Add(_rayVisualizer.CreateRayOriginPointBatch(projectedRayOrigins, radius: 0.08d, color: Colors.DeepPink));
         }
 
         if (scene.HolePoints.Count > 0)
