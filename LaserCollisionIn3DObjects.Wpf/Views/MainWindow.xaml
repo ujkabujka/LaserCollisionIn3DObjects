@@ -8,6 +8,7 @@
         xmlns:vm="clr-namespace:LaserCollisionIn3DObjects.Wpf.ViewModels"
         xmlns:services="clr-namespace:LaserCollisionIn3DObjects.Wpf.Services"
         xmlns:v="clr-namespace:LaserCollisionIn3DObjects.Wpf.Views"
+        xmlns:sourceCompletion="clr-namespace:LaserCollisionIn3DObjects.Wpf.Features.SourceCompletion.Views"
         mc:Ignorable="d"
         Title="{Binding Title}"
         Width="1500"
@@ -253,6 +254,23 @@
                                 <TextBlock Text="Graphic Master" Style="{StaticResource NavigationLabelStyle}" VerticalAlignment="Center"/>
                             </StackPanel>
                         </Button>
+
+                        <Button Command="{Binding ShowSourceCompletionWorkspaceCommand}"
+                                Margin="0,6,0,0">
+                            <Button.Style>
+                                <Style TargetType="Button" BasedOn="{StaticResource NavigationButtonBaseStyle}">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding SelectedWorkspace}" Value="{x:Static vm:WorkspaceKind.SourceCompletion}">
+                                            <Setter Property="Background" Value="#DBEAFE"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Button.Style>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="🧩" FontSize="14" VerticalAlignment="Center"/>
+                                <TextBlock Text="Source Completion" Style="{StaticResource NavigationLabelStyle}" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Button>
                     </StackPanel>
                 </Grid>
             </Border>
@@ -309,7 +327,20 @@
                         </Style>
                     </v:GraphicMasterView.Style>
                 </v:GraphicMasterView>
-            </Grid>
+            
+                <sourceCompletion:SourceCompletionWorkspaceView DataContext="{Binding}">
+                    <sourceCompletion:SourceCompletionWorkspaceView.Style>
+                        <Style TargetType="sourceCompletion:SourceCompletionWorkspaceView">
+                            <Setter Property="Visibility" Value="Collapsed"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding SelectedWorkspace}" Value="{x:Static vm:WorkspaceKind.SourceCompletion}">
+                                    <Setter Property="Visibility" Value="Visible"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </sourceCompletion:SourceCompletionWorkspaceView.Style>
+                </sourceCompletion:SourceCompletionWorkspaceView>
+</Grid>
         </Grid>
     </DockPanel>
 </Window>

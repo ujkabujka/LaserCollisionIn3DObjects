@@ -120,6 +120,11 @@ public sealed class ProjectedLightSourceState
     public PointSourceFrameStateDto SourceFrame { get; set; } = new();
     public AxisymmetricSourceProfileDefinition ProfileDefinition { get; set; } = new();
     public List<ProjectionRayStateDto> Rays { get; set; } = new();
+    public float? BaseOrientationX { get; set; }
+    public float? BaseOrientationY { get; set; }
+    public float? BaseOrientationZ { get; set; }
+    public float? BaseOrientationW { get; set; }
+    public string OriginKind { get; set; } = string.Empty;
 }
 
 public sealed class CylindricalLightSourceState

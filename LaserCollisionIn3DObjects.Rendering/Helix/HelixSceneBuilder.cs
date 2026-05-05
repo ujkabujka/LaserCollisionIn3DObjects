@@ -33,6 +33,7 @@ public sealed class HelixSceneBuilder
 
         var visuals = new List<Visual3D>();
         var generatedRayLookup = scene.GeneratedRays.Count > 0 ? new HashSet<Ray3D>(scene.GeneratedRays) : null;
+        var projectedRayLookup = scene.ProjectedSourceRays.Count > 0 ? new HashSet<Ray3D>(scene.ProjectedSourceRays) : null;
         visuals.AddRange(_frameVisualizer.CreateGlobalFrameVisuals(3f));
 
         visuals.Add(_meshFactory.CreateRectangularPrismBatch(scene.RectangularPrisms, Colors.LightGreen));
@@ -56,11 +57,17 @@ public sealed class HelixSceneBuilder
         {
             RayHitResult? hit = null;
             var isGeneratedRay = generatedRayLookup?.Contains(ray) == true;
+            var isProjectedSourceRay = projectedRayLookup?.Contains(ray) == true;
             var hasHit = hitResults is not null && hitResults.TryGetValue(ray, out hit) && hit is not null && hit.HasHit;
 
             if (isGeneratedRay && !hasHit)
             {
                 generatedRayOriginsWithoutHit.Add(ray);
+                continue;
+            }
+
+            if (isProjectedSourceRay && !hasHit)
+            {
                 continue;
             }
 
