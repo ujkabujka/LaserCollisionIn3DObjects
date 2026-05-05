@@ -524,7 +524,7 @@ public sealed class ProjectPersistenceCoordinator
                 AxisZ = state.SourceFrame.AxisZ,
             },
             ProfileDefinition = state.ProfileDefinition,
-            BaseOrientation = BuildQuaternion(state.BaseOrientationX, state.BaseOrientationY, state.BaseOrientationZ, state.BaseOrientationW),
+            BaseOrientation = BaseOrientationPersistence.FromComponents(state.BaseOrientationX, state.BaseOrientationY, state.BaseOrientationZ, state.BaseOrientationW),
             OriginKind = Enum.TryParse<ProjectedLightSourceOriginKind>(state.OriginKind, ignoreCase: true, out var originKind)
                 ? originKind
                 : ProjectedLightSourceOriginKind.ProjectionResult,
