@@ -982,9 +982,11 @@ public sealed class MainWindowViewModel : ObservableObject
 
             if (runCollision)
             {
+                var projectedRaysTested = projectedLightSources.Sum(source => source.Rays.Count);
                 _lastCollisionHitPointRecords = sceneSyncResult.HitPointRecords;
                 var elapsedMs = sceneSyncResult.CollisionDuration.TotalMilliseconds;
                 LastCollisionDurationMs = $"{elapsedMs:F3}";
+                var projectedHits = sceneSyncResult.HitPointRecords.Count(record => record.SourceType == CollisionRaySourceType.ProjectionResult);
 
                 if (sceneSyncResult.CollisionAlgorithm == CollisionAlgorithmOption.ClosestHitSequential)
                 {
@@ -996,6 +998,7 @@ public sealed class MainWindowViewModel : ObservableObject
                 }
 
                 SetStatus($"Collision run complete ({SelectedCollisionAlgorithm}) in {elapsedMs:F3} ms. Hits: {rows.Count(r => r.HasHit)}/{rows.Count}.", ApplicationLogLevel.Success);
+                AppLog.LogInfo($"Collision: {projectedRaysTested} projected rays tested, {projectedHits} hits detected.", nameof(MainWindowViewModel));
             }
             else
             {

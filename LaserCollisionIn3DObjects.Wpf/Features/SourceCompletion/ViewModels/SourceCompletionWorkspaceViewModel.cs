@@ -212,9 +212,13 @@ public sealed class SourceCompletionWorkspaceViewModel : ObservableObject
             return;
         }
 
+        var completedName = LastCompletionResult.Name.StartsWith("Completed - ", StringComparison.Ordinal)
+            ? LastCompletionResult.Name
+            : $"Completed - {SelectedProjectedSource.Name}";
+
         var completedSource = new ProjectedLightSourceItemViewModel
         {
-            Name = LastCompletionResult.Name,
+            Name = completedName,
             ProfileDefinition = SelectedProjectedSource.ProfileDefinition,
             SourceFrame = SelectedProjectedSource.SourceFrame,
             BaseOrientation = SelectedProjectedSource.BaseOrientation,
@@ -231,6 +235,7 @@ public sealed class SourceCompletionWorkspaceViewModel : ObservableObject
         _sceneCollectionService.NotifySceneContentChanged();
 
         StatusMessage = $"Added completed source '{completedSource.Name}' to collision scene '{SelectedTargetCollisionScene.Name}' with {completedSource.Rays.Count} rays.";
+        _applicationLogService?.LogSuccess(StatusMessage, nameof(SourceCompletionWorkspaceViewModel));
     }
 
     private bool CanAnalyzeOrGenerate() => SelectedProjectedSource is not null && SelectedProjectedSource.Rays.Count > 0;
