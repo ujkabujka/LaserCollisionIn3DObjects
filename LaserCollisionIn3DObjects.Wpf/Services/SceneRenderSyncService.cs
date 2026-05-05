@@ -177,6 +177,7 @@ public sealed class SceneRenderSyncService
 
             foreach (var projectionRay in projectedSource.Rays)
             {
+                scene.ProjectedSourceRays.Add(projectionRay.Ray);
                 scene.Rays.Add(projectionRay.Ray);
                 raySourceTypes.Add(CollisionRaySourceType.ProjectionResult);
             }
@@ -196,7 +197,7 @@ public sealed class SceneRenderSyncService
             scene.HolePoints.Add(hole);
         }
 
-        if (projectionResult is not null)
+        if (projectionResult is not null && projectedLightSources.Count == 0)
         {
             var projectionRays = projectionResult.GetEffectiveRays().Select(projectionRay => projectionRay.Ray).ToList();
             scene.Rays.AddRange(projectionRays);
