@@ -30,6 +30,7 @@ public sealed class ProjectionResultToCollisionSourceService
             Name = $"Projected Source - {selectedResult.DisplayName}",
             SourceFrame = sourceFrame,
             ProfileDefinition = profileDefinition,
+            OriginKind = ProjectedLightSourceOriginKind.ProjectionResult,
         };
 
         foreach (var ray in exactRays)

@@ -147,7 +147,11 @@ public sealed class SourceCompletionWorkspaceViewModel : ObservableObject
     {
         if (SelectedProjectedSource is null || SelectedProjectedSource.Rays.Count == 0 || GapThresholdDegrees <= 0d)
         {
-            StatusMessage = "Select a projected source with rays and use a positive gap threshold.";
+            StatusMessage = SelectedProjectedSource is null
+                ? "Select a projected light source first."
+                : SelectedProjectedSource.Rays.Count == 0
+                    ? "The selected projected light source has zero rays. Choose another source."
+                    : "Gap threshold must be greater than 0 degrees.";
             return;
         }
 
@@ -176,7 +180,13 @@ public sealed class SourceCompletionWorkspaceViewModel : ObservableObject
     {
         if (SelectedProjectedSource is null || SelectedProjectedSource.Rays.Count == 0 || AngularStepDegrees <= 0d || GapThresholdDegrees <= 0d)
         {
-            StatusMessage = "Select a projected source with rays and use positive angular settings.";
+            StatusMessage = SelectedProjectedSource is null
+                ? "Select a projected light source first."
+                : SelectedProjectedSource.Rays.Count == 0
+                    ? "The selected projected light source has zero rays. Choose another source."
+                    : AngularStepDegrees <= 0d
+                        ? "Angular step must be greater than 0 degrees."
+                        : "Gap threshold must be greater than 0 degrees.";
             return;
         }
 
@@ -196,7 +206,7 @@ public sealed class SourceCompletionWorkspaceViewModel : ObservableObject
         var weightedSectors = ParseWeightedSectorsOrNull();
         if (SelectedCompletionMethod == SourceCompletionMethod.WeightedSectorClone && (weightedSectors is null || weightedSectors.Count == 0))
         {
-            StatusMessage = "Weighted sector cloning requires at least one valid weighted sector. Format: 60-90:2;210-240:1";
+            StatusMessage = "Weighted sector format must be like 60-90:2;210-240:1 and contain at least one matching source sector.";
             return;
         }
 
@@ -223,7 +233,11 @@ public sealed class SourceCompletionWorkspaceViewModel : ObservableObject
     {
         if (LastCompletionResult is null || SelectedProjectedSource is null || SelectedTargetCollisionScene is null || SelectedTargetCollisionScene.IsProjectionOnly)
         {
-            StatusMessage = "Generate a completed source and select a valid collision scene first.";
+            StatusMessage = LastCompletionResult is null
+                ? "Generate a completion result first, then add it to a collision scene."
+                : SelectedTargetCollisionScene is null
+                    ? "Select a target collision scene first."
+                    : "Target must be a collision scene.";
             return;
         }
 
@@ -237,6 +251,7 @@ public sealed class SourceCompletionWorkspaceViewModel : ObservableObject
             ProfileDefinition = SelectedProjectedSource.ProfileDefinition,
             SourceFrame = SelectedProjectedSource.SourceFrame,
             BaseOrientation = SelectedProjectedSource.BaseOrientation,
+            OriginKind = ProjectedLightSourceOriginKind.CompletedProjectionResult,
         };
 
         foreach (var ray in LastCompletionResult.Rays)

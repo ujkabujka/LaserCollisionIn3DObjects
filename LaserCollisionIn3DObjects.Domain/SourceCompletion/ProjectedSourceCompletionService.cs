@@ -164,7 +164,7 @@ var sourceSample = FindNearestSample(samples, targetTheta);
             : synthetic;
 
         return new ProjectedSourceCompletionResult(
-            $"Completed - {request.Name}",
+            $"Completed Rotational - {request.Name}",
             output,
             coverage,
             gaps,
@@ -241,7 +241,7 @@ var sourceSample = FindNearestSample(samples, targetTheta);
         }
 
         var output = settings.IncludeOriginalRays ? request.Rays.Concat(synthetic).ToList() : synthetic;
-        return new ProjectedSourceCompletionResult($"Mirror Completed - {request.Name}", output, coverage, gaps, request.Rays.Count, synthetic.Count);
+        return new ProjectedSourceCompletionResult($"Completed Mirror - {request.Name}", output, coverage, gaps, request.Rays.Count, synthetic.Count);
     }
 
     public ProjectedSourceCompletionResult CompleteByWeightedSectorClone(ProjectedSourceCompletionRequest request, SourceCompletionSettings settings)
@@ -286,7 +286,7 @@ var sourceSample = FindNearestSample(samples, targetTheta);
         }
 
         var output = settings.IncludeOriginalRays ? request.Rays.Concat(synthetic).ToList() : synthetic;
-        return new ProjectedSourceCompletionResult($"Weighted Completed - {request.Name}", output, coverage, gaps, request.Rays.Count, synthetic.Count);
+        return new ProjectedSourceCompletionResult($"Completed Weighted - {request.Name}", output, coverage, gaps, request.Rays.Count, synthetic.Count);
     }
 
     private static List<WeightedSourceSector> NormalizeWeightedSectors(IReadOnlyList<WeightedSourceSector>? sectors)

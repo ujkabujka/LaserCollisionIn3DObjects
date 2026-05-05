@@ -216,6 +216,11 @@ public sealed class ProjectPersistenceCoordinator
             },
             ProfileDefinition = source.ProfileDefinition,
             Rays = source.Rays.Select(MapProjectionRay).ToList(),
+            BaseOrientationX = source.BaseOrientation.X,
+            BaseOrientationY = source.BaseOrientation.Y,
+            BaseOrientationZ = source.BaseOrientation.Z,
+            BaseOrientationW = source.BaseOrientation.W,
+            OriginKind = source.OriginKind.ToString(),
         };
     }
 
@@ -519,6 +524,10 @@ public sealed class ProjectPersistenceCoordinator
                 AxisZ = state.SourceFrame.AxisZ,
             },
             ProfileDefinition = state.ProfileDefinition,
+            BaseOrientation = BuildQuaternion(state.BaseOrientationX, state.BaseOrientationY, state.BaseOrientationZ, state.BaseOrientationW),
+            OriginKind = Enum.TryParse<ProjectedLightSourceOriginKind>(state.OriginKind, ignoreCase: true, out var originKind)
+                ? originKind
+                : ProjectedLightSourceOriginKind.ProjectionResult,
         };
 
         foreach (var ray in state.Rays)

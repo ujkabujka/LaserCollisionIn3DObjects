@@ -13,6 +13,10 @@
 
         <StackPanel Grid.Column="0">
             <TextBlock Text="Source Completion" FontSize="20" FontWeight="SemiBold" Margin="0,0,0,10"/>
+            <TextBlock Text="Source Completion creates synthetic rays from an existing projected light source. These rays are inferred from rotational/mirror/sector assumptions and are not directly measured."
+                       TextWrapping="Wrap"
+                       Margin="0,0,0,10"
+                       Foreground="#555"/>
 
             <TextBlock Text="Projected Source" FontWeight="SemiBold"/>
             <ComboBox ItemsSource="{Binding SourceCompletionWorkspace.AvailableProjectedSources}" SelectedItem="{Binding SourceCompletionWorkspace.SelectedProjectedSource}" DisplayMemberPath="Name" Margin="0,4,0,10"/>
@@ -24,6 +28,12 @@
             <ComboBox ItemsSource="{Binding SourceCompletionWorkspace.CompletionMethods}"
                       SelectedItem="{Binding SourceCompletionWorkspace.SelectedCompletionMethod}"
                       Margin="0,4,0,10"/>
+            <TextBlock Text="Rotational Copy: Copies measured projected-ray patterns into missing azimuth regions by rotating them around the source axis."
+                       TextWrapping="Wrap" FontSize="11" Foreground="#666" />
+            <TextBlock Text="Mirror: Uses a mirror axis to choose template rays from mirrored azimuths."
+                       TextWrapping="Wrap" FontSize="11" Foreground="#666" />
+            <TextBlock Text="Weighted Sector Clone: Uses user-defined measured sectors and weights to clone patterns into missing azimuth gaps."
+                       TextWrapping="Wrap" FontSize="11" Foreground="#666" Margin="0,0,0,8" />
 
             <UniformGrid Columns="2" Margin="0,0,0,10">
                 <StackPanel Margin="3"><TextBlock Text="Angular Step (deg)"/><TextBox Text="{Binding SourceCompletionWorkspace.AngularStepDegrees}"/></StackPanel>
@@ -43,7 +53,7 @@
 
             <TextBlock Text="Weighted Sectors"/>
             <TextBox Text="{Binding SourceCompletionWorkspace.WeightedSectorsText}" Margin="0,4,0,2"/>
-            <TextBlock Text="Format: 60-90:2;210-240:1" FontSize="11" Foreground="#666" Margin="0,0,0,10"/>
+            <TextBlock Text="Format: 60-90:2;210-240:1  |  Wrap-around example: 350-20:1" FontSize="11" Foreground="#666" Margin="0,0,0,10"/>
 
             <WrapPanel>
                 <Button Content="Refresh Sources" Command="{Binding SourceCompletionWorkspace.RefreshSourcesCommand}" Margin="0,0,8,8"/>

@@ -6,6 +6,12 @@ using LaserCollisionIn3DObjects.Wpf.Infrastructure;
 
 namespace LaserCollisionIn3DObjects.Wpf.ViewModels;
 
+public enum ProjectedLightSourceOriginKind
+{
+    ProjectionResult,
+    CompletedProjectionResult,
+}
+
 public sealed class ProjectedLightSourceItemViewModel : ObservableObject
 {
     private string _name = "Projected Source";
@@ -29,4 +35,5 @@ public sealed class ProjectedLightSourceItemViewModel : ObservableObject
     public ObservableCollection<ProjectionRay> Rays { get; } = new();
 
     public NumericsQuaternion BaseOrientation { get; set; } = NumericsQuaternion.Identity;
+    public ProjectedLightSourceOriginKind OriginKind { get; set; } = ProjectedLightSourceOriginKind.ProjectionResult;
 }
