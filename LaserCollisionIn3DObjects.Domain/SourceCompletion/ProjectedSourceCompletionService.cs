@@ -117,32 +117,22 @@ public sealed class ProjectedSourceCompletionService
     private const float SyntheticTargetDistance = 1000f;
     private readonly ProjectedSourceAzimuthAnalyzer _analyzer = new();
 
+    public ProjectedSourceCompletionResult Complete(ProjectedSourceCompletionRequest request, SourceCompletionSettings settings)
+    {
+        return settings.Method switch
+        {
+            SourceCompletionMethod.RotationalCopy => CompleteByRotationalCopy(request, settings),
+            SourceCompletionMethod.Mirror => CompleteByMirror(request, settings),
+            SourceCompletionMethod.WeightedSectorClone => CompleteByWeightedSectorClone(request, settings),
+            _ => throw new ArgumentOutOfRangeException(nameof(settings.Method), settings.Method, "Unsupported completion method."),
+        };
+    }
+
     public ProjectedSourceCompletionResult CompleteByRotationalCopy(
         ProjectedSourceCompletionRequest request,
         SourceCompletionSettings settings)
     {
-        ArgumentNullException.ThrowIfNull(request);
-        ArgumentNullException.ThrowIfNull(settings);
-
-        if (request.Rays.Count == 0)
-        {
-            throw new ArgumentException("Projected source completion requires at least one ray.", nameof(request));
-        }
-
-        if (settings.AngularStepDegrees <= 0d)
-        {
-            throw new ArgumentOutOfRangeException(nameof(settings.AngularStepDegrees), settings.AngularStepDegrees, "Angular step must be positive.");
-        }
-
-        if (settings.GapThresholdDegrees <= 0d)
-        {
-            throw new ArgumentOutOfRangeException(nameof(settings.GapThresholdDegrees), settings.GapThresholdDegrees, "Gap threshold must be positive.");
-        }
-
-        if (settings.MaxSyntheticRays is < 0)
-        {
-            throw new ArgumentOutOfRangeException(nameof(settings.MaxSyntheticRays), settings.MaxSyntheticRays, "Max synthetic rays cannot be negative.");
-        }
+        ValidateRequestAndSettings(request, settings);
 
         var profile = request.ProfileDefinition.BuildProfile();
         var samples = request.Rays.Select(ray => BuildLocalSample(ray, request.SourceFrame, profile)).ToList();
@@ -159,23 +149,8 @@ public sealed class ProjectedSourceCompletionService
                     break;
                 }
 
-                var sourceSample = FindNearestSample(samples, targetTheta);
-                var deltaDegrees = ProjectedSourceFrameMath.NormalizeDeltaDegrees(targetTheta - sourceSample.ThetaDegrees);
-                var localDirection = RotateAroundLocalX(sourceSample.LocalDirection, deltaDegrees);
-                localDirection = ProjectedSourceFrameMath.NormalizeDirection(localDirection, "Synthetic local direction cannot be zero.");
-
-                var u = Math.Clamp(sourceSample.U, 0d, profile.Length);
-                var targetThetaRadians = (float)(targetTheta * Math.PI / 180d);
-                var localOrigin = profile.EvaluateSurfacePoint((float)u, targetThetaRadians);
-
-                var worldOrigin = ProjectedSourceFrameMath.LocalPointToWorld(localOrigin, request.SourceFrame);
-                var worldDirection = ProjectedSourceFrameMath.LocalDirectionToWorld(localDirection, request.SourceFrame);
-                worldDirection = ProjectedSourceFrameMath.NormalizeDirection(worldDirection, "Synthetic world direction cannot be zero.");
-
-                var ray = new Ray3D(worldOrigin, worldDirection);
-                var targetPointVector = worldOrigin + (worldDirection * SyntheticTargetDistance);
-                var targetPoint = new Point3(targetPointVector.X, targetPointVector.Y, targetPointVector.Z);
-                synthetic.Add(new ProjectionRay(ray, targetPoint));
+var sourceSample = FindNearestSample(samples, targetTheta);
+                synthetic.Add(CreateSyntheticRayFromSample(sourceSample, targetTheta, request.SourceFrame, profile));
             }
 
             if (settings.MaxSyntheticRays.HasValue && synthetic.Count >= settings.MaxSyntheticRays.Value)
@@ -241,6 +216,125 @@ public sealed class ProjectedSourceCompletionService
         double U,
         double ThetaDegrees,
         Vector3 LocalDirection);
+
+
+    public ProjectedSourceCompletionResult CompleteByMirror(ProjectedSourceCompletionRequest request, SourceCompletionSettings settings)
+    {
+        ValidateRequestAndSettings(request, settings);
+        var profile = request.ProfileDefinition.BuildProfile();
+        var samples = request.Rays.Select(ray => BuildLocalSample(ray, request.SourceFrame, profile)).ToList();
+        var coverage = _analyzer.DetectCoverage(request, settings.GapThresholdDegrees);
+        var gaps = _analyzer.DetectGaps(request, settings.GapThresholdDegrees);
+
+        var synthetic = new List<ProjectionRay>();
+        var mirrorAxis = ProjectedSourceFrameMath.NormalizeDegrees(settings.MirrorAxisDegrees);
+        foreach (var gap in gaps)
+        {
+            foreach (var targetTheta in EnumerateGapTargets(gap, settings.AngularStepDegrees))
+            {
+                if (settings.MaxSyntheticRays.HasValue && synthetic.Count >= settings.MaxSyntheticRays.Value) break;
+                // Mirror chooses template azimuth around mirror axis, then rotates to target in local frame.
+                var templateTheta = ProjectedSourceFrameMath.NormalizeDegrees((2d * mirrorAxis) - targetTheta);
+                var sourceSample = FindNearestSample(samples, templateTheta);
+                synthetic.Add(CreateSyntheticRayFromSample(sourceSample, targetTheta, request.SourceFrame, profile));
+            }
+        }
+
+        var output = settings.IncludeOriginalRays ? request.Rays.Concat(synthetic).ToList() : synthetic;
+        return new ProjectedSourceCompletionResult($"Mirror Completed - {request.Name}", output, coverage, gaps, request.Rays.Count, synthetic.Count);
+    }
+
+    public ProjectedSourceCompletionResult CompleteByWeightedSectorClone(ProjectedSourceCompletionRequest request, SourceCompletionSettings settings)
+    {
+        ValidateRequestAndSettings(request, settings);
+        var profile = request.ProfileDefinition.BuildProfile();
+        var samples = request.Rays.Select(ray => BuildLocalSample(ray, request.SourceFrame, profile)).ToList();
+        var coverage = _analyzer.DetectCoverage(request, settings.GapThresholdDegrees);
+        var gaps = _analyzer.DetectGaps(request, settings.GapThresholdDegrees);
+
+        var sectors = NormalizeWeightedSectors(settings.WeightedSectors);
+        var sectorPools = sectors
+            .Select((sector, index) => new { sector, index, samples = samples.Where(s => IsAngleInSector(s.ThetaDegrees, sector.StartDegrees, sector.EndDegrees)).ToList() })
+            .Where(x => x.samples.Count > 0 && x.sector.Weight > 0)
+            .ToList();
+
+        if (sectorPools.Count == 0)
+        {
+            throw new InvalidOperationException("Weighted sector cloning requires at least one sector with positive weight and at least one sample in the sector.");
+        }
+
+        var schedule = new List<int>();
+        foreach (var pool in sectorPools)
+        {
+            var repeats = Math.Max(1, (int)Math.Round(pool.sector.Weight));
+            for (var i = 0; i < repeats; i++) schedule.Add(pool.index);
+        }
+
+        var synthetic = new List<ProjectionRay>();
+        var cursor = 0;
+        foreach (var gap in gaps)
+        {
+            foreach (var targetTheta in EnumerateGapTargets(gap, settings.AngularStepDegrees))
+            {
+                if (settings.MaxSyntheticRays.HasValue && synthetic.Count >= settings.MaxSyntheticRays.Value) break;
+                var selectedIndex = schedule[cursor % schedule.Count];
+                cursor++;
+                var pool = sectorPools.First(p => p.index == selectedIndex);
+                var sourceSample = FindNearestSample(pool.samples, targetTheta);
+                synthetic.Add(CreateSyntheticRayFromSample(sourceSample, targetTheta, request.SourceFrame, profile));
+            }
+        }
+
+        var output = settings.IncludeOriginalRays ? request.Rays.Concat(synthetic).ToList() : synthetic;
+        return new ProjectedSourceCompletionResult($"Weighted Completed - {request.Name}", output, coverage, gaps, request.Rays.Count, synthetic.Count);
+    }
+
+    private static List<WeightedSourceSector> NormalizeWeightedSectors(IReadOnlyList<WeightedSourceSector>? sectors)
+    {
+        return (sectors ?? Array.Empty<WeightedSourceSector>())
+            .Where(s => s.Weight > 0d)
+            .Select(s => s with
+            {
+                StartDegrees = ProjectedSourceFrameMath.NormalizeDegrees(s.StartDegrees),
+                EndDegrees = ProjectedSourceFrameMath.NormalizeDegrees(s.EndDegrees),
+            }).ToList();
+    }
+
+    private static bool IsAngleInSector(double theta, double start, double end)
+    {
+        theta = ProjectedSourceFrameMath.NormalizeDegrees(theta);
+        start = ProjectedSourceFrameMath.NormalizeDegrees(start);
+        end = ProjectedSourceFrameMath.NormalizeDegrees(end);
+        return start <= end ? theta >= start && theta <= end : theta >= start || theta <= end;
+    }
+
+    private static ProjectionRay CreateSyntheticRayFromSample(ProjectedRayLocalSample sourceSample, double targetTheta, PointSourceFrameState frame, IAxisymmetricSourceProfile profile)
+    {
+        var deltaDegrees = ProjectedSourceFrameMath.NormalizeDeltaDegrees(targetTheta - sourceSample.ThetaDegrees);
+        var localDirection = RotateAroundLocalX(sourceSample.LocalDirection, deltaDegrees);
+        localDirection = ProjectedSourceFrameMath.NormalizeDirection(localDirection, "Synthetic local direction cannot be zero.");
+        var u = Math.Clamp(sourceSample.U, 0d, profile.Length);
+        var targetThetaRadians = (float)(targetTheta * Math.PI / 180d);
+        var localOrigin = profile.EvaluateSurfacePoint((float)u, targetThetaRadians);
+        var worldOrigin = ProjectedSourceFrameMath.LocalPointToWorld(localOrigin, frame);
+        var worldDirection = ProjectedSourceFrameMath.LocalDirectionToWorld(localDirection, frame);
+        worldDirection = ProjectedSourceFrameMath.NormalizeDirection(worldDirection, "Synthetic world direction cannot be zero.");
+        var ray = new Ray3D(worldOrigin, worldDirection);
+        var targetPointVector = worldOrigin + (worldDirection * SyntheticTargetDistance);
+        var targetPoint = new Point3(targetPointVector.X, targetPointVector.Y, targetPointVector.Z);
+        return new ProjectionRay(ray, targetPoint);
+    }
+
+    private static void ValidateRequestAndSettings(ProjectedSourceCompletionRequest request, SourceCompletionSettings settings)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        ArgumentNullException.ThrowIfNull(settings);
+        if (request.Rays.Count == 0) throw new ArgumentException("Projected source completion requires at least one ray.", nameof(request));
+        if (settings.AngularStepDegrees <= 0d) throw new ArgumentOutOfRangeException(nameof(settings.AngularStepDegrees), settings.AngularStepDegrees, "Angular step must be positive.");
+        if (settings.GapThresholdDegrees <= 0d) throw new ArgumentOutOfRangeException(nameof(settings.GapThresholdDegrees), settings.GapThresholdDegrees, "Gap threshold must be positive.");
+        if (settings.MaxSyntheticRays is < 0) throw new ArgumentOutOfRangeException(nameof(settings.MaxSyntheticRays), settings.MaxSyntheticRays, "Max synthetic rays cannot be negative.");
+    }
+
 }
 
 internal static class ProjectedSourceFrameMath

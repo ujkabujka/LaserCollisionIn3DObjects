@@ -152,6 +152,64 @@ public sealed class ProjectedSourceCompletionServiceTests
         Assert.Contains("at least one ray", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Fact]
+    public void CompleteDispatch_RotationalCopy_MatchesDirectCall()
+    {
+        var request = BuildRequest("Dispatch", CreateRaysAtAngles(new[] { 60d, 90d, 210d, 240d }));
+        var service = new ProjectedSourceCompletionService();
+        var settings = new SourceCompletionSettings(30d, 15d, IncludeOriginalRays: true, Method: SourceCompletionMethod.RotationalCopy);
+
+        var viaDispatch = service.Complete(request, settings);
+        var direct = service.CompleteByRotationalCopy(request, settings);
+
+        Assert.Equal(direct.SyntheticRayCount, viaDispatch.SyntheticRayCount);
+        Assert.Equal(direct.Rays.Count, viaDispatch.Rays.Count);
+    }
+
+    [Fact]
+    public void MirrorCompletionCreatesSyntheticRays()
+    {
+        var request = BuildRequest("Mirror", CreateRaysAtAngles(new[] { 60d, 70d, 80d, 90d }));
+        var service = new ProjectedSourceCompletionService();
+
+        var result = service.Complete(request, new SourceCompletionSettings(30d, 15d, IncludeOriginalRays: false, Method: SourceCompletionMethod.Mirror, MirrorAxisDegrees: 0d));
+
+        Assert.True(result.SyntheticRayCount > 0);
+        foreach (var ray in result.Rays)
+        {
+            Assert.InRange(ray.Ray.Direction.Length(), 0.9999f, 1.0001f);
+        }
+    }
+
+    [Fact]
+    public void WeightedSectorCloneCreatesSyntheticRaysAndSupportsWrapAround()
+    {
+        var request = BuildRequest("Weighted", CreateRaysAtAngles(new[] { 355d, 5d, 60d, 70d, 80d, 90d }));
+        var service = new ProjectedSourceCompletionService();
+        var sectors = new List<WeightedSourceSector>
+        {
+            new(350d, 20d, 2d),
+            new(60d, 90d, 1d),
+        };
+
+        var result = service.Complete(request, new SourceCompletionSettings(20d, 10d, IncludeOriginalRays: false, Method: SourceCompletionMethod.WeightedSectorClone, WeightedSectors: sectors));
+
+        Assert.True(result.SyntheticRayCount > 0);
+    }
+
+    [Fact]
+    public void WeightedSectorCloneThrowsWhenNoSectorSamples()
+    {
+        var request = BuildRequest("WeightedInvalid", CreateRaysAtAngles(new[] { 60d, 70d, 80d, 90d }));
+        var service = new ProjectedSourceCompletionService();
+        var sectors = new List<WeightedSourceSector> { new(200d, 220d, 1d) };
+
+        var ex = Assert.Throws<InvalidOperationException>(() =>
+            service.Complete(request, new SourceCompletionSettings(30d, 15d, IncludeOriginalRays: false, Method: SourceCompletionMethod.WeightedSectorClone, WeightedSectors: sectors)));
+
+        Assert.Contains("requires at least one sector", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
     private static ProjectedSourceCompletionRequest BuildRequest(string name, IReadOnlyList<ProjectionRay> rays, PointSourceFrameState? frame = null)
         => new(name, CylinderProfile, frame ?? IdentityFrame(), rays);
 

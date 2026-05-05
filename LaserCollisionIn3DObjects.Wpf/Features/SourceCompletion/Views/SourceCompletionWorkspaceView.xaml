@@ -20,10 +20,18 @@
             <TextBlock Text="Target Collision Scene" FontWeight="SemiBold"/>
             <ComboBox ItemsSource="{Binding SourceCompletionWorkspace.TargetCollisionScenes}" SelectedItem="{Binding SourceCompletionWorkspace.SelectedTargetCollisionScene}" DisplayMemberPath="Name" Margin="0,4,0,10"/>
 
+            <TextBlock Text="Completion Method" FontWeight="SemiBold"/>
+            <ComboBox ItemsSource="{Binding SourceCompletionWorkspace.CompletionMethods}"
+                      SelectedItem="{Binding SourceCompletionWorkspace.SelectedCompletionMethod}"
+                      Margin="0,4,0,10"/>
+
             <UniformGrid Columns="2" Margin="0,0,0,10">
                 <StackPanel Margin="3"><TextBlock Text="Angular Step (deg)"/><TextBox Text="{Binding SourceCompletionWorkspace.AngularStepDegrees}"/></StackPanel>
                 <StackPanel Margin="3"><TextBlock Text="Gap Threshold (deg)"/><TextBox Text="{Binding SourceCompletionWorkspace.GapThresholdDegrees}"/></StackPanel>
             </UniformGrid>
+
+            <TextBlock Text="Mirror Axis Degrees"/>
+            <TextBox Text="{Binding SourceCompletionWorkspace.MirrorAxisDegrees}" Margin="0,4,0,10"/>
 
             <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
                 <CheckBox IsChecked="{Binding SourceCompletionWorkspace.IncludeOriginalRays}" VerticalAlignment="Center"/>
@@ -32,6 +40,10 @@
 
             <TextBlock Text="Max Synthetic Rays (optional)"/>
             <TextBox Text="{Binding SourceCompletionWorkspace.MaxSyntheticRaysText}" Margin="0,4,0,10"/>
+
+            <TextBlock Text="Weighted Sectors"/>
+            <TextBox Text="{Binding SourceCompletionWorkspace.WeightedSectorsText}" Margin="0,4,0,2"/>
+            <TextBlock Text="Format: 60-90:2;210-240:1" FontSize="11" Foreground="#666" Margin="0,0,0,10"/>
 
             <WrapPanel>
                 <Button Content="Refresh Sources" Command="{Binding SourceCompletionWorkspace.RefreshSourcesCommand}" Margin="0,0,8,8"/>

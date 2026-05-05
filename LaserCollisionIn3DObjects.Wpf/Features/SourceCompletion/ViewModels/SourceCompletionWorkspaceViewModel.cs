@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Globalization;
 using System.Windows.Input;
 using LaserCollisionIn3DObjects.Domain.SourceCompletion;
 using LaserCollisionIn3DObjects.Wpf.Commands;
@@ -20,6 +21,9 @@ public sealed class SourceCompletionWorkspaceViewModel : ObservableObject
     private double _gapThresholdDegrees = 10d;
     private bool _includeOriginalRays = true;
     private string _maxSyntheticRaysText = string.Empty;
+    private SourceCompletionMethod _selectedCompletionMethod = SourceCompletionMethod.RotationalCopy;
+    private double _mirrorAxisDegrees;
+    private string _weightedSectorsText = string.Empty;
     private ProjectedSourceCompletionResult? _lastCompletionResult;
     private string _statusMessage = "Select a projected source to analyze.";
     private string _completionSummary = "No completed source generated yet.";
@@ -43,6 +47,7 @@ public sealed class SourceCompletionWorkspaceViewModel : ObservableObject
     public ObservableCollection<CollisionSceneViewModel> TargetCollisionScenes { get; } = new();
     public ObservableCollection<AzimuthCoverageInterval> CoverageIntervals { get; } = new();
     public ObservableCollection<AzimuthGapInterval> GapIntervals { get; } = new();
+    public ObservableCollection<SourceCompletionMethod> CompletionMethods { get; } = new(Enum.GetValues<SourceCompletionMethod>());
 
     public ProjectedLightSourceItemViewModel? SelectedProjectedSource
     {
@@ -72,6 +77,9 @@ public sealed class SourceCompletionWorkspaceViewModel : ObservableObject
     public double GapThresholdDegrees { get => _gapThresholdDegrees; set => SetProperty(ref _gapThresholdDegrees, value); }
     public bool IncludeOriginalRays { get => _includeOriginalRays; set => SetProperty(ref _includeOriginalRays, value); }
     public string MaxSyntheticRaysText { get => _maxSyntheticRaysText; set => SetProperty(ref _maxSyntheticRaysText, value); }
+    public SourceCompletionMethod SelectedCompletionMethod { get => _selectedCompletionMethod; set => SetProperty(ref _selectedCompletionMethod, value); }
+    public double MirrorAxisDegrees { get => _mirrorAxisDegrees; set => SetProperty(ref _mirrorAxisDegrees, value); }
+    public string WeightedSectorsText { get => _weightedSectorsText; set => SetProperty(ref _weightedSectorsText, value); }
 
     public ProjectedSourceCompletionResult? LastCompletionResult
     {
@@ -185,8 +193,15 @@ public sealed class SourceCompletionWorkspaceViewModel : ObservableObject
         }
 
         var request = BuildRequest(SelectedProjectedSource);
-        var settings = new SourceCompletionSettings(AngularStepDegrees, GapThresholdDegrees, IncludeOriginalRays, maxSynthetic);
-        LastCompletionResult = _completionService.CompleteByRotationalCopy(request, settings);
+        var weightedSectors = ParseWeightedSectorsOrNull();
+        if (SelectedCompletionMethod == SourceCompletionMethod.WeightedSectorClone && (weightedSectors is null || weightedSectors.Count == 0))
+        {
+            StatusMessage = "Weighted sector cloning requires at least one valid weighted sector. Format: 60-90:2;210-240:1";
+            return;
+        }
+
+        var settings = new SourceCompletionSettings(AngularStepDegrees, GapThresholdDegrees, IncludeOriginalRays, maxSynthetic, SelectedCompletionMethod, MirrorAxisDegrees, weightedSectors);
+        LastCompletionResult = _completionService.Complete(request, settings);
 
         CoverageIntervals.Clear();
         foreach (var interval in LastCompletionResult.CoverageIntervals)
@@ -200,7 +215,7 @@ public sealed class SourceCompletionWorkspaceViewModel : ObservableObject
             GapIntervals.Add(gap);
         }
 
-        CompletionSummary = $"Original rays: {LastCompletionResult.OriginalRayCount}; Synthetic rays: {LastCompletionResult.SyntheticRayCount}; Output rays: {LastCompletionResult.Rays.Count}.";
+        CompletionSummary = $"Generated completed source using {SelectedCompletionMethod}. Original rays: {LastCompletionResult.OriginalRayCount}; Synthetic rays: {LastCompletionResult.SyntheticRayCount}; Output rays: {LastCompletionResult.Rays.Count}.";
         StatusMessage = "Completed source generated. Review and add to a collision scene when ready.";
     }
 
@@ -240,6 +255,41 @@ public sealed class SourceCompletionWorkspaceViewModel : ObservableObject
 
     private bool CanAnalyzeOrGenerate() => SelectedProjectedSource is not null && SelectedProjectedSource.Rays.Count > 0;
     private bool CanAddCompletedSource() => LastCompletionResult is not null && SelectedTargetCollisionScene is not null;
+
+    private List<WeightedSourceSector>? ParseWeightedSectorsOrNull()
+    {
+        if (string.IsNullOrWhiteSpace(WeightedSectorsText))
+        {
+            return null;
+        }
+
+        var sectors = new List<WeightedSourceSector>();
+        var tokens = WeightedSectorsText.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        foreach (var token in tokens)
+        {
+            var parts = token.Split(':', StringSplitOptions.TrimEntries);
+            if (parts.Length != 2)
+            {
+                StatusMessage = $"Invalid weighted sector '{token}'. Expected start-end:weight.";
+                return null;
+            }
+
+            var range = parts[0].Split('-', StringSplitOptions.TrimEntries);
+            if (range.Length != 2
+                || !double.TryParse(range[0], NumberStyles.Float, CultureInfo.InvariantCulture, out var start)
+                || !double.TryParse(range[1], NumberStyles.Float, CultureInfo.InvariantCulture, out var end)
+                || !double.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out var weight)
+                || weight <= 0d)
+            {
+                StatusMessage = $"Invalid weighted sector '{token}'. Expected start-end:weight with positive weight.";
+                return null;
+            }
+
+            sectors.Add(new WeightedSourceSector(start, end, weight));
+        }
+
+        return sectors;
+    }
 
     private void RaiseCommandStates()
     {

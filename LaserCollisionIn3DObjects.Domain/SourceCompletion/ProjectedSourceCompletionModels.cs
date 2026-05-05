@@ -3,6 +3,13 @@ using LaserCollisionIn3DObjects.Domain.Projection;
 
 namespace LaserCollisionIn3DObjects.Domain.SourceCompletion;
 
+public enum SourceCompletionMethod
+{
+    RotationalCopy,
+    Mirror,
+    WeightedSectorClone,
+}
+
 public sealed record ProjectedSourceCompletionRequest(
     string Name,
     AxisymmetricSourceProfileDefinition ProfileDefinition,
@@ -13,7 +20,15 @@ public sealed record SourceCompletionSettings(
     double AngularStepDegrees,
     double GapThresholdDegrees,
     bool IncludeOriginalRays,
-    int? MaxSyntheticRays = null);
+    int? MaxSyntheticRays = null,
+    SourceCompletionMethod Method = SourceCompletionMethod.RotationalCopy,
+    double MirrorAxisDegrees = 0d,
+    IReadOnlyList<WeightedSourceSector>? WeightedSectors = null);
+
+public sealed record WeightedSourceSector(
+    double StartDegrees,
+    double EndDegrees,
+    double Weight);
 
 public sealed record AzimuthCoverageInterval(
     double StartDegrees,
