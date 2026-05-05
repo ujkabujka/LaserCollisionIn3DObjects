@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Collections.Specialized;
 using System.IO;
 using System.Numerics;
 using System.Windows;
@@ -81,6 +82,7 @@ public sealed class MainWindowViewModel : ObservableObject
     private bool _isConsoleVisible = true;
     private bool _isNavigationCollapsed;
     private WorkspaceKind _selectedWorkspace = WorkspaceKind.Collision;
+    private CollisionSceneViewModel? _subscribedScene;
 
     public MainWindowViewModel(SceneRenderSyncService renderSyncService, ProjectionRenderSyncService projectionRenderSyncService)
     {
@@ -1242,6 +1244,39 @@ public sealed class MainWindowViewModel : ObservableObject
         }
     }
 
+    private void UpdateSceneCollectionSubscriptions(CollisionSceneViewModel? scene)
+    {
+        if (ReferenceEquals(_subscribedScene, scene))
+        {
+            return;
+        }
+
+        if (_subscribedScene is not null)
+        {
+            _subscribedScene.LightSources.CollectionChanged -= OnSceneLightSourcesCollectionChanged;
+            _subscribedScene.ProjectedLightSources.CollectionChanged -= OnSceneProjectedLightSourcesCollectionChanged;
+        }
+
+        _subscribedScene = scene;
+
+        if (_subscribedScene is not null)
+        {
+            _subscribedScene.LightSources.CollectionChanged += OnSceneLightSourcesCollectionChanged;
+            _subscribedScene.ProjectedLightSources.CollectionChanged += OnSceneProjectedLightSourcesCollectionChanged;
+        }
+    }
+
+    private void OnSceneLightSourcesCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        RefreshViewport(false);
+    }
+
+    private void OnSceneProjectedLightSourcesCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        RaisePropertyChanged(nameof(ProjectedLightSources));
+        RefreshViewport(false);
+    }
+
     private void OnSceneCollectionPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
         if (e.PropertyName == nameof(SceneCollectionService.SelectedScene))
@@ -1470,6 +1505,7 @@ public sealed class MainWindowViewModel : ObservableObject
     private void RefreshSceneBindingsAndViewport()
     {
         CollisionScenes.Refresh();
+        UpdateSceneCollectionSubscriptions(SelectedScene);
         if (SelectedScene?.SelectedPrism is not null)
         {
             LoadPrismIntoEditor(SelectedScene.SelectedPrism);
