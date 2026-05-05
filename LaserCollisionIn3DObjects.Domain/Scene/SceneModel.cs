@@ -33,6 +33,12 @@ public sealed class SceneModel
     /// </summary>
     public List<Ray3D> GeneratedRays { get; } = new();
 
+    /// <summary>
+    /// Gets exact candidate rays copied from projected light-source results.
+    /// These rays are collision candidates and should render only when they hit.
+    /// </summary>
+    public List<Ray3D> ProjectedSourceRays { get; } = new();
+
 
     /// <summary>
     /// Gets the hole centers from prisms .

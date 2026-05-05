@@ -123,6 +123,11 @@
                                         </DataTemplate>
                                     </ListBox.ItemTemplate>
                                 </ListBox>
+                                <TextBlock Margin="0,6,0,0"
+                                           TextWrapping="Wrap"
+                                           Foreground="#666"
+                                           FontSize="11"
+                                           Text="Exact rays are tested when Run Collision is clicked. Only rays that hit prisms are drawn." />
                             </GroupBox>
                         </StackPanel>
                     </GroupBox>
