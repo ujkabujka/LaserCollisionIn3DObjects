@@ -122,6 +122,38 @@ public sealed class HelixSceneBuilder
         return visuals;
     }
 
+
+    public IReadOnlyList<Visual3D> BuildSourceCompletionPreviewVisuals(
+        PointSourceFrameState? sourceFrame,
+        IAxisymmetricSourceProfile? profile,
+        IReadOnlyList<Ray3D>? originalRays,
+        IReadOnlyList<Ray3D>? syntheticRays)
+    {
+        var visuals = new List<Visual3D>();
+        visuals.AddRange(_frameVisualizer.CreateGlobalFrameVisuals(3f));
+
+        if (sourceFrame is null || profile is null)
+        {
+            return visuals;
+        }
+
+        var frame = ToFrame3D(sourceFrame);
+        visuals.Add(_meshFactory.CreateAxisymmetricSourceProfileVisual(profile, frame, Colors.Goldenrod, 0.75d, slices: 32, stacks: 24));
+        visuals.AddRange(_frameVisualizer.CreateFrameVisualsBatch(new[] { (frame, 1.5f) }));
+
+        if (originalRays is not null && originalRays.Count > 0)
+        {
+            visuals.Add(_rayVisualizer.CreateRayOriginPointBatch(originalRays, color: Colors.OrangeRed));
+        }
+
+        if (syntheticRays is not null && syntheticRays.Count > 0)
+        {
+            visuals.Add(_rayVisualizer.CreateRayOriginPointBatch(syntheticRays, color: Colors.LimeGreen));
+        }
+
+        return visuals;
+    }
+
     public IReadOnlyList<Visual3D> BuildProjectionVisuals(
         IReadOnlyList<Point3> holePoints,
         ProjectionComputationResult? projectionResult,
