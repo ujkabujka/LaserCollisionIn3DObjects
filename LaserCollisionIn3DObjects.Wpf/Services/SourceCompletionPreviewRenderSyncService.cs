@@ -31,7 +31,8 @@ public sealed class SourceCompletionPreviewRenderSyncService
         var group = new Model3DGroup();
         foreach (var visual in visuals)
         {
-            group.Children.Add(visual.Content);
+            if(visual is ModelVisual3D  vs)
+                group.Children.Add(vs.Content);
         }
 
         _dynamicVisualRoot.Content = group;
