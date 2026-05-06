@@ -935,6 +935,12 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
         }
     }
 
+
+    public AxisymmetricSourceProfileDefinition BuildCurrentProfileDefinition()
+    {
+        return BuildAxisymmetricSourceProfileDefinition(SelectedMethod?.Method ?? new AxisymmetricSourceProjectionMethod());
+    }
+
     private LaserCollisionIn3DObjects.Domain.Geometry.AxisymmetricSourceProfileDefinition BuildAxisymmetricSourceProfileDefinition(IProjectionMethod method)
     {
         if (method.Metadata.Id == ProjectionMethodIds.PointSource)

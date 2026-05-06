@@ -35,7 +35,8 @@ public sealed class SceneModel
 
     /// <summary>
     /// Gets exact candidate rays copied from projected light-source results.
-    /// These rays are collision candidates and should render only when they hit.
+    /// These rays are used for collision. Rendering should always show their origins,
+    /// but should only show line segments for rays that hit.
     /// </summary>
     public List<Ray3D> ProjectedSourceRays { get; } = new();
 
