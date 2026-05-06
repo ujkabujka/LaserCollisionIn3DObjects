@@ -4,7 +4,6 @@ using LaserCollisionIn3DObjects.Domain.Projection;
 using LaserCollisionIn3DObjects.Domain.SourceCompletion;
 using LaserCollisionIn3DObjects.Rendering.Helix;
 using LaserCollisionIn3DObjects.Wpf.ViewModels;
-using System.Windows.Media.Media3D;
 
 namespace LaserCollisionIn3DObjects.Wpf.Services;
 
@@ -28,14 +27,13 @@ public sealed class SourceCompletionPreviewRenderSyncService
         var profile = selectedSource?.ProfileDefinition.BuildProfile();
 
         var visuals = _sceneBuilder.BuildSourceCompletionPreviewVisuals(sourceFrame, profile, originalRays, syntheticRays);
-        var group = new Model3DGroup();
+        _dynamicVisualRoot.Children.Clear();
         foreach (var visual in visuals)
         {
-            if(visual is ModelVisual3D  vs)
-                group.Children.Add(vs.Content);
+            _dynamicVisualRoot.Children.Add(visual);
         }
 
-        _dynamicVisualRoot.Content = group;
+        _viewport.ZoomExtents();
     }
 
     internal static IReadOnlyList<ProjectionRay> GetSyntheticRays(ProjectedSourceCompletionResult result)

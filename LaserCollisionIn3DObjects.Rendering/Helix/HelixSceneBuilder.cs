@@ -130,7 +130,6 @@ public sealed class HelixSceneBuilder
         IReadOnlyList<Ray3D>? syntheticRays)
     {
         var visuals = new List<Visual3D>();
-        visuals.AddRange(_frameVisualizer.CreateGlobalFrameVisuals(3f));
 
         if (sourceFrame is null || profile is null)
         {
@@ -138,8 +137,8 @@ public sealed class HelixSceneBuilder
         }
 
         var frame = ToFrame3D(sourceFrame);
-        visuals.Add(_meshFactory.CreateAxisymmetricSourceProfileVisual(profile, frame, Colors.Goldenrod, 0.75d, slices: 32, stacks: 24));
-        visuals.AddRange(_frameVisualizer.CreateFrameVisualsBatch(new[] { (frame, 1.5f) }));
+        visuals.Add(_meshFactory.CreateAxisymmetricSourceProfileVisual(profile, frame, Colors.Goldenrod, 0.45d, slices: 32, stacks: 24));
+        visuals.AddRange(_frameVisualizer.CreateFrameVisualsBatch(new[] { (frame, 0.9f) }));
 
         if (originalRays is not null && originalRays.Count > 0)
         {
