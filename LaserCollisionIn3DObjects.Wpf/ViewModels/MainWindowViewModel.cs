@@ -56,7 +56,7 @@ public sealed class MainWindowViewModel : ObservableObject
     private float _newPrismSizeY = 1.2f;
     private float _newPrismSizeZ = 2.4f;
     private int _newPrismArrayCount = 8;
-    private float _newPrismArrayRadius = 20f;
+    private float _newPrismArrayRadius = 10f;
     private float _newPrismArrayLength = 20f;
     private PrismArrayPlacementMode _selectedPrismArrayPlacementMode = PrismArrayPlacementMode.Cylindrical;
     private float _newRayDirectionX = 1f;
