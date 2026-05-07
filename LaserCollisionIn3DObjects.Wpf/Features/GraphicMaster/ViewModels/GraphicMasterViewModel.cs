@@ -20,6 +20,7 @@ namespace LaserCollisionIn3DObjects.Wpf.Features.GraphicMaster.ViewModels;
 public sealed class GraphicMasterViewModel : ObservableObject
 {
     private readonly SceneCollectionService _sceneCollectionService;
+    private readonly CompletedSourceStore _completedSourceStore;
     private readonly GraphSourceExtractionService _sourceExtractionService = new();
     private readonly GraphTypeRegistry _graphTypeRegistry = new(new IGraphType[]
     {
@@ -45,10 +46,12 @@ public sealed class GraphicMasterViewModel : ObservableObject
 
     public GraphicMasterViewModel(
         SceneCollectionService sceneCollectionService,
+        CompletedSourceStore completedSourceStore,
         IGraphicMasterSaveFileDialogService? saveFileDialogService = null,
         IGraphicMasterPngExportService? pngExportService = null)
     {
         _sceneCollectionService = sceneCollectionService ?? throw new ArgumentNullException(nameof(sceneCollectionService));
+        _completedSourceStore = completedSourceStore ?? throw new ArgumentNullException(nameof(completedSourceStore));
         _saveFileDialogService = saveFileDialogService ?? new GraphicMasterSaveFileDialogService();
         _pngExportService = pngExportService ?? new GraphicMasterPngExportService();
 
@@ -69,6 +72,7 @@ public sealed class GraphicMasterViewModel : ObservableObject
         {
             AttachSceneObservers(scene);
         }
+        _completedSourceStore.CompletedSources.CollectionChanged += (_, _) => RefreshSources();
         RefreshSources();
     }
 
@@ -551,9 +555,22 @@ public sealed class GraphicMasterViewModel : ObservableObject
             .ToList();
 
         var extracted = _sourceExtractionService.Extract(scenes);
+        var completed = _completedSourceStore.CompletedSources
+            .Select((source, idx) => new GraphableSourceData
+            {
+                Id = $"completed::{source.Id}",
+                DisplayName = $"Completed Source - {source.Methodology} {idx + 1}",
+                Kind = GraphableSourceKind.ProjectionResult,
+                AxisX = new Vector3((float)source.SourceFrame.AxisX.X, (float)source.SourceFrame.AxisX.Y, (float)source.SourceFrame.AxisX.Z),
+                AxisY = new Vector3((float)source.SourceFrame.AxisY.X, (float)source.SourceFrame.AxisY.Y, (float)source.SourceFrame.AxisY.Z),
+                AxisZ = new Vector3((float)source.SourceFrame.AxisZ.X, (float)source.SourceFrame.AxisZ.Y, (float)source.SourceFrame.AxisZ.Z),
+                FrameOrigin = new Vector3((float)source.SourceFrame.Origin.X, (float)source.SourceFrame.Origin.Y, (float)source.SourceFrame.Origin.Z),
+                SourceLength = source.ProfileDefinition.Length,
+                Rays = source.CompletedRays.Select(ray => ray.Ray).ToList(),
+            });
 
         Sources.Clear();
-        foreach (var source in extracted)
+        foreach (var source in extracted.Concat(completed))
         {
             Sources.Add(new GraphableSourceItemViewModel
             {
