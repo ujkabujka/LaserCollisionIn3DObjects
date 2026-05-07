@@ -115,6 +115,7 @@ public sealed class ProjectedSourceAzimuthAnalyzer
 public sealed class ProjectedSourceCompletionService
 {
     private const float SyntheticTargetDistance = 1000f;
+    private const double AngularToleranceDegrees = 1e-9;
     private readonly ProjectedSourceAzimuthAnalyzer _analyzer = new();
 
     public ProjectedSourceCompletionResult Complete(ProjectedSourceCompletionRequest request, SourceCompletionSettings settings)
@@ -140,17 +141,43 @@ public sealed class ProjectedSourceCompletionService
         var gaps = _analyzer.DetectGaps(request, settings.GapThresholdDegrees);
 
         var synthetic = new List<ProjectionRay>();
-        foreach (var gap in gaps)
+        foreach (var pair in BuildCoverageGapPairs(coverage, gaps))
         {
-            foreach (var targetTheta in EnumerateGapTargets(gap, settings.AngularStepDegrees))
+            var coverageLength = ProjectedSourceFrameMath.PositiveAngularDistanceDegrees(pair.Coverage.StartDegrees, pair.Coverage.EndDegrees);
+            var gapLength = ProjectedSourceFrameMath.PositiveAngularDistanceDegrees(pair.Gap.StartDegrees, pair.Gap.EndDegrees);
+            if (coverageLength <= AngularToleranceDegrees || gapLength <= AngularToleranceDegrees)
             {
+                continue;
+            }
+
+            var filled = 0d;
+            while (filled < gapLength - AngularToleranceDegrees)
+            {
+                var sliceLength = Math.Min(coverageLength, gapLength - filled);
+                var sourceSlice = GetCoverageSliceSamples(samples, pair.Coverage.StartDegrees, sliceLength);
+                var rotationOffset = coverageLength + filled;
+                foreach (var sourceSample in sourceSlice)
+                {
+                    if (settings.MaxSyntheticRays.HasValue && synthetic.Count >= settings.MaxSyntheticRays.Value)
+                    {
+                        break;
+                    }
+
+                    var targetTheta = ProjectedSourceFrameMath.NormalizeDegrees(sourceSample.ThetaDegrees + rotationOffset);
+                    if (!IsAngleInHalfOpenInterval(targetTheta, pair.Gap.StartDegrees, pair.Gap.EndDegrees))
+                    {
+                        continue;
+                    }
+
+                    synthetic.Add(CreateSyntheticRayFromSample(sourceSample, targetTheta, request.SourceFrame, profile));
+                }
+
                 if (settings.MaxSyntheticRays.HasValue && synthetic.Count >= settings.MaxSyntheticRays.Value)
                 {
                     break;
                 }
 
-var sourceSample = FindNearestSample(samples, targetTheta);
-                synthetic.Add(CreateSyntheticRayFromSample(sourceSample, targetTheta, request.SourceFrame, profile));
+                filled += sliceLength;
             }
 
             if (settings.MaxSyntheticRays.HasValue && synthetic.Count >= settings.MaxSyntheticRays.Value)
@@ -171,6 +198,47 @@ var sourceSample = FindNearestSample(samples, targetTheta);
             request.Rays.Count,
             synthetic.Count);
     }
+
+    private static IReadOnlyList<(AzimuthCoverageInterval Coverage, AzimuthGapInterval Gap)> BuildCoverageGapPairs(
+        IReadOnlyList<AzimuthCoverageInterval> coverage,
+        IReadOnlyList<AzimuthGapInterval> gaps)
+    {
+        var pairs = new List<(AzimuthCoverageInterval, AzimuthGapInterval)>();
+        foreach (var c in coverage.OrderBy(v => ProjectedSourceFrameMath.NormalizeDegrees(v.StartDegrees)))
+        {
+            var gap = gaps.FirstOrDefault(g => AreAnglesEquivalent(g.StartDegrees, c.EndDegrees));
+            if (gap is not null)
+            {
+                pairs.Add((c, gap));
+            }
+        }
+
+        return pairs;
+    }
+
+    private static List<ProjectedRayLocalSample> GetCoverageSliceSamples(IReadOnlyList<ProjectedRayLocalSample> samples, double coverageStartDegrees, double sliceLengthDegrees)
+    {
+        return samples
+            .Where(sample => IsWithinSlice(sample.ThetaDegrees, coverageStartDegrees, sliceLengthDegrees))
+            .OrderBy(sample => ProjectedSourceFrameMath.PositiveAngularDistanceDegrees(coverageStartDegrees, sample.ThetaDegrees))
+            .ToList();
+    }
+
+    private static bool IsWithinSlice(double thetaDegrees, double startDegrees, double lengthDegrees)
+    {
+        var dist = ProjectedSourceFrameMath.PositiveAngularDistanceDegrees(startDegrees, thetaDegrees);
+        return dist >= -AngularToleranceDegrees && dist < lengthDegrees - AngularToleranceDegrees;
+    }
+
+    private static bool IsAngleInHalfOpenInterval(double thetaDegrees, double startDegrees, double endDegrees)
+    {
+        var span = ProjectedSourceFrameMath.PositiveAngularDistanceDegrees(startDegrees, endDegrees);
+        var dist = ProjectedSourceFrameMath.PositiveAngularDistanceDegrees(startDegrees, thetaDegrees);
+        return dist >= -AngularToleranceDegrees && dist < span - AngularToleranceDegrees;
+    }
+
+    private static bool AreAnglesEquivalent(double a, double b)
+        => ProjectedSourceFrameMath.CircularDistanceDegrees(a, b) <= AngularToleranceDegrees;
 
     private static IEnumerable<double> EnumerateGapTargets(AzimuthGapInterval gap, double stepDegrees)
     {
@@ -410,6 +478,19 @@ internal static class ProjectedSourceFrameMath
     {
         var delta = Math.Abs(a - b);
         return Math.Min(delta, 360d - delta);
+    }
+
+    public static double PositiveAngularDistanceDegrees(double startDegrees, double endDegrees)
+    {
+        var start = NormalizeDegrees(startDegrees);
+        var end = NormalizeDegrees(endDegrees);
+        var delta = end - start;
+        if (delta < 0d)
+        {
+            delta += 360d;
+        }
+
+        return delta;
     }
 
     private static Vector3 ToVector3(Point3 point) => new((float)point.X, (float)point.Y, (float)point.Z);
