@@ -124,7 +124,6 @@ public sealed class ProjectedSourceCompletionService
         {
             SourceCompletionMethod.RotationalCopy => CompleteByRotationalCopy(request, settings),
             SourceCompletionMethod.Mirror => CompleteByMirror(request, settings),
-            SourceCompletionMethod.WeightedSectorClone => CompleteByWeightedSectorClone(request, settings),
             _ => throw new ArgumentOutOfRangeException(nameof(settings.Method), settings.Method, "Unsupported completion method."),
         };
     }
@@ -410,70 +409,6 @@ public sealed class ProjectedSourceCompletionService
         });
         return (reverse ? picked.OrderBy(s => ProjectedSourceFrameMath.PositiveAngularDistanceDegrees(start, s.ThetaDegrees))
                         : picked.OrderByDescending(s => ProjectedSourceFrameMath.PositiveAngularDistanceDegrees(start, s.ThetaDegrees))).ToList();
-    }
-
-    public ProjectedSourceCompletionResult CompleteByWeightedSectorClone(ProjectedSourceCompletionRequest request, SourceCompletionSettings settings)
-    {
-        ValidateRequestAndSettings(request, settings);
-        var profile = request.ProfileDefinition.BuildProfile();
-        var samples = request.Rays.Select(ray => BuildLocalSample(ray, request.SourceFrame, profile)).ToList();
-        var coverage = _analyzer.DetectCoverage(request, settings.GapThresholdDegrees);
-        var gaps = _analyzer.DetectGaps(request, settings.GapThresholdDegrees);
-
-        var sectors = NormalizeWeightedSectors(settings.WeightedSectors);
-        var sectorPools = sectors
-            .Select((sector, index) => new { sector, index, samples = samples.Where(s => IsAngleInSector(s.ThetaDegrees, sector.StartDegrees, sector.EndDegrees)).ToList() })
-            .Where(x => x.samples.Count > 0 && x.sector.Weight > 0)
-            .ToList();
-
-        if (sectorPools.Count == 0)
-        {
-            throw new InvalidOperationException("Weighted sector cloning requires at least one sector with positive weight and at least one sample in the sector.");
-        }
-
-        var schedule = new List<int>();
-        foreach (var pool in sectorPools)
-        {
-            var repeats = Math.Max(1, (int)Math.Round(pool.sector.Weight));
-            for (var i = 0; i < repeats; i++) schedule.Add(pool.index);
-        }
-
-        var synthetic = new List<ProjectionRay>();
-        var cursor = 0;
-        foreach (var gap in gaps)
-        {
-            foreach (var targetTheta in EnumerateGapTargets(gap, settings.AngularStepDegrees))
-            {
-                if (settings.MaxSyntheticRays.HasValue && synthetic.Count >= settings.MaxSyntheticRays.Value) break;
-                var selectedIndex = schedule[cursor % schedule.Count];
-                cursor++;
-                var pool = sectorPools.First(p => p.index == selectedIndex);
-                var sourceSample = FindNearestSample(pool.samples, targetTheta);
-                synthetic.Add(CreateSyntheticRayFromSample(sourceSample, targetTheta, request.SourceFrame, profile));
-            }
-        }
-
-        var output = settings.IncludeOriginalRays ? request.Rays.Concat(synthetic).ToList() : synthetic;
-        return new ProjectedSourceCompletionResult($"Completed Weighted - {request.Name}", output, coverage, gaps, request.Rays.Count, synthetic.Count);
-    }
-
-    private static List<WeightedSourceSector> NormalizeWeightedSectors(IReadOnlyList<WeightedSourceSector>? sectors)
-    {
-        return (sectors ?? Array.Empty<WeightedSourceSector>())
-            .Where(s => s.Weight > 0d)
-            .Select(s => s with
-            {
-                StartDegrees = ProjectedSourceFrameMath.NormalizeDegrees(s.StartDegrees),
-                EndDegrees = ProjectedSourceFrameMath.NormalizeDegrees(s.EndDegrees),
-            }).ToList();
-    }
-
-    private static bool IsAngleInSector(double theta, double start, double end)
-    {
-        theta = ProjectedSourceFrameMath.NormalizeDegrees(theta);
-        start = ProjectedSourceFrameMath.NormalizeDegrees(start);
-        end = ProjectedSourceFrameMath.NormalizeDegrees(end);
-        return start <= end ? theta >= start && theta <= end : theta >= start || theta <= end;
     }
 
     private static ProjectionRay CreateSyntheticRayFromSample(ProjectedRayLocalSample sourceSample, double targetTheta, PointSourceFrameState frame, IAxisymmetricSourceProfile profile)

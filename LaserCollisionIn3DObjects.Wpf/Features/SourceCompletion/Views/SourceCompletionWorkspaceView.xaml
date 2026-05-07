@@ -63,23 +63,6 @@
                     <TextBox Text="{Binding SourceCompletionWorkspace.MirrorAxisDegrees}" Margin="0,4,0,0"/>
                 </StackPanel>
 
-                <StackPanel Margin="0,0,0,10">
-                    <StackPanel.Style>
-                        <Style TargetType="StackPanel">
-                            <Setter Property="Visibility" Value="Collapsed"/>
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding SourceCompletionWorkspace.SelectedCompletionMethod}" Value="{x:Static sourceCompletionDomain:SourceCompletionMethod.WeightedSectorClone}">
-                                    <Setter Property="Visibility" Value="Visible"/>
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </StackPanel.Style>
-                    <TextBlock Text="Weighted Sectors"/>
-                    <TextBox Text="{Binding SourceCompletionWorkspace.WeightedSectorsText}" Margin="0,4,0,2"/>
-                    <TextBlock Text="Format: 60-90:2;210-240:1" FontSize="11" Foreground="#666"/>
-                    <TextBlock Text="Wrap-around example: 350-20:1" FontSize="11" Foreground="#666"/>
-                </StackPanel>
-
                 <WrapPanel Margin="0,0,0,10">
                     <Button Content="Analyze Coverage" Command="{Binding SourceCompletionWorkspace.AnalyzeCoverageCommand}" Margin="0,0,8,8"/>
                     <Button Content="Generate Completed Source" Command="{Binding SourceCompletionWorkspace.GenerateCompletedSourceCommand}" Margin="0,0,8,8"/>
