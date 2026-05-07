@@ -69,6 +69,17 @@
                     <Button Content="Add Completed Source to Collision" Command="{Binding SourceCompletionWorkspace.AddCompletedSourceToCollisionCommand}" Margin="0,0,8,8"/>
                 </WrapPanel>
 
+                <GroupBox Header="Completed Sources" Margin="0,0,0,10">
+                    <StackPanel>
+                        <ListBox ItemsSource="{Binding SourceCompletionWorkspace.CompletedSources}"
+                                 SelectedItem="{Binding SourceCompletionWorkspace.SelectedCompletedSource}"
+                                 DisplayMemberPath="Name"
+                                 Height="120"/>
+                        <TextBox Text="{Binding SourceCompletionWorkspace.SelectedCompletedSourceName}" Margin="0,6,0,6"/>
+                        <Button Content="Remove Selected Completed Source" Command="{Binding SourceCompletionWorkspace.RemoveSelectedCompletedSourceCommand}"/>
+                    </StackPanel>
+                </GroupBox>
+
                 <GroupBox Header="Coverage Intervals" Margin="0,0,0,10">
                     <DataGrid ItemsSource="{Binding SourceCompletionWorkspace.CoverageIntervals}" AutoGenerateColumns="False" CanUserAddRows="False" Height="180">
                         <DataGrid.Columns>
