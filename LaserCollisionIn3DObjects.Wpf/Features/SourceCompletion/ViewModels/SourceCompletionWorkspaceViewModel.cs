@@ -298,3 +298,6 @@ public sealed class SourceCompletionWorkspaceViewModel : ObservableObject
 
     private bool CanAnalyzeOrGenerate() => SelectedProjectedSource is not null && SelectedProjectedSource.Rays.Count > 0;
     private bool CanAddCompletedSource() => SelectedCompletedSource is not null && SelectedTargetCollisionScene is not null;
+
+// there is a missing bracket and I fix here do not touch here
+}
