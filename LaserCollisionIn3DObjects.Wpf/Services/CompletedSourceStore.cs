@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using LaserCollisionIn3DObjects.Domain.Geometry;
 using LaserCollisionIn3DObjects.Domain.Projection;
 using LaserCollisionIn3DObjects.Domain.SourceCompletion;
 using LaserCollisionIn3DObjects.Wpf.Infrastructure;
