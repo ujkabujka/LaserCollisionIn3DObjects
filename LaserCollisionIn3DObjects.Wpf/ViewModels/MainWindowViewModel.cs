@@ -18,6 +18,7 @@ using LaserCollisionIn3DObjects.Wpf.Features.Projection.ViewModels;
 using LaserCollisionIn3DObjects.Wpf.Features.SourceCompletion.ViewModels;
 using LaserCollisionIn3DObjects.Wpf.Infrastructure;
 using LaserCollisionIn3DObjects.Wpf.Services;
+using LaserCollisionIn3DObjects.Domain.Projection;
 
 namespace LaserCollisionIn3DObjects.Wpf.ViewModels;
 
