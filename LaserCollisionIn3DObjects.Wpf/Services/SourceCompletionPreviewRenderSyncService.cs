@@ -4,7 +4,7 @@ using LaserCollisionIn3DObjects.Domain.Projection;
 using LaserCollisionIn3DObjects.Domain.SourceCompletion;
 using LaserCollisionIn3DObjects.Rendering.Helix;
 using LaserCollisionIn3DObjects.Wpf.ViewModels;
-
+using System.Windows.Media.Media3D;
 namespace LaserCollisionIn3DObjects.Wpf.Services;
 
 public sealed class SourceCompletionPreviewRenderSyncService
