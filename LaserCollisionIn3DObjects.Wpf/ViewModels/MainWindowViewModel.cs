@@ -1694,8 +1694,13 @@ public sealed class MainWindowViewModel : ObservableObject
         else if (SelectedProjectedLightSource is not null)
         {
             var frame = SelectedProjectedLightSource.SourceFrame;
-            frame.Origin = new Point3(NewPrismPosX, NewPrismPosY, NewPrismPosZ);
-            SelectedProjectedLightSource.SourceFrame = frame;
+            SelectedProjectedLightSource.SourceFrame = new PointSourceFrameState
+            {
+                Origin = new Point3(NewPrismPosX, NewPrismPosY, NewPrismPosZ),
+                AxisX = frame.AxisX,
+                AxisY = frame.AxisY,
+                AxisZ = frame.AxisZ,
+            };
         }
 
         scene.HitResults.Clear();

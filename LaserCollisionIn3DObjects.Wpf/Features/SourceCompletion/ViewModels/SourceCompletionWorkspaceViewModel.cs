@@ -338,13 +338,21 @@ public sealed class SourceCompletionWorkspaceViewModel : ObservableObject
 
     private void PopulateProjectionResultInputs()
     {
-        if (_projectionWorkspace?.SavedProjectionResults is null)
+        if (_projectionWorkspace?.SavedResults is null)
         {
             return;
         }
 
-        foreach (var source in _projectionWorkspace.SavedProjectionResults)
+        var fallbackProfile = SelectedProjectedSource?.ProfileDefinition
+            ?? new LaserCollisionIn3DObjects.Domain.Geometry.AxisymmetricSourceProfileDefinition
+            {
+                Kind = LaserCollisionIn3DObjects.Domain.Geometry.AxisymmetricSourceKind.Cylinder,
+                Radius = 1f,
+                Length = 1f,
+            };
+        foreach (var result in _projectionWorkspace.SavedResults)
         {
+            var source = _projectionResultToCollisionSourceService.CreateProjectedLightSource(result, fallbackProfile);
             AvailableProjectedSources.Add(new SourceCompletionInputItem { Name = source.Name, Source = source, OriginText = "Projection Result" });
         }
     }
