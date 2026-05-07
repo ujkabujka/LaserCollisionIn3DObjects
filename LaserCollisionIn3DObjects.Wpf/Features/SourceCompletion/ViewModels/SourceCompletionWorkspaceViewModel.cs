@@ -27,7 +27,6 @@ public sealed class SourceCompletionWorkspaceViewModel : ObservableObject
     private string _maxSyntheticRaysText = string.Empty;
     private SourceCompletionMethod _selectedCompletionMethod = SourceCompletionMethod.RotationalCopy;
     private double _mirrorAxisDegrees;
-    private string _weightedSectorsText = string.Empty;
     private ProjectedSourceCompletionResult? _lastCompletionResult;
     private string _statusMessage = "Select a projected source to analyze.";
     private string _completionSummary = "No completed source generated yet.";
@@ -88,7 +87,6 @@ public sealed class SourceCompletionWorkspaceViewModel : ObservableObject
     public string MaxSyntheticRaysText { get => _maxSyntheticRaysText; set => SetProperty(ref _maxSyntheticRaysText, value); }
     public SourceCompletionMethod SelectedCompletionMethod { get => _selectedCompletionMethod; set => SetProperty(ref _selectedCompletionMethod, value); }
     public double MirrorAxisDegrees { get => _mirrorAxisDegrees; set => SetProperty(ref _mirrorAxisDegrees, value); }
-    public string WeightedSectorsText { get => _weightedSectorsText; set => SetProperty(ref _weightedSectorsText, value); }
 
     public ProjectedSourceCompletionResult? LastCompletionResult
     {
@@ -212,14 +210,7 @@ public sealed class SourceCompletionWorkspaceViewModel : ObservableObject
         }
 
         var request = BuildRequest(SelectedProjectedSource);
-        var weightedSectors = ParseWeightedSectorsOrNull();
-        if (SelectedCompletionMethod == SourceCompletionMethod.WeightedSectorClone && (weightedSectors is null || weightedSectors.Count == 0))
-        {
-            StatusMessage = "Weighted sector format must be like 60-90:2;210-240:1 and contain at least one matching source sector.";
-            return;
-        }
-
-        var settings = new SourceCompletionSettings(AngularStepDegrees, GapThresholdDegrees, IncludeOriginalRays, maxSynthetic, SelectedCompletionMethod, MirrorAxisDegrees, weightedSectors);
+        var settings = new SourceCompletionSettings(AngularStepDegrees, GapThresholdDegrees, IncludeOriginalRays, maxSynthetic, SelectedCompletionMethod, MirrorAxisDegrees);
         LastCompletionResult = _completionService.Complete(request, settings);
 
         CoverageIntervals.Clear();
@@ -281,109 +272,4 @@ public sealed class SourceCompletionWorkspaceViewModel : ObservableObject
     private bool CanAnalyzeOrGenerate() => SelectedProjectedSource is not null && SelectedProjectedSource.Rays.Count > 0;
     private bool CanAddCompletedSource() => LastCompletionResult is not null && SelectedTargetCollisionScene is not null;
 
-    private List<WeightedSourceSector>? ParseWeightedSectorsOrNull()
-    {
-        if (string.IsNullOrWhiteSpace(WeightedSectorsText))
-        {
-            return null;
-        }
 
-        var sectors = new List<WeightedSourceSector>();
-        var tokens = WeightedSectorsText.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-        foreach (var token in tokens)
-        {
-            var parts = token.Split(':', StringSplitOptions.TrimEntries);
-            if (parts.Length != 2)
-            {
-                StatusMessage = $"Invalid weighted sector '{token}'. Expected start-end:weight.";
-                return null;
-            }
-
-            var range = parts[0].Split('-', StringSplitOptions.TrimEntries);
-            if (range.Length != 2
-                || !double.TryParse(range[0], NumberStyles.Float, CultureInfo.InvariantCulture, out var start)
-                || !double.TryParse(range[1], NumberStyles.Float, CultureInfo.InvariantCulture, out var end)
-                || !double.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out var weight)
-                || weight <= 0d)
-            {
-                StatusMessage = $"Invalid weighted sector '{token}'. Expected start-end:weight with positive weight.";
-                return null;
-            }
-
-            sectors.Add(new WeightedSourceSector(start, end, weight));
-        }
-
-        return sectors;
-    }
-
-    public void AttachViewport(HelixToolkit.Wpf.HelixViewport3D viewport)
-    {
-        _previewRenderSyncService = new SourceCompletionPreviewRenderSyncService(viewport);
-        RefreshPreview();
-    }
-
-    private void RefreshPreview()
-    {
-        _previewRenderSyncService?.SyncPreview(SelectedProjectedSource, LastCompletionResult);
-    }
-
-    private void PopulateProjectionResultInputs()
-    {
-        if (_projectionWorkspace?.SelectedScene is null)
-        {
-            return;
-        }
-
-        var fallbackProfile = _projectionWorkspace.BuildCurrentProfileDefinition();
-        foreach (var result in _projectionWorkspace.SelectedScene.ProjectionState.SavedResults)
-        {
-            try
-            {
-                var source = _projectionResultToCollisionSourceService.CreateProjectedLightSource(result, fallbackProfile);
-                if (source.Rays.Count == 0)
-                {
-                    continue;
-                }
-
-                if (AvailableProjectedSources.Any(item => item.Name == source.Name && item.OriginText == "Projection Result"))
-                {
-                    continue;
-                }
-
-                AvailableProjectedSources.Add(new SourceCompletionInputItem { Name = source.Name, Source = source, OriginText = "Projection Result" });
-            }
-            catch
-            {
-                StatusMessage = "Projection result is missing source profile definition; add it to collision scene first or select a projected source with profile data.";
-            }
-        }
-    }
-
-    private void PopulateCollisionSourceInputs()
-    {
-        foreach (var scene in _sceneCollectionService.Scenes)
-        {
-            foreach (var projectedSource in scene.ProjectedLightSources)
-            {
-                if (AvailableProjectedSources.Any(item => item.Name == projectedSource.Name && item.OriginText == "Collision Scene"))
-                {
-                    continue;
-                }
-
-                AvailableProjectedSources.Add(new SourceCompletionInputItem
-                {
-                    Name = projectedSource.Name,
-                    Source = projectedSource,
-                    OriginText = "Collision Scene",
-                });
-            }
-        }
-    }
-
-    private void RaiseCommandStates()
-    {
-        (AnalyzeCoverageCommand as RelayCommand)?.RaiseCanExecuteChanged();
-        (GenerateCompletedSourceCommand as RelayCommand)?.RaiseCanExecuteChanged();
-        (AddCompletedSourceToCollisionCommand as RelayCommand)?.RaiseCanExecuteChanged();
-    }
-}
