@@ -295,21 +295,121 @@ public sealed class ProjectedSourceCompletionService
         var gaps = _analyzer.DetectGaps(request, settings.GapThresholdDegrees);
 
         var synthetic = new List<ProjectionRay>();
-        var mirrorAxis = ProjectedSourceFrameMath.NormalizeDegrees(settings.MirrorAxisDegrees);
-        foreach (var gap in gaps)
+        var orderedCoverage = coverage.OrderBy(c => ProjectedSourceFrameMath.NormalizeDegrees(c.StartDegrees)).ToList();
+        foreach (var gap in gaps.OrderBy(g => ProjectedSourceFrameMath.NormalizeDegrees(g.StartDegrees)))
         {
-            foreach (var targetTheta in EnumerateGapTargets(gap, settings.AngularStepDegrees))
+            var previousCoverage = FindPreviousCoverageForGap(orderedCoverage, gap);
+            var nextCoverage = FindNextCoverageForGap(orderedCoverage, gap);
+            if (previousCoverage is null || nextCoverage is null)
             {
-                if (settings.MaxSyntheticRays.HasValue && synthetic.Count >= settings.MaxSyntheticRays.Value) break;
-                // Mirror chooses template azimuth around mirror axis, then rotates to target in local frame.
-                var templateTheta = ProjectedSourceFrameMath.NormalizeDegrees((2d * mirrorAxis) - targetTheta);
-                var sourceSample = FindNearestSample(samples, templateTheta);
-                synthetic.Add(CreateSyntheticRayFromSample(sourceSample, targetTheta, request.SourceFrame, profile));
+                continue;
             }
+
+            var gapSpan = ProjectedSourceFrameMath.PositiveAngularDistanceDegrees(gap.StartDegrees, gap.EndDegrees);
+            if (gapSpan <= AngularToleranceDegrees) continue;
+            var midTheta = ProjectedSourceFrameMath.NormalizeDegrees(gap.StartDegrees + (gapSpan / 2d));
+
+            GenerateMirroredFillFromEndBoundary(samples, previousCoverage, gap.StartDegrees, midTheta, request.SourceFrame, profile, settings.MaxSyntheticRays, synthetic);
+            if (settings.MaxSyntheticRays.HasValue && synthetic.Count >= settings.MaxSyntheticRays.Value) break;
+            GenerateMirroredFillFromStartBoundary(samples, nextCoverage, gap.EndDegrees, midTheta, request.SourceFrame, profile, settings.MaxSyntheticRays, synthetic);
+            if (settings.MaxSyntheticRays.HasValue && synthetic.Count >= settings.MaxSyntheticRays.Value) break;
         }
 
         var output = settings.IncludeOriginalRays ? request.Rays.Concat(synthetic).ToList() : synthetic;
         return new ProjectedSourceCompletionResult($"Completed Mirror - {request.Name}", output, coverage, gaps, request.Rays.Count, synthetic.Count);
+    }
+
+    private static AzimuthCoverageInterval? FindPreviousCoverageForGap(IReadOnlyList<AzimuthCoverageInterval> coverage, AzimuthGapInterval gap)
+    {
+        if (coverage.Count == 0) return null;
+        var sorted = coverage.OrderBy(c => ProjectedSourceFrameMath.NormalizeDegrees(c.EndDegrees)).ToList();
+        var start = ProjectedSourceFrameMath.NormalizeDegrees(gap.StartDegrees);
+        return sorted.LastOrDefault(c => ProjectedSourceFrameMath.NormalizeDegrees(c.EndDegrees) <= start + AngularToleranceDegrees) ?? sorted[^1];
+    }
+
+    private static AzimuthCoverageInterval? FindNextCoverageForGap(IReadOnlyList<AzimuthCoverageInterval> coverage, AzimuthGapInterval gap)
+    {
+        if (coverage.Count == 0) return null;
+        var sorted = coverage.OrderBy(c => ProjectedSourceFrameMath.NormalizeDegrees(c.StartDegrees)).ToList();
+        var end = ProjectedSourceFrameMath.NormalizeDegrees(gap.EndDegrees);
+        return sorted.FirstOrDefault(c => ProjectedSourceFrameMath.NormalizeDegrees(c.StartDegrees) >= end - AngularToleranceDegrees) ?? sorted[0];
+    }
+
+    private static void GenerateMirroredFillFromEndBoundary(
+        IReadOnlyList<ProjectedRayLocalSample> samples, AzimuthCoverageInterval coverage, double targetStart, double targetEnd,
+        PointSourceFrameState frame, IAxisymmetricSourceProfile profile, int? maxSynthetic, List<ProjectionRay> synthetic)
+    {
+        var coverageLength = ProjectedSourceFrameMath.PositiveAngularDistanceDegrees(coverage.StartDegrees, coverage.EndDegrees);
+        var remaining = ProjectedSourceFrameMath.PositiveAngularDistanceDegrees(targetStart, targetEnd);
+        var filled = 0d;
+        var bounce = 0;
+        var iterations = 0;
+        while (remaining - filled > AngularToleranceDegrees && iterations++ < 1024)
+        {
+            var segment = Math.Min(coverageLength, remaining - filled);
+            var reverse = bounce % 2 == 0;
+            var sourceSlice = GetSourceSliceFromEnd(samples, coverage.StartDegrees, coverage.EndDegrees, segment, reverse);
+            foreach (var sample in sourceSlice)
+            {
+                if (maxSynthetic.HasValue && synthetic.Count >= maxSynthetic.Value) return;
+                var distFromEnd = ProjectedSourceFrameMath.PositiveAngularDistanceDegrees(sample.ThetaDegrees, coverage.EndDegrees);
+                var targetTheta = ProjectedSourceFrameMath.NormalizeDegrees(targetStart + filled + distFromEnd);
+                if (!IsAngleInHalfOpenInterval(targetTheta, targetStart, targetEnd)) continue;
+                synthetic.Add(CreateSyntheticRayFromSample(sample, targetTheta, frame, profile));
+            }
+            filled += segment;
+            bounce++;
+        }
+    }
+
+    private static void GenerateMirroredFillFromStartBoundary(
+        IReadOnlyList<ProjectedRayLocalSample> samples, AzimuthCoverageInterval coverage, double targetStart, double targetEnd,
+        PointSourceFrameState frame, IAxisymmetricSourceProfile profile, int? maxSynthetic, List<ProjectionRay> synthetic)
+    {
+        var coverageLength = ProjectedSourceFrameMath.PositiveAngularDistanceDegrees(coverage.StartDegrees, coverage.EndDegrees);
+        var remaining = ProjectedSourceFrameMath.PositiveAngularDistanceDegrees(targetStart, targetEnd);
+        var filled = 0d;
+        var bounce = 0;
+        var iterations = 0;
+        while (remaining - filled > AngularToleranceDegrees && iterations++ < 1024)
+        {
+            var segment = Math.Min(coverageLength, remaining - filled);
+            var reverse = bounce % 2 == 0;
+            var sourceSlice = GetSourceSliceFromStart(samples, coverage.StartDegrees, coverage.EndDegrees, segment, reverse);
+            foreach (var sample in sourceSlice)
+            {
+                if (maxSynthetic.HasValue && synthetic.Count >= maxSynthetic.Value) return;
+                var distFromStart = ProjectedSourceFrameMath.PositiveAngularDistanceDegrees(coverage.StartDegrees, sample.ThetaDegrees);
+                var targetTheta = ProjectedSourceFrameMath.NormalizeDegrees(targetStart - (filled + distFromStart));
+                if (!IsAngleInHalfOpenInterval(targetTheta, targetEnd, targetStart)) continue;
+                synthetic.Add(CreateSyntheticRayFromSample(sample, targetTheta, frame, profile));
+            }
+            filled += segment;
+            bounce++;
+        }
+    }
+
+    private static List<ProjectedRayLocalSample> GetSourceSliceFromEnd(IReadOnlyList<ProjectedRayLocalSample> samples, double start, double end, double length, bool reverse)
+    {
+        var minDist = Math.Max(0d, ProjectedSourceFrameMath.PositiveAngularDistanceDegrees(start, end) - length);
+        var picked = samples.Where(s =>
+        {
+            var d = ProjectedSourceFrameMath.PositiveAngularDistanceDegrees(start, s.ThetaDegrees);
+            return d >= minDist - AngularToleranceDegrees && d < ProjectedSourceFrameMath.PositiveAngularDistanceDegrees(start, end) - AngularToleranceDegrees;
+        });
+        return (reverse ? picked.OrderByDescending(s => ProjectedSourceFrameMath.PositiveAngularDistanceDegrees(start, s.ThetaDegrees))
+                        : picked.OrderBy(s => ProjectedSourceFrameMath.PositiveAngularDistanceDegrees(start, s.ThetaDegrees))).ToList();
+    }
+
+    private static List<ProjectedRayLocalSample> GetSourceSliceFromStart(IReadOnlyList<ProjectedRayLocalSample> samples, double start, double end, double length, bool reverse)
+    {
+        var picked = samples.Where(s =>
+        {
+            var d = ProjectedSourceFrameMath.PositiveAngularDistanceDegrees(start, s.ThetaDegrees);
+            return d >= -AngularToleranceDegrees && d < length - AngularToleranceDegrees;
+        });
+        return (reverse ? picked.OrderBy(s => ProjectedSourceFrameMath.PositiveAngularDistanceDegrees(start, s.ThetaDegrees))
+                        : picked.OrderByDescending(s => ProjectedSourceFrameMath.PositiveAngularDistanceDegrees(start, s.ThetaDegrees))).ToList();
     }
 
     public ProjectedSourceCompletionResult CompleteByWeightedSectorClone(ProjectedSourceCompletionRequest request, SourceCompletionSettings settings)

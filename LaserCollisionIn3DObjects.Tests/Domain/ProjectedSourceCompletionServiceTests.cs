@@ -216,6 +216,15 @@ public sealed class ProjectedSourceCompletionServiceTests
     }
 
     [Fact]
+    public void Mirror_DirectionsRemainNormalized()
+    {
+        var request = BuildRequest("MirrorNorm", CreateRaysAtAngles(new[] { 20d, 40d, 60d, 80d, 100d }));
+        var service = new ProjectedSourceCompletionService();
+        var result = service.Complete(request, new SourceCompletionSettings(10d, 15d, IncludeOriginalRays: false, Method: SourceCompletionMethod.Mirror));
+        Assert.All(result.Rays, r => Assert.InRange(r.Ray.Direction.Length(), 0.9999f, 1.0001f));
+    }
+
+    [Fact]
     public void WeightedSectorCloneCreatesSyntheticRaysAndSupportsWrapAround()
     {
         var request = BuildRequest("Weighted", CreateRaysAtAngles(new[] { 355d, 5d, 60d, 70d, 80d, 90d }));
