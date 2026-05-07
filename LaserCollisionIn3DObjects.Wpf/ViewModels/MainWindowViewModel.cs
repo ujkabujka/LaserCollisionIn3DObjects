@@ -47,6 +47,7 @@ public sealed class MainWindowViewModel : ObservableObject
     private readonly SceneRenderSyncService _renderSyncService;
     private readonly CollisionHitPointCsvExportService _collisionHitPointCsvExportService = new();
     private readonly SceneCollectionService _sceneCollectionService;
+    private readonly CompletedSourceStore _completedSourceStore = new();
     private readonly ProjectPersistenceCoordinator _projectPersistenceCoordinator = new();
     private IReadOnlyList<CollisionHitPointRecord> _lastCollisionHitPointRecords = Array.Empty<CollisionHitPointRecord>();
     private string _newSceneName = "Scene 1";
@@ -55,7 +56,7 @@ public sealed class MainWindowViewModel : ObservableObject
     private float _newPrismSizeY = 1.2f;
     private float _newPrismSizeZ = 2.4f;
     private int _newPrismArrayCount = 8;
-    private float _newPrismArrayRadius = 20f;
+    private float _newPrismArrayRadius = 10f;
     private float _newPrismArrayLength = 20f;
     private PrismArrayPlacementMode _selectedPrismArrayPlacementMode = PrismArrayPlacementMode.Cylindrical;
     private float _newRayDirectionX = 1f;
@@ -97,8 +98,8 @@ public sealed class MainWindowViewModel : ObservableObject
 
         AnnotationWorkspace = new AnnotationWorkspaceViewModel(_sceneCollectionService);
         ProjectionWorkspace = new ProjectionWorkspaceViewModel(_sceneCollectionService, projectionRenderSyncService, applicationLogService: AppLog);
-        GraphicMasterWorkspace = new GraphicMasterViewModel(_sceneCollectionService);
-        SourceCompletionWorkspace = new SourceCompletionWorkspaceViewModel(_sceneCollectionService, ProjectionWorkspace, applicationLogService: AppLog);
+        GraphicMasterWorkspace = new GraphicMasterViewModel(_sceneCollectionService, _completedSourceStore);
+        SourceCompletionWorkspace = new SourceCompletionWorkspaceViewModel(_sceneCollectionService, _completedSourceStore, ProjectionWorkspace, applicationLogService: AppLog);
         CollisionScenes = CollectionViewSource.GetDefaultView(_sceneCollectionService.Scenes);
         CollisionScenes.Filter = item => item is CollisionSceneViewModel scene && !scene.IsProjectionOnly;
 
@@ -106,6 +107,7 @@ public sealed class MainWindowViewModel : ObservableObject
         DeleteSelectedSceneCommand = new RelayCommand(DeleteSelectedScene, () => SelectedScene is not null);
         AddPrismCommand = new RelayCommand(AddPrism, () => SelectedScene is not null);
         AddPrismArrayCommand = new RelayCommand(AddPrismArray, () => SelectedScene is not null);
+        ApplySelectedObjectChangesCommand = new RelayCommand(ApplySelectedObjectChanges, CanApplySelectedObjectChanges);
         AddRayCommand = new RelayCommand(AddRay, () => SelectedScene is not null);
         AddLightSourceCommand = new RelayCommand(AddLightSource, () => SelectedScene is not null);
         AddHybridSegmentCommand = new RelayCommand(AddHybridSegment);
@@ -209,6 +211,7 @@ public sealed class MainWindowViewModel : ObservableObject
     public ICommand DeleteSelectedSceneCommand { get; }
     public ICommand AddPrismCommand { get; }
     public ICommand AddPrismArrayCommand { get; }
+    public ICommand ApplySelectedObjectChangesCommand { get; }
     public ICommand AddRayCommand { get; }
     public ICommand AddLightSourceCommand { get; }
     public ICommand AddHybridSegmentCommand { get; }
@@ -277,6 +280,9 @@ public sealed class MainWindowViewModel : ObservableObject
     }
 
     public string NewSceneName { get => _newSceneName; set => SetProperty(ref _newSceneName, value); }
+    public bool IsSelectedPrismEditable => SelectedPrism is not null;
+    public bool IsSelectedSourceEditable => SelectedLightSource is not null || SelectedProjectedLightSource is not null;
+    public bool HasEditableSelection => IsSelectedPrismEditable || IsSelectedSourceEditable;
 
     public PrismItemViewModel? SelectedPrism
     {
@@ -296,6 +302,9 @@ public sealed class MainWindowViewModel : ObservableObject
 
             RaiseCanExecuteChanges();
             RaisePropertyChanged();
+            RaisePropertyChanged(nameof(IsSelectedPrismEditable));
+            RaisePropertyChanged(nameof(IsSelectedSourceEditable));
+            RaisePropertyChanged(nameof(HasEditableSelection));
         }
     }
 
@@ -312,6 +321,9 @@ public sealed class MainWindowViewModel : ObservableObject
             SelectedScene.SelectedRay = value;
             RaiseCanExecuteChanges();
             RaisePropertyChanged();
+            RaisePropertyChanged(nameof(IsSelectedPrismEditable));
+            RaisePropertyChanged(nameof(IsSelectedSourceEditable));
+            RaisePropertyChanged(nameof(HasEditableSelection));
         }
     }
 
@@ -347,8 +359,15 @@ public sealed class MainWindowViewModel : ObservableObject
             }
 
             SelectedScene.SelectedProjectedLightSource = value;
+            if (value is not null)
+            {
+                LoadProjectedLightSourceIntoEditor(value);
+            }
             RaiseCanExecuteChanges();
             RaisePropertyChanged();
+            RaisePropertyChanged(nameof(IsSelectedPrismEditable));
+            RaisePropertyChanged(nameof(IsSelectedSourceEditable));
+            RaisePropertyChanged(nameof(HasEditableSelection));
         }
     }
 
@@ -1627,6 +1646,69 @@ public sealed class MainWindowViewModel : ObservableObject
         RaisePropertyChanged(nameof(NewLightSourceRotZ));
     }
 
+    private void LoadProjectedLightSourceIntoEditor(ProjectedLightSourceItemViewModel source)
+    {
+        NewPrismPosX = (float)source.SourceFrame.Origin.X;
+        NewPrismPosY = (float)source.SourceFrame.Origin.Y;
+        NewPrismPosZ = (float)source.SourceFrame.Origin.Z;
+        var (rx, ry, rz) = FrameOrientationBuilder.ToLocalEulerDegrees(source.BaseOrientation);
+        NewPrismRotX = rx;
+        NewPrismRotY = ry;
+        NewPrismRotZ = rz;
+        RaisePropertyChanged(nameof(NewPrismPosX));
+        RaisePropertyChanged(nameof(NewPrismPosY));
+        RaisePropertyChanged(nameof(NewPrismPosZ));
+        RaisePropertyChanged(nameof(NewPrismRotX));
+        RaisePropertyChanged(nameof(NewPrismRotY));
+        RaisePropertyChanged(nameof(NewPrismRotZ));
+    }
+
+    private bool CanApplySelectedObjectChanges() => SelectedScene is not null && HasEditableSelection;
+
+    private void ApplySelectedObjectChanges()
+    {
+        var scene = GetSelectedSceneOrSetStatus();
+        if (scene is null) return;
+
+        if (SelectedPrism is not null)
+        {
+            SelectedPrism.PositionX = NewPrismPosX;
+            SelectedPrism.PositionY = NewPrismPosY;
+            SelectedPrism.PositionZ = NewPrismPosZ;
+            SelectedPrism.RotationX = NewPrismRotX;
+            SelectedPrism.RotationY = NewPrismRotY;
+            SelectedPrism.RotationZ = NewPrismRotZ;
+            SelectedPrism.SizeX = NewPrismSizeX;
+            SelectedPrism.SizeY = NewPrismSizeY;
+            SelectedPrism.SizeZ = NewPrismSizeZ;
+        }
+        else if (SelectedLightSource is not null)
+        {
+            SelectedLightSource.PositionX = NewPrismPosX;
+            SelectedLightSource.PositionY = NewPrismPosY;
+            SelectedLightSource.PositionZ = NewPrismPosZ;
+            SelectedLightSource.RotationX = NewPrismRotX;
+            SelectedLightSource.RotationY = NewPrismRotY;
+            SelectedLightSource.RotationZ = NewPrismRotZ;
+        }
+        else if (SelectedProjectedLightSource is not null)
+        {
+            var frame = SelectedProjectedLightSource.SourceFrame;
+            SelectedProjectedLightSource.SourceFrame = new PointSourceFrameState
+            {
+                Origin = new Point3(NewPrismPosX, NewPrismPosY, NewPrismPosZ),
+                AxisX = frame.AxisX,
+                AxisY = frame.AxisY,
+                AxisZ = frame.AxisZ,
+            };
+        }
+
+        scene.HitResults.Clear();
+        RaisePropertyChanged(nameof(HitResults));
+        _sceneCollectionService.NotifySceneContentChanged();
+        RefreshViewport(false);
+    }
+
     private void RaiseCanExecuteChanges()
     {
         if (CreateSceneCommand is RelayCommand createSceneCommand)
@@ -1647,6 +1729,10 @@ public sealed class MainWindowViewModel : ObservableObject
         if (AddPrismArrayCommand is RelayCommand addPrismArrayCommand)
         {
             addPrismArrayCommand.RaiseCanExecuteChanged();
+        }
+        if (ApplySelectedObjectChangesCommand is RelayCommand applyCommand)
+        {
+            applyCommand.RaiseCanExecuteChanged();
         }
 
         if (AddRayCommand is RelayCommand addRayCommand)
