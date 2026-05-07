@@ -23,7 +23,13 @@ public sealed class CompletedSourceItem : ObservableObject
     public string Methodology { get; init; } = string.Empty;
     public string OriginalSourceName { get; init; } = string.Empty;
     public AxisymmetricSourceProfileDefinition ProfileDefinition { get; init; } = new();
-    public PointSourceFrameState SourceFrame { get; init; } = new();
+    public PointSourceFrameState SourceFrame { get; init; } = new()
+    {
+        Origin = new Point3(0, 0, 0),
+        AxisX = new Vector3D(1, 0, 0),
+        AxisY = new Vector3D(0, 1, 0),
+        AxisZ = new Vector3D(0, 0, 1),
+    };
     public IReadOnlyList<ProjectionRay> OriginalRays { get; init; } = Array.Empty<ProjectionRay>();
     public IReadOnlyList<ProjectionRay> SyntheticRays { get; init; } = Array.Empty<ProjectionRay>();
     public IReadOnlyList<ProjectionRay> CompletedRays { get; init; } = Array.Empty<ProjectionRay>();

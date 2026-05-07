@@ -271,7 +271,7 @@ public sealed class SourceCompletionWorkspaceViewModel : ObservableObject
             Name = completedName,
             ProfileDefinition = SelectedCompletedSource.ProfileDefinition,
             SourceFrame = SelectedCompletedSource.SourceFrame,
-            BaseOrientation = SelectedProjectedSource?.BaseOrientation,
+            BaseOrientation = SelectedProjectedSource?.BaseOrientation ?? System.Numerics.Quaternion.Identity,
             OriginKind = ProjectedLightSourceOriginKind.CompletedProjectionResult,
         };
 
@@ -299,5 +299,64 @@ public sealed class SourceCompletionWorkspaceViewModel : ObservableObject
     private bool CanAnalyzeOrGenerate() => SelectedProjectedSource is not null && SelectedProjectedSource.Rays.Count > 0;
     private bool CanAddCompletedSource() => SelectedCompletedSource is not null && SelectedTargetCollisionScene is not null;
 
-// there is a missing bracket and I fix here do not touch here
+    public void AttachViewport(HelixToolkit.Wpf.HelixViewport3D viewport)
+    {
+        _previewRenderSyncService = new SourceCompletionPreviewRenderSyncService(viewport);
+        RefreshPreview();
+    }
+
+    private void RefreshPreview()
+    {
+        if (_previewRenderSyncService is null)
+        {
+            return;
+        }
+
+        if (SelectedCompletedSource is not null)
+        {
+            var temp = new ProjectedSourceCompletionResult(
+                SelectedCompletedSource.Name,
+                SelectedCompletedSource.CompletedRays.ToList(),
+                Array.Empty<AzimuthCoverageInterval>(),
+                Array.Empty<AzimuthGapInterval>(),
+                SelectedCompletedSource.OriginalRays.Count,
+                SelectedCompletedSource.SyntheticRays.Count);
+            _previewRenderSyncService.SyncPreview(SelectedProjectedSource, temp);
+            return;
+        }
+
+        _previewRenderSyncService.SyncPreview(SelectedProjectedSource, LastCompletionResult);
+    }
+
+    private void RaiseCommandStates()
+    {
+        (AnalyzeCoverageCommand as RelayCommand)?.RaiseCanExecuteChanged();
+        (GenerateCompletedSourceCommand as RelayCommand)?.RaiseCanExecuteChanged();
+        (AddCompletedSourceToCollisionCommand as RelayCommand)?.RaiseCanExecuteChanged();
+        (RemoveSelectedCompletedSourceCommand as RelayCommand)?.RaiseCanExecuteChanged();
+    }
+
+    private void PopulateProjectionResultInputs()
+    {
+        if (_projectionWorkspace?.SavedProjectionResults is null)
+        {
+            return;
+        }
+
+        foreach (var source in _projectionWorkspace.SavedProjectionResults)
+        {
+            AvailableProjectedSources.Add(new SourceCompletionInputItem { Name = source.Name, Source = source, OriginText = "Projection Result" });
+        }
+    }
+
+    private void PopulateCollisionSourceInputs()
+    {
+        foreach (var scene in _sceneCollectionService.Scenes.Where(s => !s.IsProjectionOnly))
+        {
+            foreach (var source in scene.ProjectedLightSources.Where(s => s.OriginKind == ProjectedLightSourceOriginKind.CompletedProjectionResult))
+            {
+                AvailableProjectedSources.Add(new SourceCompletionInputItem { Name = source.Name, Source = source, OriginText = $"Collision Scene: {scene.Name}" });
+            }
+        }
+    }
 }
