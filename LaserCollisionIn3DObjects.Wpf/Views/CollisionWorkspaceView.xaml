@@ -52,16 +52,16 @@
 
                     <GroupBox Header="Selected Object Properties" Margin="0,0,0,8" Padding="8">
                         <StackPanel>
-                            <TextBlock Text="No editable object selected."/>
+                            <TextBlock Text="No editable object selected." Visibility="{Binding HasNoEditableSelection, Converter={StaticResource BoolToVisibility}}"/>
                             <StackPanel Visibility="{Binding HasEditableSelection, Converter={StaticResource BoolToVisibility}}">
                                 <TextBlock Text="{Binding SelectedObjectEditorType}" FontWeight="SemiBold" Margin="0,0,0,6"/>
                                 <TextBlock Text="Position"/>
-                                <UniformGrid Columns="3" Margin="0,0,0,6"><StackPanel Margin="2"><TextBlock Text="X"/><TextBox Text="{Binding NewPrismPosX}"/></StackPanel><StackPanel Margin="2"><TextBlock Text="Y"/><TextBox Text="{Binding NewPrismPosY}"/></StackPanel><StackPanel Margin="2"><TextBlock Text="Z"/><TextBox Text="{Binding NewPrismPosZ}"/></StackPanel></UniformGrid>
+                                <UniformGrid Columns="3" Margin="0,0,0,6"><StackPanel Margin="2"><TextBlock Text="X"/><TextBox Text="{Binding SelectedEditPositionX}"/></StackPanel><StackPanel Margin="2"><TextBlock Text="Y"/><TextBox Text="{Binding SelectedEditPositionY}"/></StackPanel><StackPanel Margin="2"><TextBlock Text="Z"/><TextBox Text="{Binding SelectedEditPositionZ}"/></StackPanel></UniformGrid>
                                 <TextBlock Text="Rotation"/>
-                                <UniformGrid Columns="3" Margin="0,0,0,6"><StackPanel Margin="2"><TextBlock Text="X"/><TextBox Text="{Binding NewPrismRotX}"/></StackPanel><StackPanel Margin="2"><TextBlock Text="Y"/><TextBox Text="{Binding NewPrismRotY}"/></StackPanel><StackPanel Margin="2"><TextBlock Text="Z"/><TextBox Text="{Binding NewPrismRotZ}"/></StackPanel></UniformGrid>
+                                <UniformGrid Columns="3" Margin="0,0,0,6"><StackPanel Margin="2"><TextBlock Text="X"/><TextBox Text="{Binding SelectedEditRotationX}"/></StackPanel><StackPanel Margin="2"><TextBlock Text="Y"/><TextBox Text="{Binding SelectedEditRotationY}"/></StackPanel><StackPanel Margin="2"><TextBlock Text="Z"/><TextBox Text="{Binding SelectedEditRotationZ}"/></StackPanel></UniformGrid>
                                 <StackPanel Visibility="{Binding IsSelectedPrismEditable, Converter={StaticResource BoolToVisibility}}">
                                     <TextBlock Text="Size"/>
-                                    <UniformGrid Columns="3" Margin="0,0,0,6"><StackPanel Margin="2"><TextBlock Text="X"/><TextBox Text="{Binding NewPrismSizeX}"/></StackPanel><StackPanel Margin="2"><TextBlock Text="Y"/><TextBox Text="{Binding NewPrismSizeY}"/></StackPanel><StackPanel Margin="2"><TextBlock Text="Z"/><TextBox Text="{Binding NewPrismSizeZ}"/></StackPanel></UniformGrid>
+                                    <UniformGrid Columns="3" Margin="0,0,0,6"><StackPanel Margin="2"><TextBlock Text="X"/><TextBox Text="{Binding SelectedEditSizeX}"/></StackPanel><StackPanel Margin="2"><TextBlock Text="Y"/><TextBox Text="{Binding SelectedEditSizeY}"/></StackPanel><StackPanel Margin="2"><TextBlock Text="Z"/><TextBox Text="{Binding SelectedEditSizeZ}"/></StackPanel></UniformGrid>
                                 </StackPanel>
                                 <Button Content="Apply Changes" Command="{Binding ApplySelectedObjectChangesCommand}" Width="120"/>
                             </StackPanel>
