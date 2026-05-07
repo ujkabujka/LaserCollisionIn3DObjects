@@ -4,6 +4,7 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:helix="http://helix-toolkit.org/wpf"
+             xmlns:sourceCompletionDomain="clr-namespace:LaserCollisionIn3DObjects.Domain.SourceCompletion;assembly=LaserCollisionIn3DObjects.Domain"
              mc:Ignorable="d">
     <Grid Margin="12">
         <Grid.ColumnDefinitions>
@@ -47,13 +48,37 @@
                 <TextBlock Text="Max Synthetic Rays (optional)"/>
                 <TextBox Text="{Binding SourceCompletionWorkspace.MaxSyntheticRaysText}" Margin="0,4,0,10"/>
 
-                <TextBlock Text="Mirror Axis Degrees"/>
-                <TextBox Text="{Binding SourceCompletionWorkspace.MirrorAxisDegrees}" Margin="0,4,0,10"/>
+                <StackPanel Margin="0,0,0,10">
+                    <StackPanel.Style>
+                        <Style TargetType="StackPanel">
+                            <Setter Property="Visibility" Value="Collapsed"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding SourceCompletionWorkspace.SelectedCompletionMethod}" Value="{x:Static sourceCompletionDomain:SourceCompletionMethod.Mirror}">
+                                    <Setter Property="Visibility" Value="Visible"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </StackPanel.Style>
+                    <TextBlock Text="Mirror Axis Degrees"/>
+                    <TextBox Text="{Binding SourceCompletionWorkspace.MirrorAxisDegrees}" Margin="0,4,0,0"/>
+                </StackPanel>
 
-                <TextBlock Text="Weighted Sectors"/>
-                <TextBox Text="{Binding SourceCompletionWorkspace.WeightedSectorsText}" Margin="0,4,0,2"/>
-                <TextBlock Text="Format: 60-90:2;210-240:1" FontSize="11" Foreground="#666"/>
-                <TextBlock Text="Wrap-around example: 350-20:1" FontSize="11" Foreground="#666" Margin="0,0,0,10"/>
+                <StackPanel Margin="0,0,0,10">
+                    <StackPanel.Style>
+                        <Style TargetType="StackPanel">
+                            <Setter Property="Visibility" Value="Collapsed"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding SourceCompletionWorkspace.SelectedCompletionMethod}" Value="{x:Static sourceCompletionDomain:SourceCompletionMethod.WeightedSectorClone}">
+                                    <Setter Property="Visibility" Value="Visible"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </StackPanel.Style>
+                    <TextBlock Text="Weighted Sectors"/>
+                    <TextBox Text="{Binding SourceCompletionWorkspace.WeightedSectorsText}" Margin="0,4,0,2"/>
+                    <TextBlock Text="Format: 60-90:2;210-240:1" FontSize="11" Foreground="#666"/>
+                    <TextBlock Text="Wrap-around example: 350-20:1" FontSize="11" Foreground="#666"/>
+                </StackPanel>
 
                 <WrapPanel Margin="0,0,0,10">
                     <Button Content="Analyze Coverage" Command="{Binding SourceCompletionWorkspace.AnalyzeCoverageCommand}" Margin="0,0,8,8"/>
