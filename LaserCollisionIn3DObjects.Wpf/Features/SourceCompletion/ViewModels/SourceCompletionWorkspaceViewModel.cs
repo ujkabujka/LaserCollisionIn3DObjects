@@ -17,6 +17,7 @@ public sealed class SourceCompletionWorkspaceViewModel : ObservableObject
     private readonly ProjectedSourceAzimuthAnalyzer _azimuthAnalyzer = new();
     private readonly ProjectedSourceCompletionService _completionService = new();
     private readonly ProjectionWorkspaceViewModel? _projectionWorkspace;
+    private readonly CompletedSourceStore _completedSourceStore;
     private readonly ProjectionResultToCollisionSourceService _projectionResultToCollisionSourceService = new();
     private SourceCompletionPreviewRenderSyncService? _previewRenderSyncService;
     private SourceCompletionInputItem? _selectedProjectedSourceInput;
@@ -27,21 +28,22 @@ public sealed class SourceCompletionWorkspaceViewModel : ObservableObject
     private string _maxSyntheticRaysText = string.Empty;
     private SourceCompletionMethod _selectedCompletionMethod = SourceCompletionMethod.RotationalCopy;
     private double _mirrorAxisDegrees;
-    private string _weightedSectorsText = string.Empty;
     private ProjectedSourceCompletionResult? _lastCompletionResult;
     private string _statusMessage = "Select a projected source to analyze.";
     private string _completionSummary = "No completed source generated yet.";
 
-    public SourceCompletionWorkspaceViewModel(SceneCollectionService sceneCollectionService, ProjectionWorkspaceViewModel? projectionWorkspace = null, ApplicationLogService? applicationLogService = null)
+    public SourceCompletionWorkspaceViewModel(SceneCollectionService sceneCollectionService, CompletedSourceStore completedSourceStore, ProjectionWorkspaceViewModel? projectionWorkspace = null, ApplicationLogService? applicationLogService = null)
     {
         _sceneCollectionService = sceneCollectionService ?? throw new ArgumentNullException(nameof(sceneCollectionService));
         _applicationLogService = applicationLogService;
+        _completedSourceStore = completedSourceStore ?? throw new ArgumentNullException(nameof(completedSourceStore));
         _projectionWorkspace = projectionWorkspace;
 
         RefreshSourcesCommand = new RelayCommand(RefreshSources);
         AnalyzeCoverageCommand = new RelayCommand(AnalyzeCoverage, CanAnalyzeOrGenerate);
         GenerateCompletedSourceCommand = new RelayCommand(GenerateCompletedSource, CanAnalyzeOrGenerate);
         AddCompletedSourceToCollisionCommand = new RelayCommand(AddCompletedSourceToCollision, CanAddCompletedSource);
+        RemoveSelectedCompletedSourceCommand = new RelayCommand(RemoveSelectedCompletedSource, () => SelectedCompletedSource is not null);
 
         _sceneCollectionService.Scenes.CollectionChanged += (_, _) => RefreshSources();
         _sceneCollectionService.SceneContentChanged += (_, _) => RefreshSources();
@@ -53,6 +55,9 @@ public sealed class SourceCompletionWorkspaceViewModel : ObservableObject
     public ObservableCollection<AzimuthCoverageInterval> CoverageIntervals { get; } = new();
     public ObservableCollection<AzimuthGapInterval> GapIntervals { get; } = new();
     public ObservableCollection<SourceCompletionMethod> CompletionMethods { get; } = new(Enum.GetValues<SourceCompletionMethod>());
+    public ObservableCollection<CompletedSourceItem> CompletedSources => _completedSourceStore.CompletedSources;
+    public CompletedSourceItem? SelectedCompletedSource { get => _completedSourceStore.SelectedItem; set { _completedSourceStore.SelectedItem = value; RaiseCommandStates(); RefreshPreview(); } }
+    public string SelectedCompletedSourceName { get => SelectedCompletedSource?.Name ?? string.Empty; set { if (SelectedCompletedSource is not null) { SelectedCompletedSource.Name = value; RaisePropertyChanged(); } } }
 
     public SourceCompletionInputItem? SelectedProjectedSourceInput
     {
@@ -88,7 +93,6 @@ public sealed class SourceCompletionWorkspaceViewModel : ObservableObject
     public string MaxSyntheticRaysText { get => _maxSyntheticRaysText; set => SetProperty(ref _maxSyntheticRaysText, value); }
     public SourceCompletionMethod SelectedCompletionMethod { get => _selectedCompletionMethod; set => SetProperty(ref _selectedCompletionMethod, value); }
     public double MirrorAxisDegrees { get => _mirrorAxisDegrees; set => SetProperty(ref _mirrorAxisDegrees, value); }
-    public string WeightedSectorsText { get => _weightedSectorsText; set => SetProperty(ref _weightedSectorsText, value); }
 
     public ProjectedSourceCompletionResult? LastCompletionResult
     {
@@ -109,6 +113,7 @@ public sealed class SourceCompletionWorkspaceViewModel : ObservableObject
     public ICommand AnalyzeCoverageCommand { get; }
     public ICommand GenerateCompletedSourceCommand { get; }
     public ICommand AddCompletedSourceToCollisionCommand { get; }
+    public ICommand RemoveSelectedCompletedSourceCommand { get; }
 
     private void RefreshSources()
     {
@@ -212,15 +217,23 @@ public sealed class SourceCompletionWorkspaceViewModel : ObservableObject
         }
 
         var request = BuildRequest(SelectedProjectedSource);
-        var weightedSectors = ParseWeightedSectorsOrNull();
-        if (SelectedCompletionMethod == SourceCompletionMethod.WeightedSectorClone && (weightedSectors is null || weightedSectors.Count == 0))
-        {
-            StatusMessage = "Weighted sector format must be like 60-90:2;210-240:1 and contain at least one matching source sector.";
-            return;
-        }
-
-        var settings = new SourceCompletionSettings(AngularStepDegrees, GapThresholdDegrees, IncludeOriginalRays, maxSynthetic, SelectedCompletionMethod, MirrorAxisDegrees, weightedSectors);
+        var settings = new SourceCompletionSettings(AngularStepDegrees, GapThresholdDegrees, IncludeOriginalRays, maxSynthetic, SelectedCompletionMethod, MirrorAxisDegrees);
         LastCompletionResult = _completionService.Complete(request, settings);
+        var synthetic = LastCompletionResult.Rays.Skip(Math.Min(LastCompletionResult.OriginalRayCount, LastCompletionResult.Rays.Count)).ToList();
+        var item = new CompletedSourceItem
+        {
+            Name = $"Completed Source {CompletedSources.Count + 1} - {SelectedCompletionMethod}",
+            Methodology = SelectedCompletionMethod.ToString(),
+            OriginalSourceName = SelectedProjectedSource.Name,
+            ProfileDefinition = SelectedProjectedSource.ProfileDefinition,
+            SourceFrame = SelectedProjectedSource.SourceFrame,
+            OriginalRays = request.Rays.ToList(),
+            SyntheticRays = synthetic,
+            CompletedRays = LastCompletionResult.Rays.ToList(),
+            Settings = settings,
+        };
+        CompletedSources.Add(item);
+        SelectedCompletedSource = item;
 
         CoverageIntervals.Clear();
         foreach (var interval in LastCompletionResult.CoverageIntervals)
@@ -241,9 +254,9 @@ public sealed class SourceCompletionWorkspaceViewModel : ObservableObject
 
     private void AddCompletedSourceToCollision()
     {
-        if (LastCompletionResult is null || SelectedProjectedSource is null || SelectedTargetCollisionScene is null || SelectedTargetCollisionScene.IsProjectionOnly)
+        if (SelectedCompletedSource is null || SelectedTargetCollisionScene is null || SelectedTargetCollisionScene.IsProjectionOnly)
         {
-            StatusMessage = LastCompletionResult is null
+            StatusMessage = SelectedCompletedSource is null
                 ? "Generate a completion result first, then add it to a collision scene."
                 : SelectedTargetCollisionScene is null
                     ? "Select a target collision scene first."
@@ -251,20 +264,18 @@ public sealed class SourceCompletionWorkspaceViewModel : ObservableObject
             return;
         }
 
-        var completedName = LastCompletionResult.Name.StartsWith("Completed - ", StringComparison.Ordinal)
-            ? LastCompletionResult.Name
-            : $"Completed - {SelectedProjectedSource.Name}";
+        var completedName = SelectedCompletedSource.Name;
 
         var completedSource = new ProjectedLightSourceItemViewModel
         {
             Name = completedName,
-            ProfileDefinition = SelectedProjectedSource.ProfileDefinition,
-            SourceFrame = SelectedProjectedSource.SourceFrame,
-            BaseOrientation = SelectedProjectedSource.BaseOrientation,
+            ProfileDefinition = SelectedCompletedSource.ProfileDefinition,
+            SourceFrame = SelectedCompletedSource.SourceFrame,
+            BaseOrientation = SelectedProjectedSource?.BaseOrientation,
             OriginKind = ProjectedLightSourceOriginKind.CompletedProjectionResult,
         };
 
-        foreach (var ray in LastCompletionResult.Rays)
+        foreach (var ray in SelectedCompletedSource.CompletedRays)
         {
             completedSource.Rays.Add(ray);
         }
@@ -277,113 +288,13 @@ public sealed class SourceCompletionWorkspaceViewModel : ObservableObject
         StatusMessage = $"Added completed source '{completedSource.Name}' to collision scene '{SelectedTargetCollisionScene.Name}' with {completedSource.Rays.Count} rays.";
         _applicationLogService?.LogSuccess(StatusMessage, nameof(SourceCompletionWorkspaceViewModel));
     }
+    private void RemoveSelectedCompletedSource()
+    {
+        if (SelectedCompletedSource is null) return;
+        var idx = CompletedSources.IndexOf(SelectedCompletedSource);
+        CompletedSources.Remove(SelectedCompletedSource);
+        SelectedCompletedSource = CompletedSources.Count == 0 ? null : CompletedSources[Math.Min(idx, CompletedSources.Count - 1)];
+    }
 
     private bool CanAnalyzeOrGenerate() => SelectedProjectedSource is not null && SelectedProjectedSource.Rays.Count > 0;
-    private bool CanAddCompletedSource() => LastCompletionResult is not null && SelectedTargetCollisionScene is not null;
-
-    private List<WeightedSourceSector>? ParseWeightedSectorsOrNull()
-    {
-        if (string.IsNullOrWhiteSpace(WeightedSectorsText))
-        {
-            return null;
-        }
-
-        var sectors = new List<WeightedSourceSector>();
-        var tokens = WeightedSectorsText.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-        foreach (var token in tokens)
-        {
-            var parts = token.Split(':', StringSplitOptions.TrimEntries);
-            if (parts.Length != 2)
-            {
-                StatusMessage = $"Invalid weighted sector '{token}'. Expected start-end:weight.";
-                return null;
-            }
-
-            var range = parts[0].Split('-', StringSplitOptions.TrimEntries);
-            if (range.Length != 2
-                || !double.TryParse(range[0], NumberStyles.Float, CultureInfo.InvariantCulture, out var start)
-                || !double.TryParse(range[1], NumberStyles.Float, CultureInfo.InvariantCulture, out var end)
-                || !double.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out var weight)
-                || weight <= 0d)
-            {
-                StatusMessage = $"Invalid weighted sector '{token}'. Expected start-end:weight with positive weight.";
-                return null;
-            }
-
-            sectors.Add(new WeightedSourceSector(start, end, weight));
-        }
-
-        return sectors;
-    }
-
-    public void AttachViewport(HelixToolkit.Wpf.HelixViewport3D viewport)
-    {
-        _previewRenderSyncService = new SourceCompletionPreviewRenderSyncService(viewport);
-        RefreshPreview();
-    }
-
-    private void RefreshPreview()
-    {
-        _previewRenderSyncService?.SyncPreview(SelectedProjectedSource, LastCompletionResult);
-    }
-
-    private void PopulateProjectionResultInputs()
-    {
-        if (_projectionWorkspace?.SelectedScene is null)
-        {
-            return;
-        }
-
-        var fallbackProfile = _projectionWorkspace.BuildCurrentProfileDefinition();
-        foreach (var result in _projectionWorkspace.SelectedScene.ProjectionState.SavedResults)
-        {
-            try
-            {
-                var source = _projectionResultToCollisionSourceService.CreateProjectedLightSource(result, fallbackProfile);
-                if (source.Rays.Count == 0)
-                {
-                    continue;
-                }
-
-                if (AvailableProjectedSources.Any(item => item.Name == source.Name && item.OriginText == "Projection Result"))
-                {
-                    continue;
-                }
-
-                AvailableProjectedSources.Add(new SourceCompletionInputItem { Name = source.Name, Source = source, OriginText = "Projection Result" });
-            }
-            catch
-            {
-                StatusMessage = "Projection result is missing source profile definition; add it to collision scene first or select a projected source with profile data.";
-            }
-        }
-    }
-
-    private void PopulateCollisionSourceInputs()
-    {
-        foreach (var scene in _sceneCollectionService.Scenes)
-        {
-            foreach (var projectedSource in scene.ProjectedLightSources)
-            {
-                if (AvailableProjectedSources.Any(item => item.Name == projectedSource.Name && item.OriginText == "Collision Scene"))
-                {
-                    continue;
-                }
-
-                AvailableProjectedSources.Add(new SourceCompletionInputItem
-                {
-                    Name = projectedSource.Name,
-                    Source = projectedSource,
-                    OriginText = "Collision Scene",
-                });
-            }
-        }
-    }
-
-    private void RaiseCommandStates()
-    {
-        (AnalyzeCoverageCommand as RelayCommand)?.RaiseCanExecuteChanged();
-        (GenerateCompletedSourceCommand as RelayCommand)?.RaiseCanExecuteChanged();
-        (AddCompletedSourceToCollisionCommand as RelayCommand)?.RaiseCanExecuteChanged();
-    }
-}
+    private bool CanAddCompletedSource() => SelectedCompletedSource is not null && SelectedTargetCollisionScene is not null;

@@ -47,6 +47,7 @@ public sealed class MainWindowViewModel : ObservableObject
     private readonly SceneRenderSyncService _renderSyncService;
     private readonly CollisionHitPointCsvExportService _collisionHitPointCsvExportService = new();
     private readonly SceneCollectionService _sceneCollectionService;
+    private readonly CompletedSourceStore _completedSourceStore = new();
     private readonly ProjectPersistenceCoordinator _projectPersistenceCoordinator = new();
     private IReadOnlyList<CollisionHitPointRecord> _lastCollisionHitPointRecords = Array.Empty<CollisionHitPointRecord>();
     private string _newSceneName = "Scene 1";
@@ -55,7 +56,7 @@ public sealed class MainWindowViewModel : ObservableObject
     private float _newPrismSizeY = 1.2f;
     private float _newPrismSizeZ = 2.4f;
     private int _newPrismArrayCount = 8;
-    private float _newPrismArrayRadius = 20f;
+    private float _newPrismArrayRadius = 10f;
     private float _newPrismArrayLength = 20f;
     private PrismArrayPlacementMode _selectedPrismArrayPlacementMode = PrismArrayPlacementMode.Cylindrical;
     private float _newRayDirectionX = 1f;
@@ -97,8 +98,8 @@ public sealed class MainWindowViewModel : ObservableObject
 
         AnnotationWorkspace = new AnnotationWorkspaceViewModel(_sceneCollectionService);
         ProjectionWorkspace = new ProjectionWorkspaceViewModel(_sceneCollectionService, projectionRenderSyncService, applicationLogService: AppLog);
-        GraphicMasterWorkspace = new GraphicMasterViewModel(_sceneCollectionService);
-        SourceCompletionWorkspace = new SourceCompletionWorkspaceViewModel(_sceneCollectionService, ProjectionWorkspace, applicationLogService: AppLog);
+        GraphicMasterWorkspace = new GraphicMasterViewModel(_sceneCollectionService, _completedSourceStore);
+        SourceCompletionWorkspace = new SourceCompletionWorkspaceViewModel(_sceneCollectionService, _completedSourceStore, ProjectionWorkspace, applicationLogService: AppLog);
         CollisionScenes = CollectionViewSource.GetDefaultView(_sceneCollectionService.Scenes);
         CollisionScenes.Filter = item => item is CollisionSceneViewModel scene && !scene.IsProjectionOnly;
 
