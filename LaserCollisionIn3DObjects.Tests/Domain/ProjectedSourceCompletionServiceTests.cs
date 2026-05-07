@@ -42,6 +42,40 @@ public sealed class ProjectedSourceCompletionServiceTests
     }
 
     [Fact]
+    public void RotationalCopy_FillsLargeGapWithRepeatedSlices()
+    {
+        var request = BuildRequest("LargeGap", CreateRaysAtAngles(new[] { 0d, 20d, 40d, 60d, 80d, 100d }));
+        var service = new ProjectedSourceCompletionService();
+
+        var result = service.CompleteByRotationalCopy(request, new SourceCompletionSettings(10d, 25d, IncludeOriginalRays: false));
+
+        var syntheticThetas = result.Rays
+            .Select(ray => NormalizeDegrees(ComputeThetaDegrees(ToLocal(ray.Ray.Origin, request.SourceFrame))))
+            .OrderBy(v => v)
+            .ToList();
+
+        Assert.NotEmpty(syntheticThetas);
+        Assert.Contains(syntheticThetas, t => t >= 139.9d && t <= 160.1d);
+        Assert.Contains(syntheticThetas, t => t >= 259.9d && t <= 280.1d);
+    }
+
+    [Fact]
+    public void RotationalCopy_RotatesBothOriginAndDirection()
+    {
+        var request = BuildRequest("RotateBoth", CreateRaysAtAngles(new[] { 0d, 20d, 40d, 60d, 80d, 100d }));
+        var service = new ProjectedSourceCompletionService();
+
+        var result = service.CompleteByRotationalCopy(request, new SourceCompletionSettings(20d, 25d, IncludeOriginalRays: false));
+        var syntheticRay = result.Rays.First();
+
+        var originTheta = NormalizeDegrees(ComputeThetaDegrees(ToLocal(syntheticRay.Ray.Origin, request.SourceFrame)));
+        var directionTheta = NormalizeDegrees(ComputeThetaDegrees(ToLocalDirection(syntheticRay.Ray.Direction, request.SourceFrame)));
+        Assert.False(float.IsNaN((float)originTheta));
+        Assert.False(float.IsNaN((float)directionTheta));
+        Assert.InRange(syntheticRay.Ray.Direction.Length(), 0.9999f, 1.0001f);
+    }
+
+    [Fact]
     public void SyntheticOriginsLieOnCylinderProfile()
     {
         var request = BuildRequest("Cylinder", CreateRaysAtAngles(new[] { 60d, 90d, 210d, 240d }));
@@ -270,5 +304,19 @@ public sealed class ProjectedSourceCompletionServiceTests
         return new Vector3(Vector3.Dot(delta, x), Vector3.Dot(delta, y), Vector3.Dot(delta, z));
     }
 
+    private static Vector3 ToLocalDirection(Vector3 worldDirection, PointSourceFrameState frame)
+    {
+        var x = new Vector3((float)frame.AxisX.X, (float)frame.AxisX.Y, (float)frame.AxisX.Z);
+        var y = new Vector3((float)frame.AxisY.X, (float)frame.AxisY.Y, (float)frame.AxisY.Z);
+        var z = new Vector3((float)frame.AxisZ.X, (float)frame.AxisZ.Y, (float)frame.AxisZ.Z);
+        return Vector3.Normalize(new Vector3(Vector3.Dot(worldDirection, x), Vector3.Dot(worldDirection, y), Vector3.Dot(worldDirection, z)));
+    }
+
     private static bool Approximately(double value, double expected, double tolerance) => Math.Abs(value - expected) <= tolerance;
+    private static double ComputeThetaDegrees(Vector3 localPoint) => Math.Atan2(localPoint.Z, localPoint.Y) * (180d / Math.PI);
+    private static double NormalizeDegrees(double degrees)
+    {
+        var normalized = degrees % 360d;
+        return normalized < 0d ? normalized + 360d : normalized;
+    }
 }
