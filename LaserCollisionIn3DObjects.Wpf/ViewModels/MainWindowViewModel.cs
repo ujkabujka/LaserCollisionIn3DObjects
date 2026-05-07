@@ -98,7 +98,7 @@ public sealed class MainWindowViewModel : ObservableObject
 
         AnnotationWorkspace = new AnnotationWorkspaceViewModel(_sceneCollectionService);
         ProjectionWorkspace = new ProjectionWorkspaceViewModel(_sceneCollectionService, projectionRenderSyncService, applicationLogService: AppLog);
-        GraphicMasterWorkspace = new GraphicMasterViewModel(_sceneCollectionService);
+        GraphicMasterWorkspace = new GraphicMasterViewModel(_sceneCollectionService, _completedSourceStore);
         SourceCompletionWorkspace = new SourceCompletionWorkspaceViewModel(_sceneCollectionService, _completedSourceStore, ProjectionWorkspace, applicationLogService: AppLog);
         CollisionScenes = CollectionViewSource.GetDefaultView(_sceneCollectionService.Scenes);
         CollisionScenes.Filter = item => item is CollisionSceneViewModel scene && !scene.IsProjectionOnly;
