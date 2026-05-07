@@ -7,7 +7,6 @@ public enum SourceCompletionMethod
 {
     RotationalCopy,
     Mirror,
-    WeightedSectorClone,
 }
 
 public sealed record ProjectedSourceCompletionRequest(
@@ -22,13 +21,7 @@ public sealed record SourceCompletionSettings(
     bool IncludeOriginalRays,
     int? MaxSyntheticRays = null,
     SourceCompletionMethod Method = SourceCompletionMethod.RotationalCopy,
-    double MirrorAxisDegrees = 0d,
-    IReadOnlyList<WeightedSourceSector>? WeightedSectors = null);
-
-public sealed record WeightedSourceSector(
-    double StartDegrees,
-    double EndDegrees,
-    double Weight);
+    double MirrorAxisDegrees = 0d);
 
 public sealed record AzimuthCoverageInterval(
     double StartDegrees,
