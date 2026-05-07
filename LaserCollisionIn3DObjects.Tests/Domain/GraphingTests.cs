@@ -271,6 +271,7 @@ public sealed class GraphingTests
                         AxisY = new Vector3D(0, 1, 0),
                         AxisZ = new Vector3D(0, 0, 1),
                     },
+                    ProfileDefinition = new AxisymmetricSourceProfileDefinition { Kind = AxisymmetricSourceKind.Cylinder, Radius = 2f, Length = 9f },
                     Radius = 2,
                     Length = 9,
                     Points =

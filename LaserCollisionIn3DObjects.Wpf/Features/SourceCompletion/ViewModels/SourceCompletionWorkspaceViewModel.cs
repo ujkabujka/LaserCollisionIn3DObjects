@@ -343,17 +343,17 @@ public sealed class SourceCompletionWorkspaceViewModel : ObservableObject
             return;
         }
 
-        var fallbackProfile = SelectedProjectedSource?.ProfileDefinition
-            ?? new LaserCollisionIn3DObjects.Domain.Geometry.AxisymmetricSourceProfileDefinition
-            {
-                Kind = LaserCollisionIn3DObjects.Domain.Geometry.AxisymmetricSourceKind.Cylinder,
-                Radius = 1f,
-                Length = 1f,
-            };
         foreach (var result in _projectionWorkspace.SavedResults)
         {
-            var source = _projectionResultToCollisionSourceService.CreateProjectedLightSource(result, fallbackProfile);
-            AvailableProjectedSources.Add(new SourceCompletionInputItem { Name = source.Name, Source = source, OriginText = "Projection Result" });
+            try
+            {
+                var source = _projectionResultToCollisionSourceService.CreateProjectedLightSource(result);
+                AvailableProjectedSources.Add(new SourceCompletionInputItem { Name = source.Name, Source = source, OriginText = "Projection Result" });
+            }
+            catch (InvalidOperationException)
+            {
+                // Ignore projection results that do not have complete axisymmetric profile/source data.
+            }
         }
     }
 
