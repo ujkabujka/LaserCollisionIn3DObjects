@@ -50,6 +50,24 @@
                         </StackPanel>
                     </GroupBox>
 
+                    <GroupBox Header="Selected Object Properties" Margin="0,0,0,8" Padding="8">
+                        <StackPanel>
+                            <TextBlock Text="No editable object selected."/>
+                            <StackPanel Visibility="{Binding HasEditableSelection, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                <TextBlock Text="{Binding SelectedObjectEditorType}" FontWeight="SemiBold" Margin="0,0,0,6"/>
+                                <TextBlock Text="Position"/>
+                                <UniformGrid Columns="3" Margin="0,0,0,6"><StackPanel Margin="2"><TextBlock Text="X"/><TextBox Text="{Binding NewPrismPosX}"/></StackPanel><StackPanel Margin="2"><TextBlock Text="Y"/><TextBox Text="{Binding NewPrismPosY}"/></StackPanel><StackPanel Margin="2"><TextBlock Text="Z"/><TextBox Text="{Binding NewPrismPosZ}"/></StackPanel></UniformGrid>
+                                <TextBlock Text="Rotation"/>
+                                <UniformGrid Columns="3" Margin="0,0,0,6"><StackPanel Margin="2"><TextBlock Text="X"/><TextBox Text="{Binding NewPrismRotX}"/></StackPanel><StackPanel Margin="2"><TextBlock Text="Y"/><TextBox Text="{Binding NewPrismRotY}"/></StackPanel><StackPanel Margin="2"><TextBlock Text="Z"/><TextBox Text="{Binding NewPrismRotZ}"/></StackPanel></UniformGrid>
+                                <StackPanel Visibility="{Binding IsSelectedPrismEditable, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                    <TextBlock Text="Size"/>
+                                    <UniformGrid Columns="3" Margin="0,0,0,6"><StackPanel Margin="2"><TextBlock Text="X"/><TextBox Text="{Binding NewPrismSizeX}"/></StackPanel><StackPanel Margin="2"><TextBlock Text="Y"/><TextBox Text="{Binding NewPrismSizeY}"/></StackPanel><StackPanel Margin="2"><TextBlock Text="Z"/><TextBox Text="{Binding NewPrismSizeZ}"/></StackPanel></UniformGrid>
+                                </StackPanel>
+                                <Button Content="Apply Changes" Command="{Binding ApplySelectedObjectChangesCommand}" Width="120"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </GroupBox>
+
                     <GroupBox Header="Axisymmetric Light Sources" Margin="0,0,0,8" Padding="8">
                         <StackPanel>
                             <Grid Margin="0,0,0,6"><Grid.ColumnDefinitions><ColumnDefinition Width="90"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><TextBlock Grid.Column="0" Text="Name" VerticalAlignment="Center"/><TextBox Grid.Column="1" Text="{Binding NewLightSourceName}"/></Grid>
