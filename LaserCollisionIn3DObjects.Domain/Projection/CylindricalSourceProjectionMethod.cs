@@ -21,7 +21,7 @@ public sealed class AxisymmetricSourceProjectionMethod : IProjectionMethod
 
         if (request.HolePoints.Count == 0)
         {
-            return new ProjectionComputationResult { MethodId = Metadata.Id, SourceFrame = frame, Rays = Array.Empty<ProjectionRay>(), AxisymmetricSource = new AxisymmetricProjectionState { SourceFrame = frame, Radius = profile.RadiusAt(0), Length = profile.Length, Points = [] } };
+            return new ProjectionComputationResult { MethodId = Metadata.Id, SourceFrame = frame, Rays = Array.Empty<ProjectionRay>(), AxisymmetricSource = new AxisymmetricProjectionState { SourceFrame = frame, ProfileDefinition = p.ProfileDefinition, Radius = profile.RadiusAt(0), Length = profile.Length, Points = [] } };
         }
 
         var holesLocal = request.HolePoints.Select(hole => ToLocal(hole, frame)).ToList();
@@ -66,7 +66,7 @@ public sealed class AxisymmetricSourceProjectionMethod : IProjectionMethod
             });
         }
 
-        return new ProjectionComputationResult { MethodId = Metadata.Id, SourceFrame = frame, Rays = Array.Empty<ProjectionRay>(), AxisymmetricSource = new AxisymmetricProjectionState { SourceFrame = frame, Radius = profile.RadiusAt(0), Length = profile.Length, Points = points } };
+        return new ProjectionComputationResult { MethodId = Metadata.Id, SourceFrame = frame, Rays = Array.Empty<ProjectionRay>(), AxisymmetricSource = new AxisymmetricProjectionState { SourceFrame = frame, ProfileDefinition = p.ProfileDefinition, Radius = profile.RadiusAt(0), Length = profile.Length, Points = points } };
     }
 
     private static Point3 ToLocal(Point3 world, PointSourceFrameState frame)
