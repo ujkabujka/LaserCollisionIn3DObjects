@@ -130,7 +130,6 @@ public sealed class SourceCompletionWorkspaceViewModel : ObservableObject
         }
 
         PopulateProjectionResultInputs();
-        PopulateCollisionSourceInputs();
 
         if (SelectedProjectedSourceInput is null || !AvailableProjectedSources.Contains(SelectedProjectedSourceInput))
         {
@@ -357,14 +356,4 @@ public sealed class SourceCompletionWorkspaceViewModel : ObservableObject
         }
     }
 
-    private void PopulateCollisionSourceInputs()
-    {
-        foreach (var scene in _sceneCollectionService.Scenes.Where(s => !s.IsProjectionOnly))
-        {
-            foreach (var source in scene.ProjectedLightSources.Where(s => s.OriginKind == ProjectedLightSourceOriginKind.CompletedProjectionResult))
-            {
-                AvailableProjectedSources.Add(new SourceCompletionInputItem { Name = source.Name, Source = source, OriginText = $"Collision Scene: {scene.Name}" });
-            }
-        }
-    }
 }
