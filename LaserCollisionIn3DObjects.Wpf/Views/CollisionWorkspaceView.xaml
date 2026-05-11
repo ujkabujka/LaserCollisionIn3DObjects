@@ -146,6 +146,10 @@
                                         </DataTemplate>
                                     </ListBox.ItemTemplate>
                                 </ListBox>
+                                <Button Content="Remove Selected Projected Light Source"
+                                        Command="{Binding RemoveSelectedProjectedLightSourceCommand}"
+                                        Margin="0,6,0,0"
+                                        Width="230" />
                                 <!-- <TextBlock Margin="0,6,0,0"
                                            TextWrapping="Wrap"
                                            Foreground="#666"
