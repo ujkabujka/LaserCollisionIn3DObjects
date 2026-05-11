@@ -129,6 +129,7 @@ public sealed class MainWindowViewModel : ObservableObject
         RemoveSelectedRayCommand = new RelayCommand(RemoveSelectedRay, () => SelectedRay is not null);
         RemoveAllRaysCommand = new RelayCommand(RemoveAllRays, () => Rays.Count > 0);
         RemoveSelectedLightSourceCommand = new RelayCommand(RemoveSelectedLightSource, () => SelectedLightSource is not null);
+        RemoveSelectedProjectedLightSourceCommand = new RelayCommand(RemoveSelectedProjectedLightSource, () => SelectedProjectedLightSource is not null);
         RunCollisionCommand = new RelayCommand(RunCollision, () => SelectedScene is not null);
         ExportHitPointsCsvCommand = new RelayCommand(ExportHitPointsCsv);
         RegenerateLightSourceRaysCommand = new RelayCommand(RegenerateLightSourceRays, () => SelectedScene is not null);
@@ -235,6 +236,7 @@ public sealed class MainWindowViewModel : ObservableObject
     public ICommand RemoveSelectedRayCommand { get; }
     public ICommand RemoveAllRaysCommand { get; }
     public ICommand RemoveSelectedLightSourceCommand { get; }
+    public ICommand RemoveSelectedProjectedLightSourceCommand { get; }
     public ICommand RunCollisionCommand { get; }
     public ICommand ExportHitPointsCsvCommand { get; }
     public ICommand RegenerateLightSourceRaysCommand { get; }
@@ -929,6 +931,25 @@ public sealed class MainWindowViewModel : ObservableObject
         scene.SelectedLightSource = null;
         RaiseCanExecuteChanges();
         RefreshViewport(false);
+    }
+
+    private void RemoveSelectedProjectedLightSource()
+    {
+        var scene = GetSelectedSceneOrSetStatus();
+        if (scene?.SelectedProjectedLightSource is null)
+        {
+            SetStatus("Select a projected light source to remove.", ApplicationLogLevel.Warning);
+            return;
+        }
+
+        var removed = scene.SelectedProjectedLightSource;
+        var removedName = removed.Name;
+        scene.ProjectedLightSources.Remove(removed);
+        scene.SelectedProjectedLightSource = null;
+        ClearCollisionResults(scene);
+        RaiseCanExecuteChanges();
+        RefreshViewport(false);
+        SetStatus($"Removed projected light source '{removedName}' from collision scene '{scene.Name}'.", ApplicationLogLevel.Success);
     }
 
     private void RunCollision()
@@ -1845,6 +1866,11 @@ public sealed class MainWindowViewModel : ObservableObject
         if (RemoveSelectedLightSourceCommand is RelayCommand lightCommand)
         {
             lightCommand.RaiseCanExecuteChanged();
+        }
+
+        if (RemoveSelectedProjectedLightSourceCommand is RelayCommand projectedLightCommand)
+        {
+            projectedLightCommand.RaiseCanExecuteChanged();
         }
 
         if (RemoveSelectedHybridSegmentCommand is RelayCommand removeHybridSegmentCommand)
