@@ -46,6 +46,7 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
     private OgiveCurvatureDirection _geometryOgiveCurvatureDirection = OgiveCurvatureDirection.Outward;
     private HybridSourceSegmentItemViewModel? _selectedHybridSegment;
     private CollisionSceneViewModel? _selectedTargetCollisionScene;
+    private bool _isApplyingWorkspaceState;
 
     public ProjectionWorkspaceViewModel(
         SceneCollectionService sceneCollectionService,
@@ -139,7 +140,10 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
                 RaisePropertyChanged(nameof(IsProjectionGeometryConicalFrustum));
                 RaisePropertyChanged(nameof(IsProjectionGeometryCircularOgive));
                 RaisePropertyChanged(nameof(IsProjectionGeometryHybrid));
-                RefreshViewport();
+                if (!_isApplyingWorkspaceState)
+                {
+                    RefreshViewport();
+                }
             }
         }
     }
@@ -360,56 +364,73 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
     {
         ArgumentNullException.ThrowIfNull(state);
 
-        SelectedMethod = ProjectionMethods.FirstOrDefault(method => method.Id == state.SelectedMethodId)
-            ?? ProjectionMethods.FirstOrDefault(method => method.Id == ProjectionWorkspaceState.DefaultMethodId)
-            ?? ProjectionMethods.FirstOrDefault();
-
-        SelectedAxisymmetricSourceKind = state.ProjectionGeometryKind;
-        GeometryRadiusStart = state.GeometryRadiusStart;
-        GeometryRadiusEnd = state.GeometryRadiusEnd;
-        GeometryLength = state.GeometryLength;
-        GeometryArcRadius = state.GeometryArcRadius;
-        GeometryOgiveCurvatureDirection = state.GeometryOgiveCurvatureDirection;
-
-        foreach (var segment in HybridSegments)
+        _isApplyingWorkspaceState = true;
+        try
         {
-            DetachHybridSegment(segment);
-        }
-        HybridSegments.Clear();
-        if (state.HybridSegments.Count > 0)
-        {
-            foreach (var segment in state.HybridSegments)
+            SelectedMethod = ProjectionMethods.FirstOrDefault(method => method.Id == state.SelectedMethodId)
+                ?? ProjectionMethods.FirstOrDefault(method => method.Id == ProjectionWorkspaceState.DefaultMethodId)
+                ?? ProjectionMethods.FirstOrDefault();
+
+            SelectedAxisymmetricSourceKind = state.ProjectionGeometryKind;
+            GeometryRadiusStart = state.GeometryRadiusStart;
+            GeometryRadiusEnd = state.GeometryRadiusEnd;
+            GeometryLength = state.GeometryLength;
+            GeometryArcRadius = state.GeometryArcRadius;
+            GeometryOgiveCurvatureDirection = state.GeometryOgiveCurvatureDirection;
+
+            foreach (var segment in HybridSegments)
             {
-                var newSegment = new HybridSourceSegmentItemViewModel
+                DetachHybridSegment(segment);
+            }
+            HybridSegments.Clear();
+            if (state.HybridSegments.Count > 0)
+            {
+                foreach (var segment in state.HybridSegments)
                 {
-                    SegmentKind = segment.SegmentKind,
-                    Length = segment.Length,
-                    RadiusStart = segment.RadiusStart,
-                    RadiusEnd = segment.RadiusEnd,
-                    ArcRadius = segment.ArcRadius ?? 20f,
-                    OgiveCurvatureDirection = segment.OgiveCurvatureDirection,
-                };
-                AttachHybridSegment(newSegment);
-                HybridSegments.Add(newSegment);
+                    var newSegment = new HybridSourceSegmentItemViewModel
+                    {
+                        SegmentKind = segment.SegmentKind,
+                        Length = segment.Length,
+                        RadiusStart = segment.RadiusStart,
+                        RadiusEnd = segment.RadiusEnd,
+                        ArcRadius = segment.ArcRadius ?? 20f,
+                        OgiveCurvatureDirection = segment.OgiveCurvatureDirection,
+                    };
+                    AttachHybridSegment(newSegment);
+                    HybridSegments.Add(newSegment);
+                }
+
+                SynchronizeHybridSegmentContinuity();
+            }
+            EnsureDefaultHybridSegment();
+
+            TiltPointX = state.TiltPointX;
+            TiltPointY = state.TiltPointY;
+            TiltPointZ = state.TiltPointZ;
+            if (TiltPointX == 0d && TiltPointY == 0d && TiltPointZ == 0d &&
+                (state.HybridTiltPointX != 0f || state.HybridTiltPointY != 0f || state.HybridTiltPointZ != 0f))
+            {
+                TiltPointX = state.HybridTiltPointX;
+                TiltPointY = state.HybridTiltPointY;
+                TiltPointZ = state.HybridTiltPointZ;
             }
 
-            SynchronizeHybridSegmentContinuity();
+            SelectedScene = AvailableScenes.FirstOrDefault(scene => scene.Name == state.SelectedSceneName)
+                ?? AvailableScenes.FirstOrDefault();
         }
-        EnsureDefaultHybridSegment();
-
-        TiltPointX = state.TiltPointX;
-        TiltPointY = state.TiltPointY;
-        TiltPointZ = state.TiltPointZ;
-        if (TiltPointX == 0d && TiltPointY == 0d && TiltPointZ == 0d &&
-            (state.HybridTiltPointX != 0f || state.HybridTiltPointY != 0f || state.HybridTiltPointZ != 0f))
+        finally
         {
-            TiltPointX = state.HybridTiltPointX;
-            TiltPointY = state.HybridTiltPointY;
-            TiltPointZ = state.HybridTiltPointZ;
+            _isApplyingWorkspaceState = false;
         }
 
-        SelectedScene = AvailableScenes.FirstOrDefault(scene => scene.Name == state.SelectedSceneName)
-            ?? AvailableScenes.FirstOrDefault();
+        RaisePropertyChanged(nameof(IsProjectionGeometryCylinder));
+        RaisePropertyChanged(nameof(IsProjectionGeometryConicalFrustum));
+        RaisePropertyChanged(nameof(IsProjectionGeometryCircularOgive));
+        RaisePropertyChanged(nameof(IsProjectionGeometryHybrid));
+        RaisePropertyChanged(nameof(SavedResults));
+        RaisePropertyChanged(nameof(SelectedResult));
+        RaiseCanExecuteChanged();
+        RefreshViewport();
     }
 
     private bool CanRunProjection() =>
@@ -923,7 +944,10 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
             or nameof(HybridSourceSegmentItemViewModel.OgiveCurvatureDirection))
         {
             SynchronizeHybridSegmentContinuity();
-            RefreshViewport();
+            if (!_isApplyingWorkspaceState)
+            {
+                RefreshViewport();
+            }
         }
     }
 
@@ -931,7 +955,10 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
     {
         if (SetProperty(ref field, value))
         {
-            RefreshViewport();
+            if (!_isApplyingWorkspaceState)
+            {
+                RefreshViewport();
+            }
         }
     }
 
@@ -1081,13 +1108,9 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
         }
     
 
-        var fallbackProfileDefinition = BuildAxisymmetricSourceProfileDefinition(SelectedMethod?.Method ?? new AxisymmetricSourceProjectionMethod());
-
         try
         {
-            var projectedSource = _projectionResultToCollisionSourceService.CreateProjectedLightSource(
-                selectedResult,
-                fallbackProfileDefinition);
+            var projectedSource = _projectionResultToCollisionSourceService.CreateProjectedLightSource(selectedResult);
 
             targetScene.ProjectedLightSources.Add(projectedSource);
             targetScene.SelectedProjectedLightSource = projectedSource;
