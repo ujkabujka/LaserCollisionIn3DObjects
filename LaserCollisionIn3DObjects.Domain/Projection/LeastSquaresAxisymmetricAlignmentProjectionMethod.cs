@@ -14,6 +14,6 @@ public sealed class LeastSquaresAxisymmetricAlignmentProjectionMethod : IProject
         var frame = PointSourceFrameBuilder.Build(p.SourceFrameOrigin, p.SourceFrameX, p.SourceFrameY);
         var local = request.HolePoints.Select(h => new Point3(h.X - frame.Origin.X, h.Y - frame.Origin.Y, h.Z - frame.Origin.Z)).ToList();
         var result = _solver.Solve(local, frame, profile, p.LocalTiltPoint, request.HolePoints, request.Progress);
-        return new ProjectionComputationResult { MethodId = Metadata.Id, SourceFrame = frame, Rays = Array.Empty<ProjectionRay>(), AxisymmetricSource = new AxisymmetricProjectionState { SourceFrame = frame, Radius = profile.RadiusAt(0), Length = profile.Length, LocalTiltPoint = p.LocalTiltPoint, EstimatedTiltWeight = result.RefinedLambda, LeastSquaresDiagnostics = result.Diagnostics, Points = result.Points } };
+        return new ProjectionComputationResult { MethodId = Metadata.Id, SourceFrame = frame, Rays = Array.Empty<ProjectionRay>(), AxisymmetricSource = new AxisymmetricProjectionState { SourceFrame = frame, ProfileDefinition = p.ProfileDefinition, Radius = profile.RadiusAt(0), Length = profile.Length, LocalTiltPoint = p.LocalTiltPoint, EstimatedTiltWeight = result.RefinedLambda, LeastSquaresDiagnostics = result.Diagnostics, Points = result.Points } };
     }
 }

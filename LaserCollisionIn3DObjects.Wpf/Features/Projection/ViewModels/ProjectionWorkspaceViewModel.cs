@@ -1081,13 +1081,9 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
         }
     
 
-        var fallbackProfileDefinition = BuildAxisymmetricSourceProfileDefinition(SelectedMethod?.Method ?? new AxisymmetricSourceProjectionMethod());
-
         try
         {
-            var projectedSource = _projectionResultToCollisionSourceService.CreateProjectedLightSource(
-                selectedResult,
-                fallbackProfileDefinition);
+            var projectedSource = _projectionResultToCollisionSourceService.CreateProjectedLightSource(selectedResult);
 
             targetScene.ProjectedLightSources.Add(projectedSource);
             targetScene.SelectedProjectedLightSource = projectedSource;

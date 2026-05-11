@@ -21,6 +21,7 @@ public sealed record AxisymmetricProjectionPoint(
 public sealed class AxisymmetricProjectionState
 {
     public required PointSourceFrameState SourceFrame { get; init; }
+    public required AxisymmetricSourceProfileDefinition ProfileDefinition { get; init; }
 
     public required double Radius { get; init; }
 

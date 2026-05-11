@@ -274,11 +274,7 @@ public sealed class ProjectPersistenceCoordinator
                     AxisY = namedResult.Result.AxisymmetricSource.SourceFrame.AxisY,
                     AxisZ = namedResult.Result.AxisymmetricSource.SourceFrame.AxisZ,
                 },
-                ProfileDefinition = new AxisymmetricSourceProfileDefinition
-                {
-                    Radius = (float)namedResult.Result.AxisymmetricSource.Radius,
-                    Length = (float)namedResult.Result.AxisymmetricSource.Length,
-                },
+                ProfileDefinition = namedResult.Result.AxisymmetricSource.ProfileDefinition,
                 LocalTiltPoint = namedResult.Result.AxisymmetricSource.LocalTiltPoint,
                 EstimatedTiltWeight = namedResult.Result.AxisymmetricSource.EstimatedTiltWeight,
                 Diagnostics = namedResult.Result.AxisymmetricSource.Diagnostics is null ? null : new SelfCalibratingAxisymmetricProjectionDiagnosticsDto
@@ -558,6 +554,7 @@ public sealed class ProjectPersistenceCoordinator
                     AxisY = axisymmetric.SourceFrame.AxisY,
                     AxisZ = axisymmetric.SourceFrame.AxisZ,
                 },
+                ProfileDefinition = axisymmetric.ProfileDefinition,
                 Radius = axisymmetric.ProfileDefinition.Radius,
                 Length = axisymmetric.ProfileDefinition.Length,
                 LocalTiltPoint = axisymmetric.LocalTiltPoint,

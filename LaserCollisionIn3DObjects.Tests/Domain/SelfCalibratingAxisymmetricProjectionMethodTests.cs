@@ -132,6 +132,7 @@ public sealed class SelfCalibratingAxisymmetricProjectionMethodTests
                     AxisY = new Vector3D(0, 1, 0),
                     AxisZ = new Vector3D(0, 0, 1),
                 },
+                ProfileDefinition = new AxisymmetricSourceProfileDefinition { Kind = AxisymmetricSourceKind.Cylinder, Radius = 1f, Length = 1f },
                 Radius = 1,
                 Length = 1,
                 Points =
