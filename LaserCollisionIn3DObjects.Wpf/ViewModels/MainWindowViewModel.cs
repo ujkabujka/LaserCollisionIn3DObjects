@@ -1714,12 +1714,12 @@ public sealed class MainWindowViewModel : ObservableObject
         }
         else if (SelectedLightSource is not null)
         {
-            SelectedLightSource.PositionX = SelectedEditPositionX;
-            SelectedLightSource.PositionY = SelectedEditPositionY;
-            SelectedLightSource.PositionZ = SelectedEditPositionZ;
-            SelectedLightSource.RotationX = SelectedEditRotationX;
-            SelectedLightSource.RotationY = SelectedEditRotationY;
-            SelectedLightSource.RotationZ = SelectedEditRotationZ;
+            SelectedLightSource.PositionX = SelectedSourceEditPositionX;
+            SelectedLightSource.PositionY = SelectedSourceEditPositionY;
+            SelectedLightSource.PositionZ = SelectedSourceEditPositionZ;
+            SelectedLightSource.RotationX = SelectedSourceEditRotationX;
+            SelectedLightSource.RotationY = SelectedSourceEditRotationY;
+            SelectedLightSource.RotationZ = SelectedSourceEditRotationZ;
         }
         else if (SelectedProjectedLightSource is not null)
         {
@@ -1727,18 +1727,18 @@ public sealed class MainWindowViewModel : ObservableObject
             var oldOrigin = new Vector3((float)frame.Origin.X, (float)frame.Origin.Y, (float)frame.Origin.Z);
             var oldRotation = SelectedProjectedLightSource.BaseOrientation;
             var newRotation = Quaternion.CreateFromYawPitchRoll(
-                float.DegreesToRadians(SelectedEditRotationY),
-                float.DegreesToRadians(SelectedEditRotationX),
-                float.DegreesToRadians(SelectedEditRotationZ));
+                float.DegreesToRadians(SelectedSourceEditRotationY),
+                float.DegreesToRadians(SelectedSourceEditRotationX),
+                float.DegreesToRadians(SelectedSourceEditRotationZ));
 
             var deltaRotation = newRotation * Quaternion.Inverse(oldRotation);
-            var newOrigin = new Vector3(SelectedEditPositionX, SelectedEditPositionY, SelectedEditPositionZ);
+            var newOrigin = new Vector3(SelectedSourceEditPositionX, SelectedSourceEditPositionY, SelectedSourceEditPositionZ);
             SelectedProjectedLightSource.SourceFrame = new PointSourceFrameState
             {
-                Origin = new Point3(SelectedEditPositionX, SelectedEditPositionY, SelectedEditPositionZ),
-                AxisX = frame.AxisX,
-                AxisY = frame.AxisY,
-                AxisZ = frame.AxisZ,
+                Origin = new Point3(SelectedSourceEditPositionX, SelectedSourceEditPositionY, SelectedSourceEditPositionZ),
+                AxisX = RotateFrameAxis(frame.AxisX, deltaRotation),
+                AxisY = RotateFrameAxis(frame.AxisY, deltaRotation),
+                AxisZ = RotateFrameAxis(frame.AxisZ, deltaRotation),
             };
             SelectedProjectedLightSource.BaseOrientation = newRotation;
             foreach (var projectionRay in SelectedProjectedLightSource.Rays)
@@ -1758,6 +1758,17 @@ public sealed class MainWindowViewModel : ObservableObject
 
     private void ApplySelectedPrismChanges() => ApplySelectedObjectChanges();
     private void ApplySelectedSourceChanges() => ApplySelectedObjectChanges();
+
+    private static Vector3D RotateFrameAxis(Vector3D axis, Quaternion rotation)
+    {
+        var rotated = Vector3.TransformNormal(new Vector3((float)axis.X, (float)axis.Y, (float)axis.Z), Matrix4x4.CreateFromQuaternion(rotation));
+        if (rotated.LengthSquared() > 0f)
+        {
+            rotated = Vector3.Normalize(rotated);
+        }
+
+        return new Vector3D(rotated.X, rotated.Y, rotated.Z);
+    }
 
     private void ClearCollisionResults(CollisionSceneViewModel scene)
     {
