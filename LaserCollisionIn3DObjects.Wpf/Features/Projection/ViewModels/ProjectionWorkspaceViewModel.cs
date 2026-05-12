@@ -46,6 +46,8 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
     private OgiveCurvatureDirection _geometryOgiveCurvatureDirection = OgiveCurvatureDirection.Outward;
     private HybridSourceSegmentItemViewModel? _selectedHybridSegment;
     private CollisionSceneViewModel? _selectedTargetCollisionScene;
+    private int _leastSquaresMaxIterations = LeastSquaresAxisymmetricAlignmentSolverSettings.Default.MaxIterations;
+    private double _leastSquaresConvergenceTolerance = LeastSquaresAxisymmetricAlignmentSolverSettings.Default.ConvergenceTolerance;
     private bool _isApplyingWorkspaceState;
 
     public ProjectionWorkspaceViewModel(
@@ -121,6 +123,9 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
     public double TiltPointX { get => _tiltPointX; set => SetGeometryProperty(ref _tiltPointX, value); }
     public double TiltPointY { get => _tiltPointY; set => SetGeometryProperty(ref _tiltPointY, value); }
     public double TiltPointZ { get => _tiltPointZ; set => SetGeometryProperty(ref _tiltPointZ, value); }
+
+    public int LeastSquaresMaxIterations { get => _leastSquaresMaxIterations; set => SetProperty(ref _leastSquaresMaxIterations, value); }
+    public double LeastSquaresConvergenceTolerance { get => _leastSquaresConvergenceTolerance; set => SetProperty(ref _leastSquaresConvergenceTolerance, value); }
 
     public AxisymmetricSourceKind[] AxisymmetricSourceKinds { get; } = Enum.GetValues<AxisymmetricSourceKind>();
     public AxisymmetricSourceKind SelectedProjectionGeometryKind
@@ -505,6 +510,21 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
             return;
         }
 
+        if (IsLeastSquaresAxisymmetricAlignmentMethodSelected)
+        {
+            if (LeastSquaresMaxIterations <= 0)
+            {
+                SetStatus("Least-squares max iterations must be greater than zero.", ApplicationLogLevel.Warning);
+                return;
+            }
+
+            if (LeastSquaresConvergenceTolerance <= 0d)
+            {
+                SetStatus("Least-squares error bound must be greater than zero.", ApplicationLogLevel.Warning);
+                return;
+            }
+        }
+
         if (string.IsNullOrWhiteSpace(NewResultName))
         {
             SetStatus("Provide a projection result name.", ApplicationLogLevel.Warning);
@@ -685,7 +705,9 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
                 new Vector3D(SourceFrameXx, SourceFrameXy, SourceFrameXz),
                 new Vector3D(SourceFrameYx, SourceFrameYy, SourceFrameYz),
                 profileDefinition,
-                new Point3(TiltPointX, TiltPointY, TiltPointZ));
+                new Point3(TiltPointX, TiltPointY, TiltPointZ),
+                LeastSquaresMaxIterations,
+                LeastSquaresConvergenceTolerance);
         }
 
         throw new InvalidOperationException($"Projection method '{method.Metadata.Id}' is not yet supported by the workspace UI parameter panel.");

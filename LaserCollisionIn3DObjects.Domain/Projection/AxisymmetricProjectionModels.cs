@@ -20,4 +20,6 @@ public sealed record LeastSquaresAxisymmetricAlignmentProjectionParameters(
     Vector3D SourceFrameX,
     Vector3D SourceFrameY,
     AxisymmetricSourceProfileDefinition ProfileDefinition,
-    Point3 LocalTiltPoint) : IProjectionParameters;
+    Point3 LocalTiltPoint,
+    int MaxIterations,
+    double ConvergenceTolerance) : IProjectionParameters;

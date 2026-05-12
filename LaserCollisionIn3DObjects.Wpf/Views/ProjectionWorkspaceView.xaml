@@ -102,6 +102,12 @@
                             <GroupBox Header="Local Tilt Point" Margin="0,0,0,6" Padding="6" Visibility="{Binding ProjectionWorkspace.IsTiltPointMethodSelected, Converter={StaticResource BoolToVisibility}}">
                                 <UniformGrid Columns="3"><StackPanel Margin="2"><TextBlock Text="Tilt X"/><TextBox Text="{Binding ProjectionWorkspace.TiltPointX, Converter={StaticResource FlexibleNumericConverter}}"/></StackPanel><StackPanel Margin="2"><TextBlock Text="Tilt Y"/><TextBox Text="{Binding ProjectionWorkspace.TiltPointY, Converter={StaticResource FlexibleNumericConverter}}"/></StackPanel><StackPanel Margin="2"><TextBlock Text="Tilt Z"/><TextBox Text="{Binding ProjectionWorkspace.TiltPointZ, Converter={StaticResource FlexibleNumericConverter}}"/></StackPanel></UniformGrid>
                             </GroupBox>
+                            <GroupBox Header="Least-Squares Parameters" Margin="0,0,0,6" Padding="6" Visibility="{Binding ProjectionWorkspace.IsLeastSquaresAxisymmetricAlignmentMethodSelected, Converter={StaticResource BoolToVisibility}}">
+                                <StackPanel>
+                                    <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="160"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><TextBlock Grid.Column="0" Text="Max Iterations" VerticalAlignment="Center"/><TextBox Grid.Column="1" Text="{Binding ProjectionWorkspace.LeastSquaresMaxIterations, UpdateSourceTrigger=PropertyChanged}"/></Grid>
+                                    <Grid Margin="0,4,0,0"><Grid.ColumnDefinitions><ColumnDefinition Width="160"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><TextBlock Grid.Column="0" Text="Error Bound" VerticalAlignment="Center"/><TextBox Grid.Column="1" Text="{Binding ProjectionWorkspace.LeastSquaresConvergenceTolerance, UpdateSourceTrigger=PropertyChanged, Converter={StaticResource FlexibleNumericConverter}}"/></Grid>
+                                </StackPanel>
+                            </GroupBox>
                         </StackPanel>
                     </GroupBox>
 
