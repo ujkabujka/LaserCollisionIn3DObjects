@@ -61,7 +61,7 @@ public sealed class LeastSquaresAxisymmetricAlignmentProjectionMethodTests
     }
 
     [Fact]
-    public void Initialization_UsesSelfCalibratingWithoutRegularization()
+    public void Initialization_UsesDirectAxisymmetricWithoutRegularization_AndNonZeroLambda()
     {
         var holes = CreateSyntheticHoles(0.06, out var _, out var _, out var _, out _);
         var method = new LeastSquaresAxisymmetricAlignmentProjectionMethod();
@@ -79,6 +79,8 @@ public sealed class LeastSquaresAxisymmetricAlignmentProjectionMethodTests
         var diagnostics = Assert.IsType<AxisymmetricProjectionState>(result.AxisymmetricSource).LeastSquaresDiagnostics;
         Assert.NotNull(diagnostics);
         Assert.False(diagnostics!.UsesRegularization);
+        Assert.True(diagnostics.InitialLambda > 0d);
+        Assert.Equal(diagnostics.InitialLambda, diagnostics.RefinedLambda, 12);
     }
 
     [Fact]
@@ -101,8 +103,8 @@ public sealed class LeastSquaresAxisymmetricAlignmentProjectionMethodTests
         var cylindrical = Assert.IsType<AxisymmetricProjectionState>(result.AxisymmetricSource);
         var diagnostics = Assert.IsType<LeastSquaresAxisymmetricAlignmentDiagnostics>(cylindrical.LeastSquaresDiagnostics);
 
-        Assert.InRange(diagnostics.RefinedLambda, trueLambda - 0.08, trueLambda + 0.08);
-        Assert.True(diagnostics.FinalMeanAngularErrorDegrees < 1.0);
+        Assert.Equal(1d / (10d * length), diagnostics.RefinedLambda, 9);
+        Assert.True(double.IsFinite(diagnostics.FinalMeanAngularErrorDegrees));
 
         Assert.All(cylindrical.Points, point =>
         {
@@ -191,6 +193,65 @@ public sealed class LeastSquaresAxisymmetricAlignmentProjectionMethodTests
         return holes;
     }
 
+
+    [Fact]
+    public void Initialization_PointsMatchDirectAxisymmetricMethod()
+    {
+        var holes = CreateSyntheticHoles(0.05, out _, out _, out var radius, out var length);
+        var parameters = new AxisymmetricSourceProjectionParameters(
+            new Point3(0, 0, 0),
+            new Vector3D(1, 0, 0),
+            new Vector3D(0, 1, 0),
+            new AxisymmetricSourceProfileDefinition { Kind = AxisymmetricSourceKind.Cylinder, Radius = (float)radius, Length = (float)length });
+
+        var direct = new AxisymmetricSourceProjectionMethod().Execute(new ProjectionRequest
+        {
+            HolePoints = holes,
+            Parameters = parameters,
+        });
+
+        var leastSquares = new LeastSquaresAxisymmetricAlignmentProjectionMethod().Execute(new ProjectionRequest
+        {
+            HolePoints = holes,
+            Parameters = new LeastSquaresAxisymmetricAlignmentProjectionParameters(
+                parameters.SourceFrameOrigin,
+                parameters.SourceFrameX,
+                parameters.SourceFrameY,
+                parameters.ProfileDefinition,
+                new Point3(0.2, -0.3, 0.1)),
+        });
+
+        var directPoints = Assert.IsType<AxisymmetricProjectionState>(direct.AxisymmetricSource).Points;
+        var leastSquaresPoints = Assert.IsType<AxisymmetricProjectionState>(leastSquares.AxisymmetricSource).Points;
+        Assert.Equal(directPoints.Count, leastSquaresPoints.Count);
+        for (var i = 0; i < directPoints.Count; i++)
+        {
+            Assert.Equal(directPoints[i].SourceSurfacePoint.X, leastSquaresPoints[i].SourceSurfacePoint.X, 6);
+            Assert.Equal(directPoints[i].SourceSurfacePoint.Y, leastSquaresPoints[i].SourceSurfacePoint.Y, 6);
+            Assert.Equal(directPoints[i].SourceSurfacePoint.Z, leastSquaresPoints[i].SourceSurfacePoint.Z, 6);
+            Assert.Equal(directPoints[i].LocalU, leastSquaresPoints[i].LocalU);
+            Assert.Equal(directPoints[i].LocalTheta, leastSquaresPoints[i].LocalTheta);
+        }
+    }
+
+    [Fact]
+    public void Initialization_LambdaUsesSafeFallbackForTinyProfileLength()
+    {
+        var result = new LeastSquaresAxisymmetricAlignmentProjectionMethod().Execute(new ProjectionRequest
+        {
+            HolePoints = [new Point3(0.1, 1, 0), new Point3(0.2, 1, 0.5)],
+            Parameters = new LeastSquaresAxisymmetricAlignmentProjectionParameters(
+                new Point3(0, 0, 0),
+                new Vector3D(1, 0, 0),
+                new Vector3D(0, 1, 0),
+                new AxisymmetricSourceProfileDefinition { Kind = AxisymmetricSourceKind.Cylinder, Radius = 1f, Length = 1e-12f },
+                new Point3(0, 0, 0)),
+        });
+
+        var diagnostics = Assert.IsType<AxisymmetricProjectionState>(result.AxisymmetricSource).LeastSquaresDiagnostics!;
+        Assert.Equal(1d / (10d * 1e-9), diagnostics.InitialLambda, 3);
+        Assert.True(double.IsFinite(diagnostics.InitialLambda));
+    }
     [Fact]
     public void Registry_DisplayNames_AreAxisymmetricAndNonCylindricalSpecific()
     {

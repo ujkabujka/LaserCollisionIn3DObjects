@@ -56,25 +56,48 @@ public sealed class LeastSquaresAxisymmetricAlignmentSolver
         IReadOnlyList<Point3> worldHolePoints,
         IProgress<ProjectionProgress>? progress = null)
     {
-        var initSolver = new SelfCalibratingAxisymmetricProjectionSolver();
-        var init = initSolver.Solve(localHolePoints, frame, profile, localTiltPoint, worldHolePoints, null);
+        var initializedPoints = DirectAxisymmetricProjectionInitializer.Initialize(worldHolePoints, frame, profile);
+
+        const double MinLength = 1e-9;
+        var initialLambda = 1d / (10d * Math.Max(profile.Length, MinLength));
+        var refinedLambda = initialLambda;
+
+        var alignmentErrors = new List<double>(initializedPoints.Count);
+        var angularErrors = new List<double>(initializedPoints.Count);
+        var points = new List<AxisymmetricProjectionPoint>(initializedPoints.Count);
+
+        for (var i = 0; i < initializedPoints.Count; i++)
+        {
+            var point = initializedPoints[i];
+            var modeledDirection = BuildModeledDirection(profile, point.LocalU ?? 0d, point.LocalTheta ?? 0d, refinedLambda, localTiltPoint);
+            var alignmentError = AlignmentError(point.RayDirection, modeledDirection);
+            var angularError = AngularErrorDegrees(point.RayDirection, modeledDirection);
+            alignmentErrors.Add(alignmentError);
+            angularErrors.Add(angularError);
+            points.Add(point with { ModeledRayDirection = modeledDirection, FitError = alignmentError, AlignmentError = alignmentError, AngularErrorDegrees = angularError });
+        }
+
+        var meanAlignmentError = alignmentErrors.Count > 0 ? alignmentErrors.Average() : 0d;
+        var rmsAlignmentError = alignmentErrors.Count > 0 ? Math.Sqrt(alignmentErrors.Average(error => error * error)) : 0d;
+        var meanAngularErrorDegrees = angularErrors.Count > 0 ? angularErrors.Average() : 0d;
+        var maxAngularErrorDegrees = angularErrors.Count > 0 ? angularErrors.Max() : 0d;
 
         var diagnostics = new LeastSquaresAxisymmetricAlignmentDiagnostics
         {
-            InitialLambda = init.EstimatedTiltWeight,
-            RefinedLambda = init.EstimatedTiltWeight,
-            InitialMeanAlignmentError = 0,
-            FinalMeanAlignmentError = 0,
-            FinalRmsAlignmentError = 0,
-            FinalMeanAngularErrorDegrees = 0,
-            FinalMaxAngularErrorDegrees = 0,
+            InitialLambda = initialLambda,
+            RefinedLambda = refinedLambda,
+            InitialMeanAlignmentError = meanAlignmentError,
+            FinalMeanAlignmentError = meanAlignmentError,
+            FinalRmsAlignmentError = rmsAlignmentError,
+            FinalMeanAngularErrorDegrees = meanAngularErrorDegrees,
+            FinalMaxAngularErrorDegrees = maxAngularErrorDegrees,
             Iterations = 0,
             Converged = true,
             UsesRegularization = false,
             IterationHistory = Array.Empty<LeastSquaresAxisymmetricAlignmentIterationDiagnostics>()
         };
 
-        return new LeastSquaresAxisymmetricAlignmentSolveResult(init.EstimatedTiltWeight, init.EstimatedTiltWeight, init.Points, diagnostics);
+        return new LeastSquaresAxisymmetricAlignmentSolveResult(initialLambda, refinedLambda, points, diagnostics);
     }
 }
 
