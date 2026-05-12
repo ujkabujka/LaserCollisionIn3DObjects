@@ -182,6 +182,7 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
     public bool IsSelfCalibratingAxisymmetricMethodSelected => string.Equals(SelectedMethod?.Id, ProjectionMethodIds.SelfCalibratingAxisymmetricSource, StringComparison.OrdinalIgnoreCase);
     public bool IsLeastSquaresAxisymmetricAlignmentMethodSelected => string.Equals(SelectedMethod?.Id, ProjectionMethodIds.LeastSquaresAxisymmetricAlignmentSource, StringComparison.OrdinalIgnoreCase);
     public bool IsAnyAxisymmetricMethodSelected => IsAxisymmetricSourceMethodSelected || IsSelfCalibratingAxisymmetricMethodSelected || IsLeastSquaresAxisymmetricAlignmentMethodSelected;
+    public bool IsTiltPointMethodSelected => IsSelfCalibratingAxisymmetricMethodSelected || IsLeastSquaresAxisymmetricAlignmentMethodSelected;
 
     public bool IsProjectionRunning
     {
@@ -271,6 +272,7 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
             RaisePropertyChanged(nameof(IsSelfCalibratingAxisymmetricMethodSelected));
             RaisePropertyChanged(nameof(IsLeastSquaresAxisymmetricAlignmentMethodSelected));
             RaisePropertyChanged(nameof(IsAnyAxisymmetricMethodSelected));
+            RaisePropertyChanged(nameof(IsTiltPointMethodSelected));
             RaiseCanExecuteChanged();
         }
     }
