@@ -69,6 +69,10 @@ public sealed class LeastSquaresAxisymmetricAlignmentDiagnostics
 
 public sealed record LeastSquaresAxisymmetricAlignmentIterationDiagnostics(
     int Iteration,
+    double ObjectiveError,
     double Lambda,
     double MeanAlignmentError,
-    double MeanAngularErrorDegrees);
+    double RmsAlignmentError,
+    double MeanAngularErrorDegrees,
+    double MaxAngularErrorDegrees,
+    bool Improved);
