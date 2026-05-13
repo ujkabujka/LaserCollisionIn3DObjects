@@ -48,6 +48,9 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
     private CollisionSceneViewModel? _selectedTargetCollisionScene;
     private int _leastSquaresMaxIterations = LeastSquaresAxisymmetricAlignmentSolverSettings.Default.MaxIterations;
     private double _leastSquaresConvergenceTolerance = LeastSquaresAxisymmetricAlignmentSolverSettings.Default.ConvergenceTolerance;
+    private double _leastSquaresPointStepScale = LeastSquaresAxisymmetricAlignmentSolverSettings.Default.PointStepScale;
+    private double _leastSquaresThetaStepScale = LeastSquaresAxisymmetricAlignmentSolverSettings.Default.ThetaStepScale;
+    private double _leastSquaresLambdaStepScale = LeastSquaresAxisymmetricAlignmentSolverSettings.Default.LambdaStepScale;
     private bool _isApplyingWorkspaceState;
 
     public ProjectionWorkspaceViewModel(
@@ -126,6 +129,9 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
 
     public int LeastSquaresMaxIterations { get => _leastSquaresMaxIterations; set => SetProperty(ref _leastSquaresMaxIterations, value); }
     public double LeastSquaresConvergenceTolerance { get => _leastSquaresConvergenceTolerance; set => SetProperty(ref _leastSquaresConvergenceTolerance, value); }
+    public double LeastSquaresPointStepScale { get => _leastSquaresPointStepScale; set => SetProperty(ref _leastSquaresPointStepScale, value); }
+    public double LeastSquaresThetaStepScale { get => _leastSquaresThetaStepScale; set => SetProperty(ref _leastSquaresThetaStepScale, value); }
+    public double LeastSquaresLambdaStepScale { get => _leastSquaresLambdaStepScale; set => SetProperty(ref _leastSquaresLambdaStepScale, value); }
 
     public AxisymmetricSourceKind[] AxisymmetricSourceKinds { get; } = Enum.GetValues<AxisymmetricSourceKind>();
     public AxisymmetricSourceKind SelectedProjectionGeometryKind
@@ -361,6 +367,11 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
             TiltPointX = TiltPointX,
             TiltPointY = TiltPointY,
             TiltPointZ = TiltPointZ,
+            LeastSquaresMaxIterations = LeastSquaresMaxIterations,
+            LeastSquaresConvergenceTolerance = LeastSquaresConvergenceTolerance,
+            LeastSquaresPointStepScale = LeastSquaresPointStepScale,
+            LeastSquaresThetaStepScale = LeastSquaresThetaStepScale,
+            LeastSquaresLambdaStepScale = LeastSquaresLambdaStepScale,
             HybridTiltPointX = (float)TiltPointX,
             HybridTiltPointY = (float)TiltPointY,
             HybridTiltPointZ = (float)TiltPointZ,
@@ -414,6 +425,12 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
             TiltPointX = state.TiltPointX;
             TiltPointY = state.TiltPointY;
             TiltPointZ = state.TiltPointZ;
+            LeastSquaresMaxIterations = state.LeastSquaresMaxIterations ?? LeastSquaresAxisymmetricAlignmentSolverSettings.Default.MaxIterations;
+            LeastSquaresConvergenceTolerance = state.LeastSquaresConvergenceTolerance ?? LeastSquaresAxisymmetricAlignmentSolverSettings.Default.ConvergenceTolerance;
+            LeastSquaresPointStepScale = state.LeastSquaresPointStepScale ?? LeastSquaresAxisymmetricAlignmentSolverSettings.Default.PointStepScale;
+            LeastSquaresThetaStepScale = state.LeastSquaresThetaStepScale ?? LeastSquaresAxisymmetricAlignmentSolverSettings.Default.ThetaStepScale;
+            LeastSquaresLambdaStepScale = state.LeastSquaresLambdaStepScale ?? LeastSquaresAxisymmetricAlignmentSolverSettings.Default.LambdaStepScale;
+
             if (TiltPointX == 0d && TiltPointY == 0d && TiltPointZ == 0d &&
                 (state.HybridTiltPointX != 0f || state.HybridTiltPointY != 0f || state.HybridTiltPointZ != 0f))
             {
@@ -521,6 +538,12 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
             if (LeastSquaresConvergenceTolerance <= 0d)
             {
                 SetStatus("Least-squares error bound must be greater than zero.", ApplicationLogLevel.Warning);
+                return;
+            }
+
+            if (LeastSquaresPointStepScale <= 0d || LeastSquaresThetaStepScale <= 0d || LeastSquaresLambdaStepScale <= 0d)
+            {
+                SetStatus("Least-squares step scales must be positive.", ApplicationLogLevel.Warning);
                 return;
             }
         }
@@ -700,14 +723,27 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
 
         if (method.Metadata.Id == ProjectionMethodIds.LeastSquaresAxisymmetricAlignmentSource)
         {
+            var defaultSettings = LeastSquaresAxisymmetricAlignmentSolverSettings.Default;
+            var leastSquaresSettings = new LeastSquaresAxisymmetricAlignmentSolverSettings
+            {
+                MaxIterations = LeastSquaresMaxIterations,
+                ConvergenceTolerance = LeastSquaresConvergenceTolerance,
+                PointStepScale = LeastSquaresPointStepScale,
+                ThetaStepScale = LeastSquaresThetaStepScale,
+                LambdaStepScale = LeastSquaresLambdaStepScale,
+                FiniteDifferenceRelativeStep = defaultSettings.FiniteDifferenceRelativeStep,
+                BacktrackingFactor = defaultSettings.BacktrackingFactor,
+                MaxBacktrackingAttempts = defaultSettings.MaxBacktrackingAttempts,
+                ProgressAngularThresholdDegrees = defaultSettings.ProgressAngularThresholdDegrees,
+            };
+
             return new LeastSquaresAxisymmetricAlignmentProjectionParameters(
                 new Point3(BeamOriginX, BeamOriginY, BeamOriginZ),
                 new Vector3D(SourceFrameXx, SourceFrameXy, SourceFrameXz),
                 new Vector3D(SourceFrameYx, SourceFrameYy, SourceFrameYz),
                 profileDefinition,
                 new Point3(TiltPointX, TiltPointY, TiltPointZ),
-                LeastSquaresMaxIterations,
-                LeastSquaresConvergenceTolerance);
+                leastSquaresSettings);
         }
 
         throw new InvalidOperationException($"Projection method '{method.Metadata.Id}' is not yet supported by the workspace UI parameter panel.");
