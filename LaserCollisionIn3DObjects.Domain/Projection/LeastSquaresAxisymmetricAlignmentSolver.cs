@@ -6,6 +6,9 @@ public sealed class LeastSquaresAxisymmetricAlignmentSolver
 {
     public LeastSquaresAxisymmetricAlignmentSolverSettings Settings { get; }
     private const double MinLength = 1e-9;
+    private const double AngleAlignmentWeight = 0.5d;
+    private const double HitDistanceWeight = 0.5d;
+    private const double DegenerateDirectionPenalty = 1e6d;
 
     public LeastSquaresAxisymmetricAlignmentSolver(LeastSquaresAxisymmetricAlignmentSolverSettings? settings = null)
     {
@@ -100,7 +103,7 @@ public sealed class LeastSquaresAxisymmetricAlignmentSolver
             }
 
             history.Add(new LeastSquaresAxisymmetricAlignmentIterationDiagnostics(iteration, current.Objective, lambda, current.MeanAlignment, current.RmsAlignment, current.MeanAngular, current.MaxAngular, improved));
-            progress?.Report(new ProjectionProgress((int)Math.Round(100d * iteration / Math.Max(Settings.MaxIterations, 1)), $"Least-squares iteration {iteration}/{Settings.MaxIterations}: error={current.Objective:F6}, mean angular error={current.MeanAngular:F3} deg, lambda={lambda:F6}"));
+            progress?.Report(new ProjectionProgress((int)Math.Round(100d * iteration / Math.Max(Settings.MaxIterations, 1)), $"Least-squares iteration {iteration}/{Settings.MaxIterations}: objective={current.Objective:F6}, mean angular error={current.MeanAngular:F3} deg, lambda={lambda:F6}"));
 
             // if (!improved || Math.Abs(current.Objective - candidate.Objective) <= Settings.ConvergenceTolerance)
             // {
@@ -132,10 +135,41 @@ public sealed class LeastSquaresAxisymmetricAlignmentSolver
     private static double LocalObjective(int index, IReadOnlyList<Point3> localHolePoints, IAxisymmetricSourceProfile profile, Point3 localTiltPoint, double u, double theta, double lambda)
     {
         var sourceLocal = ParameterizeSurface(profile, u, theta);
-        var actual = Normalize(new Vector3D(localHolePoints[index].X - sourceLocal.X, localHolePoints[index].Y - sourceLocal.Y, localHolePoints[index].Z - sourceLocal.Z));
-        var modeled = BuildModeledDirection(profile, u, theta, lambda, localTiltPoint);
-        var residual = 1d - Math.Clamp(Dot(actual, Normalize(modeled)), -1d, 1d);
-        return residual * residual;
+        var modeledDirection = Normalize(BuildModeledDirection(profile, u, theta, lambda, localTiltPoint));
+        var lengthScale = Math.Max(profile.Length, MinLength);
+        var holeLocal = localHolePoints[index];
+
+        var angleTerm = AngleAlignmentResidualSquared(holeLocal, sourceLocal, modeledDirection);
+        var hitTerm = HitDistanceResidualSquared(holeLocal, sourceLocal, modeledDirection, lengthScale);
+        return (AngleAlignmentWeight * angleTerm) + (HitDistanceWeight * hitTerm);
+    }
+
+    private static double AngleAlignmentResidualSquared(Point3 holeLocal, Point3 sourceLocal, Vector3D modeledDirection)
+    {
+        var sourceToHole = new Vector3D(holeLocal.X - sourceLocal.X, holeLocal.Y - sourceLocal.Y, holeLocal.Z - sourceLocal.Z);
+        var sourceToHoleMagnitude = Math.Sqrt((sourceToHole.X * sourceToHole.X) + (sourceToHole.Y * sourceToHole.Y) + (sourceToHole.Z * sourceToHole.Z));
+        if (sourceToHoleMagnitude <= MinLength)
+        {
+            return DegenerateDirectionPenalty;
+        }
+
+        var actualDirection = new Vector3D(sourceToHole.X / sourceToHoleMagnitude, sourceToHole.Y / sourceToHoleMagnitude, sourceToHole.Z / sourceToHoleMagnitude);
+        var alignmentResidual = 1d - Math.Clamp(Dot(actualDirection, modeledDirection), -1d, 1d);
+        return alignmentResidual * alignmentResidual;
+    }
+
+    private static double HitDistanceResidualSquared(Point3 holeLocal, Point3 sourceLocal, Vector3D modeledDirection, double lengthScale)
+    {
+        var sourceToHole = new Vector3D(holeLocal.X - sourceLocal.X, holeLocal.Y - sourceLocal.Y, holeLocal.Z - sourceLocal.Z);
+        var t = Math.Max(0d, Dot(sourceToHole, modeledDirection));
+        var closest = new Point3(
+            sourceLocal.X + (t * modeledDirection.X),
+            sourceLocal.Y + (t * modeledDirection.Y),
+            sourceLocal.Z + (t * modeledDirection.Z));
+        var error = new Vector3D(holeLocal.X - closest.X, holeLocal.Y - closest.Y, holeLocal.Z - closest.Z);
+        var squaredDistance = (error.X * error.X) + (error.Y * error.Y) + (error.Z * error.Z);
+        var normalizedScale = Math.Max(lengthScale, MinLength);
+        return squaredDistance / (normalizedScale * normalizedScale);
     }
 
     private static EvaluationResult Evaluate(IReadOnlyList<Point3> localHolePoints, IReadOnlyList<Point3> worldHolePoints, PointSourceFrameState frame, IAxisymmetricSourceProfile profile, Point3 localTiltPoint, IReadOnlyList<double> u, IReadOnlyList<double> theta, double lambda)
@@ -151,14 +185,17 @@ public sealed class LeastSquaresAxisymmetricAlignmentSolver
             var tt = WrapAngle(theta[i]);
             var sourceLocal = ParameterizeSurface(profile, uu, tt);
             var sourceWorld = ToWorld(sourceLocal, frame);
-            var actualLocal = Normalize(new Vector3D(localHolePoints[i].X - sourceLocal.X, localHolePoints[i].Y - sourceLocal.Y, localHolePoints[i].Z - sourceLocal.Z));
-            var modeledLocal = BuildModeledDirection(profile, uu, tt, lambda, localTiltPoint);
+            var sourceToHoleLocal = new Vector3D(localHolePoints[i].X - sourceLocal.X, localHolePoints[i].Y - sourceLocal.Y, localHolePoints[i].Z - sourceLocal.Z);
+            var actualLocal = Normalize(sourceToHoleLocal);
+            var modeledLocal = Normalize(BuildModeledDirection(profile, uu, tt, lambda, localTiltPoint));
             var actualWorld = Normalize(new Vector3D(worldHolePoints[i].X - sourceWorld.X, worldHolePoints[i].Y - sourceWorld.Y, worldHolePoints[i].Z - sourceWorld.Z));
             var modeledWorld = Normalize(ToWorldDirection(modeledLocal, frame));
             var alignment = AlignmentError(actualLocal, modeledLocal);
             var angular = AngularErrorDegrees(actualLocal, modeledLocal);
-            var sq = alignment * alignment;
-            objective += sq;
+            var angleTerm = AngleAlignmentResidualSquared(localHolePoints[i], sourceLocal, modeledLocal);
+            var hitTerm = HitDistanceResidualSquared(localHolePoints[i], sourceLocal, modeledLocal, Math.Max(profile.Length, MinLength));
+            var localObjective = (AngleAlignmentWeight * angleTerm) + (HitDistanceWeight * hitTerm);
+            objective += localObjective;
             align.Add(alignment);
             ang.Add(angular);
 
@@ -171,7 +208,7 @@ public sealed class LeastSquaresAxisymmetricAlignmentSolver
                 UnwrappedV = profile.RadiusAt((float)uu) * tt,
                 AlignmentError = alignment,
                 AngularErrorDegrees = angular,
-                FitError = alignment,
+                FitError = localObjective,
             });
         }
 
