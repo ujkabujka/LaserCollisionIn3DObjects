@@ -273,6 +273,11 @@ public sealed class ProjectionWorkspaceStateDto
     public double TiltPointX { get; set; }
     public double TiltPointY { get; set; }
     public double TiltPointZ { get; set; }
+    public int? LeastSquaresMaxIterations { get; set; }
+    public double? LeastSquaresConvergenceTolerance { get; set; }
+    public double? LeastSquaresPointStepScale { get; set; }
+    public double? LeastSquaresThetaStepScale { get; set; }
+    public double? LeastSquaresLambdaStepScale { get; set; }
     public float HybridTiltPointX { get; set; }
     public float HybridTiltPointY { get; set; }
     public float HybridTiltPointZ { get; set; }
