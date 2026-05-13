@@ -228,9 +228,13 @@ public sealed class LeastSquaresAxisymmetricAlignmentDiagnosticsDto
 public sealed class AxisymmetricLeastSquaresIterationDiagnosticsDto
 {
     public int Iteration { get; set; }
+    public double ObjectiveError { get; set; }
     public double Lambda { get; set; }
     public double MeanAlignmentError { get; set; }
+    public double RmsAlignmentError { get; set; }
     public double MeanAngularErrorDegrees { get; set; }
+    public double MaxAngularErrorDegrees { get; set; }
+    public bool Improved { get; set; }
 }
 
 public sealed class PointSourceFrameStateDto

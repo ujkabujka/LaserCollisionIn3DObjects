@@ -565,9 +565,13 @@ public class PersistenceRoundTripTests
                                                 new AxisymmetricLeastSquaresIterationDiagnosticsDto
                                                 {
                                                     Iteration = 1,
+                                                    ObjectiveError = 0.005,
                                                     Lambda = 0.32,
                                                     MeanAlignmentError = 0.02,
+                                                    RmsAlignmentError = 0.025,
                                                     MeanAngularErrorDegrees = 1.8,
+                                                    MaxAngularErrorDegrees = 2.9,
+                                                    Improved = true,
                                                 },
                                             ],
                                         },
@@ -607,6 +611,9 @@ public class PersistenceRoundTripTests
             Assert.Equal(0.31, result.LeastSquaresDiagnostics.RefinedLambda, 6);
             Assert.False(result.LeastSquaresDiagnostics.UsesRegularization);
             Assert.Single(result.LeastSquaresDiagnostics.IterationHistory);
+            Assert.Equal(0.005, result.LeastSquaresDiagnostics.IterationHistory[0].ObjectiveError, 6);
+            Assert.Equal(0.025, result.LeastSquaresDiagnostics.IterationHistory[0].RmsAlignmentError, 6);
+            Assert.True(result.LeastSquaresDiagnostics.IterationHistory[0].Improved);
             Assert.Equal(0.03, result.Points[0].AlignmentError ?? 0d, 6);
             Assert.Equal(1.2, result.Points[0].AngularErrorDegrees ?? 0d, 6);
         }

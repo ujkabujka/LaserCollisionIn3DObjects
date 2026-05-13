@@ -304,9 +304,13 @@ public sealed class ProjectPersistenceCoordinator
                     IterationHistory = namedResult.Result.AxisymmetricSource.LeastSquaresDiagnostics.IterationHistory.Select(iteration => new AxisymmetricLeastSquaresIterationDiagnosticsDto
                     {
                         Iteration = iteration.Iteration,
+                        ObjectiveError = iteration.ObjectiveError,
                         Lambda = iteration.Lambda,
                         MeanAlignmentError = iteration.MeanAlignmentError,
+                        RmsAlignmentError = iteration.RmsAlignmentError,
                         MeanAngularErrorDegrees = iteration.MeanAngularErrorDegrees,
+                        MaxAngularErrorDegrees = iteration.MaxAngularErrorDegrees,
+                        Improved = iteration.Improved,
                     }).ToList(),
                 },
                 Points = namedResult.Result.AxisymmetricSource.Points.Select(point => new AxisymmetricProjectionPointStateDto
@@ -584,9 +588,13 @@ public sealed class ProjectPersistenceCoordinator
                     IterationHistory = axisymmetric.LeastSquaresDiagnostics.IterationHistory.Select(iteration =>
                         new LeastSquaresAxisymmetricAlignmentIterationDiagnostics(
                             iteration.Iteration,
+                            iteration.ObjectiveError,
                             iteration.Lambda,
                             iteration.MeanAlignmentError,
-                            iteration.MeanAngularErrorDegrees)).ToList(),
+                            iteration.RmsAlignmentError,
+                            iteration.MeanAngularErrorDegrees,
+                            iteration.MaxAngularErrorDegrees,
+                            iteration.Improved)).ToList(),
                 },
                 Points = axisymmetric.Points.Select(point => new AxisymmetricProjectionPoint(
                     point.HolePoint,
