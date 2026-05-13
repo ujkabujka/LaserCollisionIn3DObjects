@@ -392,7 +392,12 @@ public sealed class GraphicMasterViewModel : ObservableObject
 
     private static PlotModel BuildPlotModel(GraphResult result, string title)
     {
-        var plotModel = new PlotModel { Title = title, Background = OxyColors.White };
+        var plotModel = new PlotModel
+        {
+            Title = title,
+            Background = OxyColors.White,
+            IsLegendVisible = false,
+        };
 
         if (result.VisualizationKind is GraphVisualizationKind.AngleGroupedBar or GraphVisualizationKind.AzimuthGroupedBar)
         {
@@ -407,6 +412,8 @@ public sealed class GraphicMasterViewModel : ObservableObject
 
             var seriesCount = result.Series.Count;
             var binTemplate = result.Series[0].Bins;
+
+            plotModel.IsLegendVisible = result.Series.Count > 1;
 
             for (var seriesIndex = 0; seriesIndex < result.Series.Count; seriesIndex++)
             {
@@ -434,7 +441,20 @@ public sealed class GraphicMasterViewModel : ObservableObject
             var heatmap = result.Heatmap ?? throw new InvalidOperationException("Heatmap visualization requires heatmap data.");
             plotModel.Axes.Add(new LinearAxis { Position = AxisPosition.Bottom, Title = "Azimuth (deg)", Minimum = heatmap.XMin, Maximum = heatmap.XMax });
             plotModel.Axes.Add(new LinearAxis { Position = AxisPosition.Left, Title = "Polar (deg)", Minimum = heatmap.YMin, Maximum = heatmap.YMax });
-            plotModel.Axes.Add(new LinearColorAxis { Position = AxisPosition.Right, Title = "Ray Count", Palette = OxyPalettes.Hot(200) });
+            var heatmapPalette = OxyPalette.Interpolate(
+                256,
+                OxyColors.Blue,
+                OxyColors.Green,
+                OxyColors.Yellow,
+                OxyColors.Orange,
+                OxyColors.Red);
+
+            plotModel.Axes.Add(new LinearColorAxis
+            {
+                Position = AxisPosition.Right,
+                Title = "Ray Count",
+                Palette = heatmapPalette,
+            });
             plotModel.Series.Add(new HeatMapSeries
             {
                 X0 = heatmap.XMin,
@@ -444,7 +464,9 @@ public sealed class GraphicMasterViewModel : ObservableObject
                 Data = heatmap.Values,
                 Interpolate = false,
                 RenderMethod = HeatMapRenderMethod.Rectangles,
+                RenderInLegend = false,
             });
+            plotModel.IsLegendVisible = false;
             return plotModel;
         }
 
@@ -457,6 +479,8 @@ public sealed class GraphicMasterViewModel : ObservableObject
 
             plotModel.Axes.Add(new LinearAxis { Position = AxisPosition.Bottom, Title = "Normalized axial position (x/L)" });
             plotModel.Axes.Add(new LinearAxis { Position = AxisPosition.Left, Title = "Angle to source X axis (deg)", Minimum = 0, Maximum = 180 });
+
+            plotModel.IsLegendVisible = result.Series.Count > 1;
 
             foreach (var series in result.Series)
             {
@@ -484,6 +508,8 @@ public sealed class GraphicMasterViewModel : ObservableObject
 
         plotModel.Axes.Add(new LinearAxis { Position = AxisPosition.Bottom, Title = "Angle Bin Center (deg)", Minimum = 0, Maximum = 180 });
         plotModel.Axes.Add(new LinearAxis { Position = AxisPosition.Left, Title = "Ray Count", Minimum = 0 });
+
+        plotModel.IsLegendVisible = result.Series.Count > 1;
 
         foreach (var series in result.Series)
         {
