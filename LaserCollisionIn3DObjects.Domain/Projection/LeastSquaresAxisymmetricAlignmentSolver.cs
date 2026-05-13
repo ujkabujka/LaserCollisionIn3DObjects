@@ -102,12 +102,12 @@ public sealed class LeastSquaresAxisymmetricAlignmentSolver
             history.Add(new LeastSquaresAxisymmetricAlignmentIterationDiagnostics(iteration, current.Objective, lambda, current.MeanAlignment, current.RmsAlignment, current.MeanAngular, current.MaxAngular, improved));
             progress?.Report(new ProjectionProgress((int)Math.Round(100d * iteration / Math.Max(Settings.MaxIterations, 1)), $"Least-squares iteration {iteration}/{Settings.MaxIterations}: error={current.Objective:F6}, mean angular error={current.MeanAngular:F3} deg, lambda={lambda:F6}"));
 
-            if (!improved || Math.Abs(current.Objective - candidate.Objective) <= Settings.ConvergenceTolerance)
-            {
-                converged = true;
-                progress?.Report(new ProjectionProgress((int)Math.Round(100d * iteration / Math.Max(Settings.MaxIterations, 1)), $"Least-squares converged at iteration {iteration} with error {current.Objective:F6}."));
-                break;
-            }
+            // if (!improved || Math.Abs(current.Objective - candidate.Objective) <= Settings.ConvergenceTolerance)
+            // {
+            //     converged = true;
+            //     progress?.Report(new ProjectionProgress((int)Math.Round(100d * iteration / Math.Max(Settings.MaxIterations, 1)), $"Least-squares converged at iteration {iteration} with error {current.Objective:F6}."));
+            //     break;
+            // }
         }
 
         var diagnostics = new LeastSquaresAxisymmetricAlignmentDiagnostics

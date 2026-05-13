@@ -1,9 +1,11 @@
 using System.Numerics;
+using System.Reflection.Metadata;
 
 namespace LaserCollisionIn3DObjects.Domain.Geometry;
 
 public class AxisymmetricSourceProfile : IAxisymmetricSourceProfile
 {
+    public const double lower = 1e-4;
     public AxisymmetricSourceProfile(float radius, float length)
     {
         Radius = EnsurePositive(radius, nameof(radius));
@@ -18,7 +20,10 @@ public class AxisymmetricSourceProfile : IAxisymmetricSourceProfile
     public Vector3 EvaluateBaseDirection(float u, float theta) => Vector3.Normalize(new Vector3(0f, MathF.Cos(theta), MathF.Sin(theta)));
 
     internal static float EnsurePositive(float value, string paramName) => value <= 0f ? throw new ArgumentException("Value must be greater than zero.", paramName) : value;
-    internal static void EnsureUInRange(float u, float length) { if (u < 0f || u > length) throw new ArgumentOutOfRangeException(nameof(u), "u must be inside [0, Length]."); }
+    internal static void EnsureUInRange(float u, float length) { 
+        if (u < -lower || u > length + lower) 
+            throw new ArgumentOutOfRangeException(nameof(u), "u must be inside [0, Length]."); 
+    }
 }
 
 public sealed class CylindricalSourceProfile : AxisymmetricSourceProfile
