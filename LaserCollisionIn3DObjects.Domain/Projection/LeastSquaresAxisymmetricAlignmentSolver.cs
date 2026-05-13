@@ -54,7 +54,8 @@ public sealed class LeastSquaresAxisymmetricAlignmentSolver
             iterationsDone = iteration;
             var epsU = Math.Max(length, MinLength) * Settings.FiniteDifferenceRelativeStep;
             var epsTheta = Settings.FiniteDifferenceRelativeStep;
-            var epsLambda = Math.Max(lambda, MinLength) * Settings.FiniteDifferenceRelativeStep;
+            // var epsLambda = Math.Max(lambda, MinLength) * Settings.FiniteDifferenceRelativeStep;
+             var epsLambda = Settings.FiniteDifferenceRelativeStep;
 
             var gradU = new double[n];
             var gradTheta = new double[n];
@@ -100,6 +101,11 @@ public sealed class LeastSquaresAxisymmetricAlignmentSolver
                 pointStep *= Settings.BacktrackingFactor;
                 thetaStep *= Settings.BacktrackingFactor;
                 lambdaStep *= Settings.BacktrackingFactor;
+
+                if(bt == Settings.MaxBacktrackingAttempts - 1)
+                {
+                    u = nextU; theta = nextTheta; lambda = nextLambda; current = candidate; improved = true;
+                }
             }
 
             history.Add(new LeastSquaresAxisymmetricAlignmentIterationDiagnostics(iteration, current.Objective, lambda, current.MeanAlignment, current.RmsAlignment, current.MeanAngular, current.MaxAngular, improved));
