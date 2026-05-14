@@ -9,6 +9,7 @@ namespace LaserCollisionIn3DObjects.Wpf.Services;
 /// </summary>
 public sealed class SceneCollectionService : ObservableObject
 {
+    public event EventHandler? SceneContentChanged;
     private CollisionSceneViewModel? _selectedScene;
 
     public ObservableCollection<CollisionSceneViewModel> Scenes { get; } = new();
@@ -30,16 +31,18 @@ public sealed class SceneCollectionService : ObservableObject
         return scene;
     }
 
-    public void AddScene(CollisionSceneViewModel scene)
+    public void AddScene(CollisionSceneViewModel scene, bool selectScene = true)
     {
         ArgumentNullException.ThrowIfNull(scene);
         Scenes.Add(scene);
 
-        if (SelectedScene is null)
+        if (selectScene || SelectedScene is null)
         {
             SelectedScene = scene;
         }
     }
+
+    public void NotifySceneContentChanged() => SceneContentChanged?.Invoke(this, EventArgs.Empty);
 
     public bool RemoveScene(CollisionSceneViewModel scene)
     {

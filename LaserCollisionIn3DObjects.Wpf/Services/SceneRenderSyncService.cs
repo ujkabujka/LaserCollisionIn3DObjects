@@ -1,10 +1,13 @@
 using System.Numerics;
 using System.Windows.Media.Media3D;
+using NumericsQuaternion = System.Numerics.Quaternion;
 using HelixToolkit.Wpf;
 using LaserCollisionIn3DObjects.Domain.Collision;
+using LaserCollisionIn3DObjects.Domain.Export;
 using LaserCollisionIn3DObjects.Domain.Generation;
 using LaserCollisionIn3DObjects.Domain.Geometry;
 using LaserCollisionIn3DObjects.Domain.Scene;
+using LaserCollisionIn3DObjects.Domain.Projection;
 using LaserCollisionIn3DObjects.Rendering.Helix;
 using LaserCollisionIn3DObjects.Wpf.ViewModels;
 using DomainRay3D = LaserCollisionIn3DObjects.Domain.Geometry.Ray3D;
@@ -18,13 +21,17 @@ public sealed class SceneRenderSyncService
 {
     public sealed record SceneSyncResult(
         IReadOnlyList<HitResultItemViewModel> HitRows,
+        IReadOnlyList<CollisionHitPointRecord> HitPointRecords,
         TimeSpan CollisionDuration,
         CollisionAlgorithmOption? CollisionAlgorithm);
+
+    private sealed record SceneBuildResult(SceneModel Scene, IReadOnlyList<CollisionRaySourceType> RaySourceTypes);
 
     private readonly HelixViewport3D _viewport;
     private readonly ModelVisual3D _dynamicVisualRoot = new();
     private readonly HelixSceneBuilder _sceneBuilder = new();
-    private readonly CylindricalRayGenerator _rayGenerator = new();
+    private readonly CylindricalRayGenerator _cylindricalRayGenerator = new();
+    private readonly AxisymmetricRayGenerator _axisymmetricRayGenerator = new();
 
     public SceneRenderSyncService(HelixViewport3D viewport)
     {
@@ -39,11 +46,15 @@ public sealed class SceneRenderSyncService
         IReadOnlyList<PrismItemViewModel> prismItems,
         IReadOnlyList<CylindricalLightSourceItemViewModel> lightSourceItems,
         IReadOnlyList<RayItemViewModel> rayItems,
-        IReadOnlyList<Point3> holes,
+        IReadOnlyList<ProjectedLightSourceItemViewModel> projectedLightSources,
+        IReadOnlyList<Point3> holePoints,
+        ProjectionComputationResult? projectionResult,
+        string sceneName,
         bool runCollision,
         CollisionAlgorithmOption algorithm)
     {
-        var scene = BuildDomainScene(prismItems, lightSourceItems, rayItems, holes);
+        var buildResult = BuildDomainScene(prismItems, lightSourceItems, rayItems, projectedLightSources, holePoints, projectionResult);
+        var scene = buildResult.Scene;
         var stopwatch = System.Diagnostics.Stopwatch.StartNew();
         var collisionResults = runCollision ? CalculateFirstHits(scene, algorithm) : new List<(DomainRay3D Ray, RayHitResult Hit)>();
         stopwatch.Stop();
@@ -57,17 +68,21 @@ public sealed class SceneRenderSyncService
 
         return new SceneSyncResult(
             BuildHitRows(scene, collisionResults),
+            runCollision ? BuildHitPointRecords(sceneName, collisionResults, buildResult.RaySourceTypes) : Array.Empty<CollisionHitPointRecord>(),
             runCollision ? stopwatch.Elapsed : TimeSpan.Zero,
             runCollision ? algorithm : null);
     }
 
-    private SceneModel BuildDomainScene(
+    private SceneBuildResult BuildDomainScene(
         IReadOnlyList<PrismItemViewModel> prisms,
         IReadOnlyList<CylindricalLightSourceItemViewModel> lightSources,
         IReadOnlyList<RayItemViewModel> rays,
-        IReadOnlyList<Point3> holes)
+        IReadOnlyList<ProjectedLightSourceItemViewModel> projectedLightSources,
+        IReadOnlyList<Point3> holePoints,
+        ProjectionComputationResult? projectionResult)
     {
         var scene = new SceneModel();
+        var raySourceTypes = new List<CollisionRaySourceType>();
 
         foreach (var prism in prisms)
         {
@@ -94,17 +109,78 @@ public sealed class SceneRenderSyncService
                 lightSource.RotationY,
                 lightSource.RotationZ);
 
-            var domainSource = new CylindricalLightSource(
-                string.IsNullOrWhiteSpace(lightSource.Name) ? "Light Source" : lightSource.Name,
-                new Frame3D(new Vector3(lightSource.PositionX, lightSource.PositionY, lightSource.PositionZ), orientation),
-                lightSource.Radius,
-                lightSource.Height,
-                lightSource.RayCount);
+            var frame = new Frame3D(new Vector3(lightSource.PositionX, lightSource.PositionY, lightSource.PositionZ), orientation);
+            var tiltPoint = new Vector3(lightSource.TiltPointX, lightSource.TiltPointY, lightSource.TiltPointZ);
 
-            scene.CylindricalLightSources.Add(domainSource);
-            var generatedRays = _rayGenerator.Generate(domainSource);
+            List<DomainRay3D> generatedRays;
+            CollisionRaySourceType sourceType;
+
+            if (lightSource.SourceKind == AxisymmetricSourceKind.Cylinder)
+            {
+                var cylindricalSource = new CylindricalLightSource(
+                    string.IsNullOrWhiteSpace(lightSource.Name) ? "Light Source" : lightSource.Name,
+                    frame,
+                    lightSource.Radius,
+                    lightSource.Height,
+                    lightSource.RayCount,
+                    lightSource.TiltWeight,
+                    tiltPoint);
+
+                scene.CylindricalLightSources.Add(cylindricalSource);
+                generatedRays = _cylindricalRayGenerator.Generate(cylindricalSource);
+                sourceType = CollisionRaySourceType.CylindricalGenerated;
+            }
+            else
+            {
+                var profile = BuildAxisymmetricProfile(lightSource);
+
+                var axisymmetricSource = new AxisymmetricLightSource(
+                    string.IsNullOrWhiteSpace(lightSource.Name) ? "Light Source" : lightSource.Name,
+                    frame,
+                    lightSource.SourceKind,
+                    profile,
+                    lightSource.RayCount,
+                    lightSource.TiltWeight,
+                    tiltPoint);
+
+                scene.AxisymmetricLightSources.Add(axisymmetricSource);
+                generatedRays = _axisymmetricRayGenerator.Generate(axisymmetricSource);
+                sourceType = lightSource.SourceKind switch
+                {
+                    AxisymmetricSourceKind.ConicalFrustum => CollisionRaySourceType.ConicalFrustumGenerated,
+                    AxisymmetricSourceKind.CircularOgive => CollisionRaySourceType.CircularOgiveGenerated,
+                    AxisymmetricSourceKind.Hybrid => CollisionRaySourceType.HybridAxisymmetricGenerated,
+                    _ => throw new ArgumentOutOfRangeException(nameof(lightSource.SourceKind), "Unsupported axisymmetric source kind."),
+                };
+            }
+
             scene.GeneratedRays.AddRange(generatedRays);
             scene.Rays.AddRange(generatedRays);
+            raySourceTypes.AddRange(Enumerable.Repeat(sourceType, generatedRays.Count));
+        }
+
+
+        foreach (var projectedSource in projectedLightSources)
+        {
+            var frame = BuildFrame(projectedSource.SourceFrame, projectedSource.BaseOrientation);
+            var profile = projectedSource.ProfileDefinition.BuildProfile();
+            var axisymmetricSource = new AxisymmetricLightSource(
+                string.IsNullOrWhiteSpace(projectedSource.Name) ? "Projected Source" : projectedSource.Name,
+                frame,
+                projectedSource.ProfileDefinition.Kind,
+                profile,
+                projectedSource.Rays.Count,
+                0f,
+                Vector3.Zero);
+
+            scene.AxisymmetricLightSources.Add(axisymmetricSource);
+
+            foreach (var projectionRay in projectedSource.Rays)
+            {
+                scene.ProjectedSourceRays.Add(projectionRay.Ray);
+                scene.Rays.Add(projectionRay.Ray);
+                raySourceTypes.Add(CollisionRaySourceType.ProjectionResult);
+            }
         }
 
         foreach (var ray in rays)
@@ -113,14 +189,22 @@ public sealed class SceneRenderSyncService
                 new DomainRay3D(
                     new Vector3(ray.OriginX, ray.OriginY, ray.OriginZ),
                     new Vector3(ray.DirectionX, ray.DirectionY, ray.DirectionZ)));
+            raySourceTypes.Add(CollisionRaySourceType.Manual);
         }
 
-        foreach (var hole in holes)
+        foreach (var hole in holePoints)
         {
-            scene.holes.Add(hole);
+            scene.HolePoints.Add(hole);
         }
 
-        return scene;
+        if (projectionResult is not null && projectedLightSources.Count == 0)
+        {
+            var projectionRays = projectionResult.GetEffectiveRays().Select(projectionRay => projectionRay.Ray).ToList();
+            scene.Rays.AddRange(projectionRays);
+            raySourceTypes.AddRange(Enumerable.Repeat(CollisionRaySourceType.ProjectionResult, projectionRays.Count));
+        }
+
+        return new SceneBuildResult(scene, raySourceTypes);
     }
 
     private static List<(DomainRay3D Ray, RayHitResult Hit)> CalculateFirstHits(SceneModel scene, CollisionAlgorithmOption algorithm)
@@ -155,6 +239,44 @@ public sealed class SceneRenderSyncService
         return results;
     }
 
+
+
+    private static Frame3D BuildFrame(PointSourceFrameState sourceFrame, NumericsQuaternion fallbackOrientation)
+    {
+        var x = new Vector3((float)sourceFrame.AxisX.X, (float)sourceFrame.AxisX.Y, (float)sourceFrame.AxisX.Z);
+        var y = new Vector3((float)sourceFrame.AxisY.X, (float)sourceFrame.AxisY.Y, (float)sourceFrame.AxisY.Z);
+        var z = new Vector3((float)sourceFrame.AxisZ.X, (float)sourceFrame.AxisZ.Y, (float)sourceFrame.AxisZ.Z);
+        var matrix = new Matrix4x4(
+            x.X, x.Y, x.Z, 0,
+            y.X, y.Y, y.Z, 0,
+            z.X, z.Y, z.Z, 0,
+            0, 0, 0, 1);
+        var orientation = NumericsQuaternion.CreateFromRotationMatrix(matrix);
+        if (!float.IsFinite(orientation.X) || !float.IsFinite(orientation.Y) || !float.IsFinite(orientation.Z) || !float.IsFinite(orientation.W))
+        {
+            orientation = fallbackOrientation;
+        }
+
+        return new Frame3D(new Vector3((float)sourceFrame.Origin.X, (float)sourceFrame.Origin.Y, (float)sourceFrame.Origin.Z), orientation);
+    }
+
+    private static IAxisymmetricSourceProfile BuildAxisymmetricProfile(CylindricalLightSourceItemViewModel lightSource)
+    {
+        return lightSource.SourceKind switch
+        {
+            AxisymmetricSourceKind.ConicalFrustum => new ConicalFrustumSourceProfile(lightSource.RadiusStart, lightSource.RadiusEnd, lightSource.Length),
+            AxisymmetricSourceKind.CircularOgive => new CircularOgiveSourceProfile(lightSource.RadiusStart, lightSource.RadiusEnd, lightSource.Length, lightSource.ArcRadius, lightSource.OgiveCurvatureDirection),
+            AxisymmetricSourceKind.Hybrid => new HybridAxisymmetricSourceProfile(lightSource.HybridSegments.Select(segment =>
+                new HybridAxisymmetricSourceSegmentDefinition(
+                    segment.SegmentKind,
+                    segment.Length,
+                    segment.RadiusStart,
+                    segment.RadiusEnd,
+                    segment.SegmentKind == HybridAxisymmetricSourceSegmentKind.CircularOgive ? segment.ArcRadius : null,
+                    segment.OgiveCurvatureDirection)).ToList()),
+            _ => throw new ArgumentOutOfRangeException(nameof(lightSource.SourceKind), "Unsupported axisymmetric source kind."),
+        };
+    }
     private static List<(DomainRay3D Ray, RayHitResult Hit)> CalculateFirstHitsParallel(SceneModel scene)
     {
         var results = new (DomainRay3D Ray, RayHitResult Hit)[scene.Rays.Count];
@@ -207,6 +329,27 @@ public sealed class SceneRenderSyncService
         }
 
         return rows;
+    }
+
+    private static IReadOnlyList<CollisionHitPointRecord> BuildHitPointRecords(
+        string sceneName,
+        IReadOnlyList<(DomainRay3D Ray, RayHitResult Hit)> hitResults,
+        IReadOnlyList<CollisionRaySourceType> raySourceTypes)
+    {
+        var records = new List<CollisionHitPointRecord>();
+
+        for (var i = 0; i < hitResults.Count && i < raySourceTypes.Count; i++)
+        {
+            var hit = hitResults[i].Hit;
+            if (!hit.HasHit)
+            {
+                continue;
+            }
+
+            records.Add(new CollisionHitPointRecord(sceneName, hit.HitPoint, raySourceTypes[i]));
+        }
+
+        return records;
     }
 
     private void UpdateViewport(IReadOnlyList<Visual3D> visuals)

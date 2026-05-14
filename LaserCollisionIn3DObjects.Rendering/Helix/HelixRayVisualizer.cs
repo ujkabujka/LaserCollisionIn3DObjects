@@ -159,28 +159,27 @@ public sealed class HelixRayVisualizer
         return  points;
     }
 
-    public Visual3D CreateHitPoints(IReadOnlyList<Point3> holes, Color? color = null)
+    public Visual3D CreatePoints(IReadOnlyList<Point3> points, Color? color = null, double size = 3)
     {
-         ArgumentNullException.ThrowIfNull(holes);
+         ArgumentNullException.ThrowIfNull(points);
 
-        if (holes.Count == 0)
+        if (points.Count == 0)
         {
             return new ModelVisual3D();
         }
 
-        var points = new PointsVisual3D
+        var pointVisual = new PointsVisual3D
         {
             Color = color ?? Colors.Blue,
-            Size = 3
+            Size = size
         };
 
-        foreach (var hole in holes)
+        foreach (var point in points)
         {
-
-            points.Points.Add(new Point3D(hole.X, hole.Y, hole.Z));
+            pointVisual.Points.Add(new Point3D(point.X, point.Y, point.Z));
         }
 
-        return  points;
+        return pointVisual;
     }
 
 

@@ -1,0 +1,62 @@
+using LaserCollisionIn3DObjects.Domain.Generation;
+using LaserCollisionIn3DObjects.Domain.Geometry;
+using System.Numerics;
+
+namespace LaserCollisionIn3DObjects.Domain.Graphing;
+
+public sealed class GraphSourceExtractionService
+{
+    private readonly CylindricalRayGenerator _rayGenerator;
+
+    public GraphSourceExtractionService(CylindricalRayGenerator? rayGenerator = null)
+    {
+        _rayGenerator = rayGenerator ?? new CylindricalRayGenerator();
+    }
+
+    public IReadOnlyList<GraphableSourceData> Extract(IReadOnlyList<GraphSceneData> scenes)
+    {
+        ArgumentNullException.ThrowIfNull(scenes);
+
+        var sources = new List<GraphableSourceData>();
+
+        foreach (var scene in scenes)
+        {
+            foreach (var source in scene.AxisymmetricSources)
+            {
+                var rays = _rayGenerator.Generate(source).ToList();
+                sources.Add(new GraphableSourceData
+                {
+                    Id = $"{scene.SceneName}::cyl::{source.Name}",
+                    DisplayName = $"[{scene.SceneName}] Cylindrical Source: {source.Name}",
+                    Kind = GraphableSourceKind.CylindricalLightSource,
+                    AxisX = source.Frame.TransformDirectionToWorld(Vector3.UnitX),
+                    AxisY = source.Frame.TransformDirectionToWorld(Vector3.UnitY),
+                    AxisZ = source.Frame.TransformDirectionToWorld(Vector3.UnitZ),
+                    FrameOrigin = source.Frame.Position,
+                    SourceLength = source.Height,
+                    Rays = rays,
+                });
+            }
+
+            foreach (var result in scene.ProjectionResults)
+            {
+                var pointLaserSource = result.Result.ToPointLaserSource();
+                var axisX = pointLaserSource.AxisX;
+                sources.Add(new GraphableSourceData
+                {
+                    Id = $"{scene.SceneName}::proj::{result.Key}",
+                    DisplayName = $"[{scene.SceneName}] Projection Result: {result.DisplayName}",
+                    Kind = GraphableSourceKind.ProjectionResult,
+                    AxisX = new Vector3((float)axisX.X, (float)axisX.Y, (float)axisX.Z),
+                    AxisY = new Vector3((float)pointLaserSource.AxisY.X, (float)pointLaserSource.AxisY.Y, (float)pointLaserSource.AxisY.Z),
+                    AxisZ = new Vector3((float)pointLaserSource.AxisZ.X, (float)pointLaserSource.AxisZ.Y, (float)pointLaserSource.AxisZ.Z),
+                    FrameOrigin = new Vector3((float)pointLaserSource.Origin.X, (float)pointLaserSource.Origin.Y, (float)pointLaserSource.Origin.Z),
+                    SourceLength = result.Result.AxisymmetricSource?.Length,
+                    Rays = pointLaserSource.Rays.Select(projectionRay => projectionRay.Ray).ToList(),
+                });
+            }
+        }
+
+        return sources;
+    }
+}
