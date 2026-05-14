@@ -7,58 +7,123 @@ namespace LaserCollisionIn3DObjects.Wpf.Features.Annotations.Services;
 
 public sealed class OverlayRenderer
 {
-    public BitmapSource CreateOriginalOverlay(AnnotatedImageRecord record, int width, int height)
+    private static readonly Brush PanelPolygonBrush = Brushes.LimeGreen;
+    private static readonly Brush PanelCornerBrush = Brushes.Lime;
+    private static readonly Brush HoleBrush = Brushes.Orange;
+    private static readonly Brush HoleFillBrush = new SolidColorBrush(Color.FromArgb(180, 255, 165, 0));
+
+    public BitmapSource CreateOriginalOverlay(AnnotatedImageRecord record, BitmapSource image)
     {
+            ArgumentNullException.ThrowIfNull(record);
+        ArgumentNullException.ThrowIfNull(image);
+
         var visual = new DrawingVisual();
-        using var dc = visual.RenderOpen();
 
-        if (record.Panel is not null)
+        using (var dc = visual.RenderOpen())
         {
-            var panelGeometry = BuildPolygon(record.Panel.OriginalPolygonPoints);
-            dc.DrawGeometry(null, new Pen(Brushes.LimeGreen, 2), panelGeometry);
+            // Draw the original image first
+            dc.DrawImage(image, new Rect(0, 0, image.PixelWidth, image.PixelHeight));
 
-            if (record.Panel.FittedQuadrilateralCorners.Count == 4)
+            if (record.Panel is not null)
             {
-                var fit = BuildPolygon(record.Panel.FittedQuadrilateralCorners);
-                dc.DrawGeometry(null, new Pen(Brushes.Orange, 2.5), fit);
+                var panelGeometry = BuildPolygon(record.Panel.OriginalPolygonPoints);
+                dc.DrawGeometry(null, new Pen(PanelPolygonBrush, 2.5), panelGeometry);
 
-                for (var i = 0; i < 4; i++)
+                if (record.Panel.FittedQuadrilateralCorners.Count == 4)
                 {
-                    var corner = record.Panel.FittedQuadrilateralCorners[i];
-                    dc.DrawEllipse(Brushes.OrangeRed, null, corner, 4, 4);
-                    var label = new FormattedText(
-                        $"C{i + 1}",
-                        System.Globalization.CultureInfo.InvariantCulture,
-                        FlowDirection.LeftToRight,
-                        new Typeface("Segoe UI"),
-                        14,
-                        Brushes.OrangeRed,
-                        1.0);
-                    dc.DrawText(label, new Point(corner.X + 5, corner.Y + 4));
+                    var fit = BuildPolygon(record.Panel.FittedQuadrilateralCorners);
+                    dc.DrawGeometry(null, new Pen(PanelCornerBrush, 3.5), fit);
+
+                    for (var i = 0; i < 4; i++)
+                    {
+                        var corner = record.Panel.FittedQuadrilateralCorners[i];
+                        DrawPointWithLabel(dc, corner, $"C{i + 1}", PanelCornerBrush, Brushes.Transparent, 5);
+                    }
                 }
+            }
+
+            for (var i = 0; i < record.Holes.Count; i++)
+            {
+                DrawHoleOutline(dc, record.Holes[i].OriginalShape);
+                DrawPointWithLabel(dc, record.Holes[i].CenterPoint, $"H{i + 1}", HoleBrush, HoleFillBrush, 5, 12);
             }
         }
 
-        foreach (var hole in record.Holes)
+        return RenderVisual(visual, image.PixelWidth, image.PixelHeight);
+    }
+
+    public BitmapSource CreateWarpedOverlay(RectificationResult rectification, BitmapSource warpedImage)
+    {
+        ArgumentNullException.ThrowIfNull(rectification);
+        ArgumentNullException.ThrowIfNull(warpedImage);
+
+        var width = warpedImage.PixelWidth;
+        var height = warpedImage.PixelHeight;
+
+        var visual = new DrawingVisual();
+
+        using (var dc = visual.RenderOpen())
         {
-            dc.DrawEllipse(Brushes.DeepSkyBlue, null, hole.CenterPoint, 3.5, 3.5);
+            // Draw the warped image first
+            dc.DrawImage(warpedImage, new Rect(0, 0, width, height));
+
+            if (rectification.OrderedDestinationCorners.Count >= 4)
+            {
+                var panelPolygon = BuildPolygon(rectification.OrderedDestinationCorners);
+                dc.DrawGeometry(null, new Pen(PanelCornerBrush, 3.5), panelPolygon);
+
+                for (var i = 0; i < 4; i++)
+                {
+                    var corner = rectification.OrderedDestinationCorners[i];
+                    DrawPointWithLabel(dc, corner, $"R{i + 1}", PanelCornerBrush, Brushes.Transparent, 5);
+                }
+            }
+
+            for (var i = 0; i < rectification.TransformedHoleCenters.Count; i++)
+            {
+                DrawPointWithLabel(
+                    dc,
+                    rectification.TransformedHoleCenters[i],
+                    $"H{i + 1}",
+                    HoleBrush,
+                    HoleFillBrush,
+                    6,
+                    12);
+            }
         }
 
         return RenderVisual(visual, width, height);
     }
 
-    public BitmapSource CreateWarpedOverlay(IReadOnlyList<Point> transformedHoleCenters, int width, int height)
+    private static void DrawHoleOutline(DrawingContext dc, IAnnotationShape shape)
     {
-        var visual = new DrawingVisual();
-        using var dc = visual.RenderOpen();
-
-        dc.DrawRectangle(null, new Pen(Brushes.Orange, 2), new Rect(1, 1, Math.Max(1, width - 2), Math.Max(1, height - 2)));
-        foreach (var point in transformedHoleCenters)
+        var pen = new Pen(HoleBrush, 2) { DashStyle = DashStyles.Dash };
+        switch (shape)
         {
-            dc.DrawEllipse(Brushes.DeepSkyBlue, null, point, 3.5, 3.5);
+            case PolygonShapeData polygon when polygon.Points.Count >= 3:
+                dc.DrawGeometry(null, pen, BuildPolygon(polygon.Points));
+                break;
+            case CircleShapeData circle:
+                dc.DrawEllipse(null, pen, circle.Center, circle.Radius, circle.Radius);
+                break;
+            case EllipseShapeData ellipse:
+                dc.DrawEllipse(null, pen, ellipse.Center, ellipse.RadiusX, ellipse.RadiusY);
+                break;
         }
+    }
 
-        return RenderVisual(visual, width, height);
+    private static void DrawPointWithLabel(DrawingContext dc, Point point, string label, Brush stroke, Brush fill, double radius, double fontSize = 13)
+    {
+        dc.DrawEllipse(fill, new Pen(stroke, 1.6), point, radius, radius);
+        var text = new FormattedText(
+            label,
+            System.Globalization.CultureInfo.InvariantCulture,
+            FlowDirection.LeftToRight,
+            new Typeface("Segoe UI"),
+            fontSize,
+            stroke,
+            1.0);
+        dc.DrawText(text, new Point(point.X + radius + 3, point.Y + radius + 2));
     }
 
     private static StreamGeometry BuildPolygon(IReadOnlyList<Point> points)

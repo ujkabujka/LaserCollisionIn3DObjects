@@ -34,6 +34,8 @@ public sealed class AnnotatedImageRecord
 
     public List<string> Diagnostics { get; } = new();
 
+    public PanelMetricCalibration Calibration { get; set; } = new();
+
     public bool HasSinglePanel => Panel is not null;
 
     public bool IsImageMissing => string.IsNullOrWhiteSpace(ImagePath) || !File.Exists(ImagePath);
@@ -80,11 +82,24 @@ public sealed class EllipseShapeData : IAnnotationShape
     public required double RadiusY { get; init; }
 }
 
+
+
+public sealed class PanelMetricCalibration
+{
+    public double? PhysicalWidthMm { get; set; }
+
+    public double? PhysicalHeightMm { get; set; }
+
+    public bool IsConfigured => PhysicalWidthMm is > 0 && PhysicalHeightMm is > 0;
+}
+
 public sealed class RectificationResult
 {
     public required IReadOnlyList<Point> OrderedSourceCorners { get; init; }
 
     public required IReadOnlyList<Point> OrderedDestinationCorners { get; init; }
+
+    public required Size DestinationSizePixels { get; init; }
 
     public required double[] SourceToDestinationHomography { get; init; }
 

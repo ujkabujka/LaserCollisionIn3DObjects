@@ -8,7 +8,8 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
 
-        var renderSyncService = new SceneRenderSyncService(Viewport);
-        DataContext = new MainWindowViewModel(renderSyncService);
+        var renderSyncService = new SceneRenderSyncService(CollisionWorkspaceView.SceneViewport);
+        var projectionRenderSyncService = new ProjectionRenderSyncService(ProjectionWorkspaceView.ViewportControl);
+        DataContext = new MainWindowViewModel(renderSyncService, projectionRenderSyncService);
     }
 }
