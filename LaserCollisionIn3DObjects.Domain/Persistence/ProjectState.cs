@@ -38,6 +38,8 @@ public sealed class SceneState
     public List<PrismState> Prisms { get; set; } = new();
     public List<RayState> ManualRays { get; set; } = new();
     public List<CylindricalLightSourceState> CylindricalLightSources { get; set; } = new();
+    public List<AxisymmetricLightSourceState> LightSources { get; set; } = new();
+    public List<ProjectedLightSourceState> ProjectedLightSources { get; set; } = new();
     public List<Point3> HolePoints { get; set; } = new();
     public SceneProjectionStateDto Projection { get; set; } = new();
 }
@@ -58,6 +60,7 @@ public sealed class PrismState
     public float? BaseOrientationY { get; set; }
     public float? BaseOrientationZ { get; set; }
     public float? BaseOrientationW { get; set; }
+    public List<AxisymmetricSourceSegmentStateDto> Segments { get; set; } = new();
 }
 
 public sealed class RayState
@@ -68,6 +71,60 @@ public sealed class RayState
     public float DirectionX { get; set; }
     public float DirectionY { get; set; }
     public float DirectionZ { get; set; }
+}
+
+
+public sealed class AxisymmetricLightSourceState
+{
+    public string Name { get; set; } = string.Empty;
+    public AxisymmetricSourceKind SourceKind { get; set; } = AxisymmetricSourceKind.Cylinder;
+    public float PositionX { get; set; }
+    public float PositionY { get; set; }
+    public float PositionZ { get; set; }
+    public float RotationX { get; set; }
+    public float RotationY { get; set; }
+    public float RotationZ { get; set; }
+    public float Radius { get; set; }
+    public float Height { get; set; }
+    public float RadiusStart { get; set; }
+    public float RadiusEnd { get; set; }
+    public float Length { get; set; }
+    public float ArcRadius { get; set; }
+    public OgiveCurvatureDirection OgiveCurvatureDirection { get; set; } = OgiveCurvatureDirection.Outward;
+    public int RayCount { get; set; }
+    public float TiltWeight { get; set; } = 0.1f;
+    public float TiltPointX { get; set; }
+    public float TiltPointY { get; set; }
+    public float TiltPointZ { get; set; }
+    public float? BaseOrientationX { get; set; }
+    public float? BaseOrientationY { get; set; }
+    public float? BaseOrientationZ { get; set; }
+    public float? BaseOrientationW { get; set; }
+    public List<AxisymmetricSourceSegmentStateDto> Segments { get; set; } = new();
+}
+
+public sealed class AxisymmetricSourceSegmentStateDto
+{
+    public HybridAxisymmetricSourceSegmentKind SegmentKind { get; set; } = HybridAxisymmetricSourceSegmentKind.Cylinder;
+    public float Length { get; set; }
+    public float RadiusStart { get; set; }
+    public float RadiusEnd { get; set; }
+    public float? ArcRadius { get; set; }
+    public OgiveCurvatureDirection OgiveCurvatureDirection { get; set; } = OgiveCurvatureDirection.Outward;
+}
+
+
+public sealed class ProjectedLightSourceState
+{
+    public string Name { get; set; } = string.Empty;
+    public PointSourceFrameStateDto SourceFrame { get; set; } = new();
+    public AxisymmetricSourceProfileDefinition ProfileDefinition { get; set; } = new();
+    public List<ProjectionRayStateDto> Rays { get; set; } = new();
+    public float? BaseOrientationX { get; set; }
+    public float? BaseOrientationY { get; set; }
+    public float? BaseOrientationZ { get; set; }
+    public float? BaseOrientationW { get; set; }
+    public string OriginKind { get; set; } = string.Empty;
 }
 
 public sealed class CylindricalLightSourceState
@@ -90,6 +147,7 @@ public sealed class CylindricalLightSourceState
     public float? BaseOrientationY { get; set; }
     public float? BaseOrientationZ { get; set; }
     public float? BaseOrientationW { get; set; }
+    public List<AxisymmetricSourceSegmentStateDto> Segments { get; set; } = new();
 }
 
 public sealed class SceneProjectionStateDto
@@ -107,22 +165,21 @@ public sealed class ProjectionResultStateDto
     public Point3? PointSourceOrigin { get; set; }
     public PointSourceFrameStateDto SourceFrame { get; set; } = new();
     public List<ProjectionRayStateDto> Rays { get; set; } = new();
-    public CylindricalProjectionStateDto? CylindricalSource { get; set; }
+    public AxisymmetricProjectionStateDto? AxisymmetricSource { get; set; }
 }
 
-public sealed class CylindricalProjectionStateDto
+public sealed class AxisymmetricProjectionStateDto
 {
     public PointSourceFrameStateDto SourceFrame { get; set; } = new();
-    public double Radius { get; set; }
-    public double Length { get; set; }
+    public AxisymmetricSourceProfileDefinition ProfileDefinition { get; set; } = new();
     public Point3? LocalTiltPoint { get; set; }
     public double? EstimatedTiltWeight { get; set; }
-    public SelfCalibratingCylindricalProjectionDiagnosticsDto? Diagnostics { get; set; }
-    public LeastSquaresCylindricalAlignmentDiagnosticsDto? LeastSquaresDiagnostics { get; set; }
-    public List<CylindricalProjectionPointStateDto> Points { get; set; } = new();
+    public SelfCalibratingAxisymmetricProjectionDiagnosticsDto? Diagnostics { get; set; }
+    public LeastSquaresAxisymmetricAlignmentDiagnosticsDto? LeastSquaresDiagnostics { get; set; }
+    public List<AxisymmetricProjectionPointStateDto> Points { get; set; } = new();
 }
 
-public sealed class CylindricalProjectionPointStateDto
+public sealed class AxisymmetricProjectionPointStateDto
 {
     public Point3 HolePoint { get; set; }
     public Point3 SourceSurfacePoint { get; set; }
@@ -138,13 +195,13 @@ public sealed class CylindricalProjectionPointStateDto
     public double? AngularErrorDegrees { get; set; }
 }
 
-public sealed class SelfCalibratingCylindricalProjectionDiagnosticsDto
+public sealed class SelfCalibratingAxisymmetricProjectionDiagnosticsDto
 {
     public double RegularityWeight { get; set; }
-    public List<SelfCalibratingCylindricalCandidateDiagnosticsDto> CandidateScores { get; set; } = new();
+    public List<SelfCalibratingAxisymmetricCandidateDiagnosticsDto> CandidateScores { get; set; } = new();
 }
 
-public sealed class SelfCalibratingCylindricalCandidateDiagnosticsDto
+public sealed class SelfCalibratingAxisymmetricCandidateDiagnosticsDto
 {
     public double Lambda { get; set; }
     public double MeanFitError { get; set; }
@@ -152,7 +209,7 @@ public sealed class SelfCalibratingCylindricalCandidateDiagnosticsDto
     public double Score { get; set; }
 }
 
-public sealed class LeastSquaresCylindricalAlignmentDiagnosticsDto
+public sealed class LeastSquaresAxisymmetricAlignmentDiagnosticsDto
 {
     public double InitialLambda { get; set; }
     public double RefinedLambda { get; set; }
@@ -165,15 +222,19 @@ public sealed class LeastSquaresCylindricalAlignmentDiagnosticsDto
     public int Iterations { get; set; }
     public bool Converged { get; set; }
     public bool UsesRegularization { get; set; }
-    public List<LeastSquaresCylindricalAlignmentIterationDiagnosticsDto> IterationHistory { get; set; } = new();
+    public List<AxisymmetricLeastSquaresIterationDiagnosticsDto> IterationHistory { get; set; } = new();
 }
 
-public sealed class LeastSquaresCylindricalAlignmentIterationDiagnosticsDto
+public sealed class AxisymmetricLeastSquaresIterationDiagnosticsDto
 {
     public int Iteration { get; set; }
+    public double ObjectiveError { get; set; }
     public double Lambda { get; set; }
     public double MeanAlignmentError { get; set; }
+    public double RmsAlignmentError { get; set; }
     public double MeanAngularErrorDegrees { get; set; }
+    public double MaxAngularErrorDegrees { get; set; }
+    public bool Improved { get; set; }
 }
 
 public sealed class PointSourceFrameStateDto
@@ -199,6 +260,27 @@ public sealed class ProjectionWorkspaceStateDto
 {
     public string? SelectedSceneName { get; set; }
     public string SelectedMethodId { get; set; } = string.Empty;
+    public AxisymmetricSourceKind ProjectionGeometryKind { get; set; } = AxisymmetricSourceKind.Cylinder;
+    public double GeometryRadiusStart { get; set; } = 1d;
+    public double GeometryRadiusEnd { get; set; } = 1d;
+    public double GeometryLength { get; set; } = 10d;
+    public double GeometryArcRadius { get; set; } = 20d;
+    public OgiveCurvatureDirection GeometryOgiveCurvatureDirection { get; set; } = OgiveCurvatureDirection.Outward;
+    public int HybridSegmentCount { get; set; } = 1;
+    public List<AxisymmetricSourceSegmentStateDto> HybridSegments { get; set; } = new();
+    public int HybridRayCount { get; set; } = 200;
+    public float HybridTiltWeight { get; set; } = 0.1f;
+    public double TiltPointX { get; set; }
+    public double TiltPointY { get; set; }
+    public double TiltPointZ { get; set; }
+    public int? LeastSquaresMaxIterations { get; set; }
+    public double? LeastSquaresConvergenceTolerance { get; set; }
+    public double? LeastSquaresPointStepScale { get; set; }
+    public double? LeastSquaresThetaStepScale { get; set; }
+    public double? LeastSquaresLambdaStepScale { get; set; }
+    public float HybridTiltPointX { get; set; }
+    public float HybridTiltPointY { get; set; }
+    public float HybridTiltPointZ { get; set; }
 }
 
 public sealed class AnnotationWorkspaceState

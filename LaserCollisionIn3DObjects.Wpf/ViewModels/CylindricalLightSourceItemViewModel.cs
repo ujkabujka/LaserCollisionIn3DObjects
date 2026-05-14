@@ -1,4 +1,6 @@
-using System.Numerics;
+using System.Collections.ObjectModel;
+using NumericsQuaternion = System.Numerics.Quaternion;
+using LaserCollisionIn3DObjects.Domain.Geometry;
 using LaserCollisionIn3DObjects.Wpf.Infrastructure;
 
 namespace LaserCollisionIn3DObjects.Wpf.ViewModels;
@@ -6,6 +8,7 @@ namespace LaserCollisionIn3DObjects.Wpf.ViewModels;
 public sealed class CylindricalLightSourceItemViewModel : ObservableObject
 {
     private string _name = "Light Source";
+    private AxisymmetricSourceKind _sourceKind = AxisymmetricSourceKind.Cylinder;
     private float _positionX;
     private float _positionY;
     private float _positionZ;
@@ -14,6 +17,11 @@ public sealed class CylindricalLightSourceItemViewModel : ObservableObject
     private float _rotationZ;
     private float _radius = 5f;
     private float _height = 10f;
+    private float _radiusStart = 5f;
+    private float _radiusEnd = 3f;
+    private float _length = 10f;
+    private float _arcRadius = 20f;
+    private OgiveCurvatureDirection _ogiveCurvatureDirection = OgiveCurvatureDirection.Outward;
     private int _rayCount = 100;
     private float _tiltWeight = 0.1f;
     private float _tiltPointX;
@@ -21,6 +29,7 @@ public sealed class CylindricalLightSourceItemViewModel : ObservableObject
     private float _tiltPointZ;
 
     public string Name { get => _name; set => SetProperty(ref _name, value); }
+    public AxisymmetricSourceKind SourceKind { get => _sourceKind; set => SetProperty(ref _sourceKind, value); }
     public float PositionX { get => _positionX; set => SetProperty(ref _positionX, value); }
     public float PositionY { get => _positionY; set => SetProperty(ref _positionY, value); }
     public float PositionZ { get => _positionZ; set => SetProperty(ref _positionZ, value); }
@@ -29,13 +38,21 @@ public sealed class CylindricalLightSourceItemViewModel : ObservableObject
     public float RotationZ { get => _rotationZ; set => SetProperty(ref _rotationZ, value); }
     public float Radius { get => _radius; set => SetProperty(ref _radius, value); }
     public float Height { get => _height; set => SetProperty(ref _height, value); }
+    public float RadiusStart { get => _radiusStart; set => SetProperty(ref _radiusStart, value); }
+    public float RadiusEnd { get => _radiusEnd; set => SetProperty(ref _radiusEnd, value); }
+    public float Length { get => _length; set => SetProperty(ref _length, value); }
+    public float ArcRadius { get => _arcRadius; set => SetProperty(ref _arcRadius, value); }
+    public OgiveCurvatureDirection OgiveCurvatureDirection { get => _ogiveCurvatureDirection; set => SetProperty(ref _ogiveCurvatureDirection, value); }
     public int RayCount { get => _rayCount; set => SetProperty(ref _rayCount, value); }
     public float TiltWeight { get => _tiltWeight; set => SetProperty(ref _tiltWeight, value); }
     public float TiltPointX { get => _tiltPointX; set => SetProperty(ref _tiltPointX, value); }
     public float TiltPointY { get => _tiltPointY; set => SetProperty(ref _tiltPointY, value); }
     public float TiltPointZ { get => _tiltPointZ; set => SetProperty(ref _tiltPointZ, value); }
 
-    public Quaternion BaseOrientation { get; set; } = Quaternion.Identity;
+
+    public ObservableCollection<HybridSourceSegmentItemViewModel> HybridSegments { get; } = new();
+
+    public NumericsQuaternion BaseOrientation { get; set; } = NumericsQuaternion.Identity;
 
     public override string ToString() => Name;
 }

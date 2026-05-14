@@ -99,6 +99,34 @@ public sealed class ProjectionHitPointCsvImportServiceTests
     }
 
     [Fact]
+    public void Import_AcceptsNewHeaderWithSourceType()
+    {
+        var service = new ProjectionHitPointCsvImportService();
+        var filePath = Path.Combine(Path.GetTempPath(), $"projection-import-{Guid.NewGuid():N}.csv");
+        var lines = new[]
+        {
+            "SceneName,SourceType,HitX,HitY,HitZ",
+            "Scene A,ConicalFrustumGenerated,1,2,3",
+        };
+
+        try
+        {
+            File.WriteAllLines(filePath, lines);
+            var result = service.Import(filePath);
+            Assert.Equal("Scene A", result.SceneName);
+            Assert.Single(result.HolePoints);
+            Assert.Equal(new Point3(1, 2, 3), result.HolePoints[0]);
+        }
+        finally
+        {
+            if (File.Exists(filePath))
+            {
+                File.Delete(filePath);
+            }
+        }
+    }
+
+    [Fact]
     public void Import_ThrowsForInvalidHeader()
     {
         var service = new ProjectionHitPointCsvImportService();
@@ -108,7 +136,7 @@ public sealed class ProjectionHitPointCsvImportServiceTests
         {
             File.WriteAllLines(filePath, ["Wrong,Columns,Only"]);
             var ex = Assert.Throws<ArgumentException>(() => service.Import(filePath));
-            Assert.Contains("SceneName,HitX,HitY,HitZ", ex.Message, StringComparison.Ordinal);
+            Assert.Contains("SceneName,HitX,HitY,HitZ or SceneName,SourceType,HitX,HitY,HitZ", ex.Message, StringComparison.Ordinal);
         }
         finally
         {

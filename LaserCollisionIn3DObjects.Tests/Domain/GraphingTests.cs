@@ -234,7 +234,7 @@ public sealed class GraphingTests
                 new GraphSceneData
                 {
                     SceneName = "Scene One",
-                    CylindricalSources = [source],
+                    AxisymmetricSources = [source],
                     ProjectionResults = [projectionResult],
                 },
             ]);
@@ -253,7 +253,7 @@ public sealed class GraphingTests
             DisplayName = "Cyl Projection",
             Result = new ProjectionComputationResult
             {
-                MethodId = ProjectionMethodIds.CylindricalSource,
+                MethodId = ProjectionMethodIds.AxisymmetricSource,
                 SourceFrame = new PointSourceFrameState
                 {
                     Origin = new Point3(0, 0, 0),
@@ -262,7 +262,7 @@ public sealed class GraphingTests
                     AxisZ = new Vector3D(0, 0, 1),
                 },
                 Rays = Array.Empty<ProjectionRay>(),
-                CylindricalSource = new CylindricalProjectionState
+                AxisymmetricSource = new AxisymmetricProjectionState
                 {
                     SourceFrame = new PointSourceFrameState
                     {
@@ -271,11 +271,12 @@ public sealed class GraphingTests
                         AxisY = new Vector3D(0, 1, 0),
                         AxisZ = new Vector3D(0, 0, 1),
                     },
+                    ProfileDefinition = new AxisymmetricSourceProfileDefinition { Kind = AxisymmetricSourceKind.Cylinder, Radius = 2f, Length = 9f },
                     Radius = 2,
                     Length = 9,
                     Points =
                     [
-                        new CylindricalProjectionPoint(
+                        new AxisymmetricProjectionPoint(
                             new Point3(2, 4, 0),
                             new Point3(0, 2, 0),
                             new Vector3D(1, 0, 0),
@@ -290,7 +291,7 @@ public sealed class GraphingTests
             new GraphSceneData
             {
                 SceneName = "Scene C",
-                CylindricalSources = [],
+                AxisymmetricSources = [],
                 ProjectionResults = [result],
             },
         ]);

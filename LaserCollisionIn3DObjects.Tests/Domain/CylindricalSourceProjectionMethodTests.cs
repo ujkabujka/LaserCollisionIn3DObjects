@@ -3,9 +3,9 @@ using LaserCollisionIn3DObjects.Domain.Projection;
 
 namespace LaserCollisionIn3DObjects.Tests.Domain;
 
-public sealed class CylindricalSourceProjectionMethodTests
+public sealed class AxisymmetricSourceProjectionMethodTests
 {
-    private readonly CylindricalSourceProjectionMethod _method = new();
+    private readonly AxisymmetricSourceProjectionMethod _method = new();
 
     [Fact]
     public void Execute_BuildsFrameFromOriginXAndY()
@@ -26,6 +26,62 @@ public sealed class CylindricalSourceProjectionMethodTests
         Assert.Equal(0d, result.SourceFrame.AxisX.Z, 6);
     }
 
+
+    [Fact]
+    public void Execute_ComputesThetaFromLocalYZ()
+    {
+        var request = BuildRequest(
+            holes: [new Point3(0, 5, 0), new Point3(0, 0, 5), new Point3(0, -5, 0)],
+            origin: new Point3(0, 0, 0),
+            axisX: new Vector3D(1, 0, 0),
+            axisY: new Vector3D(0, 1, 0),
+            radius: 2,
+            length: 10);
+
+        var points = _method.Execute(request).AxisymmetricSource!.Points;
+        Assert.NotNull(points[0].LocalTheta);
+        Assert.NotNull(points[1].LocalTheta);
+        Assert.NotNull(points[2].LocalTheta);
+        Assert.InRange(points[0].LocalTheta!.Value, -1e-6, 1e-6);
+        Assert.InRange(points[1].LocalTheta!.Value, (Math.PI / 2d) - 1e-6, (Math.PI / 2d) + 1e-6);
+        Assert.True(Math.Abs(Math.Abs(points[2].LocalTheta!.Value) - Math.PI) < 1e-6);
+    }
+
+    [Fact]
+    public void Execute_ComputesUFromLocalXRange_NotFromIndex()
+    {
+        var request = BuildRequest(
+            holes: [new Point3(-10, 2, 0), new Point3(0, 2, 0), new Point3(10, 2, 0)],
+            origin: new Point3(0, 0, 0),
+            axisX: new Vector3D(1, 0, 0),
+            axisY: new Vector3D(0, 1, 0),
+            radius: 2,
+            length: 12);
+
+        var points = _method.Execute(request).AxisymmetricSource!.Points;
+        Assert.NotNull(points[0].LocalU);
+        Assert.NotNull(points[1].LocalU);
+        Assert.NotNull(points[2].LocalU);
+        Assert.InRange(points[0].LocalU!.Value, -1e-6, 1e-6);
+        Assert.InRange(points[1].LocalU!.Value, 6d - 1e-6, 6d + 1e-6);
+        Assert.InRange(points[2].LocalU!.Value, 12d - 1e-6, 12d + 1e-6);
+    }
+
+    [Fact]
+    public void Execute_UsesFrameAxesForLocalWorldTransform()
+    {
+        var request = BuildRequest(
+            holes: [new Point3(10, 0, 0), new Point3(10, 1, 0), new Point3(10, 0, 1)],
+            origin: new Point3(10, 0, 0),
+            axisX: new Vector3D(0, 1, 0),
+            axisY: new Vector3D(0, 0, 1),
+            radius: 3,
+            length: 8);
+
+        var result = _method.Execute(request);
+        Assert.All(result.AxisymmetricSource!.Points, point => Assert.True(double.IsFinite(point.SourceSurfacePoint.X)));
+        Assert.All(result.AxisymmetricSource.Points, point => Assert.True(double.IsFinite(point.RayDirection.X)));
+    }
     [Fact]
     public void Execute_RejectsDegenerateFrame()
     {
@@ -51,24 +107,24 @@ public sealed class CylindricalSourceProjectionMethodTests
             radius: 2,
             length: 12));
 
-        var points = result.CylindricalSource!.Points;
+        var points = result.AxisymmetricSource!.Points;
         Assert.Equal(0d, points[0].SourceSurfacePoint.X, 6);
         Assert.Equal(6d, points[1].SourceSurfacePoint.X, 6);
         Assert.Equal(12d, points[2].SourceSurfacePoint.X, 6);
     }
 
     [Fact]
-    public void Execute_ThrowsWhenAllTransformedXAreEqual()
+    public void Execute_HandlesAllTransformedXEqual()
     {
-        var ex = Assert.Throws<ArgumentException>(() => _method.Execute(BuildRequest(
+        var result = _method.Execute(BuildRequest(
             holes: [new Point3(1, 1, 0), new Point3(1, 2, 0)],
             origin: new Point3(0, 0, 0),
             axisX: new Vector3D(1, 0, 0),
             axisY: new Vector3D(0, 1, 0),
             radius: 1,
-            length: 4)));
+            length: 4));
 
-        Assert.Contains("local X coordinates are equal", ex.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.NotNull(result.AxisymmetricSource);
     }
 
     [Fact]
@@ -82,7 +138,7 @@ public sealed class CylindricalSourceProjectionMethodTests
             radius: 10,
             length: 20));
 
-        foreach (var point in result.CylindricalSource!.Points)
+        foreach (var point in result.AxisymmetricSource!.Points)
         {
             var yzRadius = Math.Sqrt(
                 (point.SourceSurfacePoint.Y * point.SourceSurfacePoint.Y) +
@@ -110,25 +166,56 @@ public sealed class CylindricalSourceProjectionMethodTests
             length: 10));
 
         Assert.Empty(result.Rays);
-        Assert.NotNull(result.CylindricalSource);
-        Assert.Equal(holes.Length, result.CylindricalSource!.Points.Count);
-        Assert.Equal(holes[0], result.CylindricalSource.Points[0].HolePoint);
-        Assert.Equal(holes[1], result.CylindricalSource.Points[1].HolePoint);
-        Assert.Equal(4d, result.CylindricalSource.Radius, 6);
-        Assert.Equal(10d, result.CylindricalSource.Length, 6);
+        Assert.NotNull(result.AxisymmetricSource);
+        Assert.Equal(holes.Length, result.AxisymmetricSource!.Points.Count);
+        Assert.Equal(holes[0], result.AxisymmetricSource.Points[0].HolePoint);
+        Assert.Equal(holes[1], result.AxisymmetricSource.Points[1].HolePoint);
+        Assert.Equal(4d, result.AxisymmetricSource.Radius, 6);
+        Assert.Equal(10d, result.AxisymmetricSource.Length, 6);
     }
 
+    [Theory]
+    [InlineData(AxisymmetricSourceKind.Cylinder)]
+    [InlineData(AxisymmetricSourceKind.ConicalFrustum)]
+    [InlineData(AxisymmetricSourceKind.CircularOgive)]
+    [InlineData(AxisymmetricSourceKind.Hybrid)]
+    public void Execute_SupportsAllAxisymmetricGeometryKinds(AxisymmetricSourceKind geometryKind)
+    {
+        var request = new ProjectionRequest
+        {
+            HolePoints = [new Point3(1, 2, 3), new Point3(2, 3, 4), new Point3(3, 4, 5)],
+            Parameters = new AxisymmetricSourceProjectionParameters(
+                new Point3(0, 0, 0),
+                new Vector3D(1, 0, 0),
+                new Vector3D(0, 1, 0),
+                BuildProfileDefinition(geometryKind)),
+        };
+
+        var result = _method.Execute(request);
+
+        Assert.NotNull(result.AxisymmetricSource);
+        Assert.Equal(request.HolePoints.Count, result.AxisymmetricSource!.Points.Count);
+        Assert.All(result.AxisymmetricSource.Points, point => Assert.True(double.IsFinite(point.SourceSurfacePoint.X)));
+    }
+
+
+    [Fact]
+    public void Metadata_UsesDirectLinearProjectionMethodDisplayName()
+    {
+        Assert.Equal("Direct linear projection method", _method.Metadata.DisplayName);
+        Assert.Contains("selected axisymmetric source geometry", _method.Metadata.Description, StringComparison.OrdinalIgnoreCase);
+    }
     [Fact]
     public void Registry_IncludesCylindricalMethod()
     {
         var registry = new ProjectionMethodRegistry(new IProjectionMethod[]
         {
             new PointSourceProjectionMethod(),
-            new CylindricalSourceProjectionMethod(),
+            new AxisymmetricSourceProjectionMethod(),
         });
 
-        var method = registry.GetRequired(ProjectionMethodIds.CylindricalSource);
-        Assert.Equal(ProjectionMethodIds.CylindricalSource, method.Metadata.Id);
+        var method = registry.GetRequired(ProjectionMethodIds.AxisymmetricSource);
+        Assert.Equal(ProjectionMethodIds.AxisymmetricSource, method.Metadata.Id);
     }
 
     private static ProjectionRequest BuildRequest(
@@ -142,7 +229,24 @@ public sealed class CylindricalSourceProjectionMethodTests
         return new ProjectionRequest
         {
             HolePoints = holes,
-            Parameters = new CylindricalSourceProjectionParameters(origin, axisX, axisY, radius, length),
+            Parameters = new AxisymmetricSourceProjectionParameters(origin, axisX, axisY, new AxisymmetricSourceProfileDefinition { Kind = AxisymmetricSourceKind.Cylinder, Radius = (float)radius, Length = (float)length }),
         };
     }
+
+    private static AxisymmetricSourceProfileDefinition BuildProfileDefinition(AxisymmetricSourceKind kind) => kind switch
+    {
+        AxisymmetricSourceKind.Cylinder => new AxisymmetricSourceProfileDefinition { Kind = kind, Radius = 2f, Length = 10f },
+        AxisymmetricSourceKind.ConicalFrustum => new AxisymmetricSourceProfileDefinition { Kind = kind, RadiusStart = 2f, RadiusEnd = 3f, Length = 10f },
+        AxisymmetricSourceKind.CircularOgive => new AxisymmetricSourceProfileDefinition { Kind = kind, RadiusStart = 2f, RadiusEnd = 3f, Length = 2f, ArcRadius = 20f, OgiveCurvatureDirection = OgiveCurvatureDirection.Outward },
+        AxisymmetricSourceKind.Hybrid => new AxisymmetricSourceProfileDefinition
+        {
+            Kind = kind,
+            Hybrid =
+            [
+                new HybridAxisymmetricSourceSegmentDefinition(HybridAxisymmetricSourceSegmentKind.Cylinder, 4f, 2f, 2f),
+                new HybridAxisymmetricSourceSegmentDefinition(HybridAxisymmetricSourceSegmentKind.ConicalFrustum, 6f, 2f, 3f),
+            ],
+        },
+        _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, null),
+    };
 }

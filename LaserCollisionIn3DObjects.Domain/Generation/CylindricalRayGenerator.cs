@@ -1,4 +1,3 @@
-using System.Numerics;
 using LaserCollisionIn3DObjects.Domain.Geometry;
 
 namespace LaserCollisionIn3DObjects.Domain.Generation;
@@ -8,6 +7,8 @@ namespace LaserCollisionIn3DObjects.Domain.Generation;
 /// </summary>
 public sealed class CylindricalRayGenerator
 {
+    private readonly AxisymmetricRayGenerator _axisymmetricRayGenerator = new();
+
     /// <summary>
     /// Generates deterministic rays whose origins form a cylindrical shell.
     /// </summary>
@@ -15,44 +16,15 @@ public sealed class CylindricalRayGenerator
     {
         ArgumentNullException.ThrowIfNull(source);
 
-        var rays = new List<Ray3D>(source.RayCount);
+        var axisymmetricSource = new AxisymmetricLightSource(
+            source.Name,
+            source.Frame,
+            AxisymmetricSourceKind.Cylinder,
+            new AxisymmetricSourceProfile(source.Radius, source.Height),
+            source.RayCount,
+            source.TiltWeight,
+            source.TiltPointLocal);
 
-        var rows = Math.Max(1, (int)MathF.Ceiling(MathF.Sqrt(source.RayCount)));
-        var columns = Math.Max(1, (int)MathF.Ceiling(source.RayCount / (float)rows));
-
-        for (var i = 0; i < source.RayCount; i++)
-        {
-            var row = i / columns;
-            var column = i % columns;
-
-            var x = source.Height * ((float)row  / rows);
-            var theta = 2f * MathF.PI * ((column + 0.5f * (row % 2)) / columns);
-
-            var localOrigin = new Vector3(
-                x,
-                source.Radius * MathF.Cos(theta),
-                source.Radius * MathF.Sin(theta)
-                );
-
-            var localDirection = GetTiltedDirection(localOrigin, source.TiltWeight, source.TiltPointLocal);
-            var worldOrigin = source.Frame.TransformPointToWorld(localOrigin);
-            var worldDirection = Vector3.Normalize(source.Frame.TransformDirectionToWorld(localDirection));
-
-            rays.Add(new Ray3D(worldOrigin, worldDirection));
-        }
-
-        return rays;
-    }
-
-    private static Vector3 GetTiltedDirection(Vector3 localOrigin, float tiltWeight, Vector3 tiltPointLocal)
-    {
-        var radial = Vector3.Normalize(new Vector3(0f, localOrigin.Y, localOrigin.Z));
-        if (tiltWeight <= 0f)
-        {
-            return radial;
-        }
-
-        var tiltVector = localOrigin - tiltPointLocal;
-        return Vector3.Normalize(radial + (tiltWeight * tiltVector));
+        return _axisymmetricRayGenerator.Generate(axisymmetricSource);
     }
 }

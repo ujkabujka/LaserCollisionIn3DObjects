@@ -23,32 +23,9 @@
 
                     <GroupBox Header="Scene Selection" Margin="0,0,0,8" Padding="8">
                         <StackPanel>
-                            <TextBlock Margin="0,0,0,6" Foreground="#555" TextWrapping="Wrap"
-                                       Text="Only scenes that contain 3D hole points are listed here." />
-                            <ListBox ItemsSource="{Binding ProjectionWorkspace.AvailableScenes}"
-                                     SelectedItem="{Binding ProjectionWorkspace.SelectedScene}"
-                                     DisplayMemberPath="Name"
-                                     Height="140" />
-                            <Button Content="Import Hit Points CSV"
-                                    Command="{Binding ProjectionWorkspace.ImportHitPointsCsvCommand}"
-                                    Height="28"
-                                    Margin="0,6,0,0"/>
-                            <Button Content="Delete Selected Scene"
-                                    Command="{Binding ProjectionWorkspace.DeleteSelectedProjectionSceneCommand}"
-                                    Height="28"
-                                    Margin="0,6,0,0"/>
-                        </StackPanel>
-                    </GroupBox>
-
-                    <GroupBox Header="Methodology" Margin="0,0,0,8" Padding="8">
-                        <StackPanel>
-                            <ComboBox ItemsSource="{Binding ProjectionWorkspace.ProjectionMethods}"
-                                      SelectedItem="{Binding ProjectionWorkspace.SelectedMethod}"
-                                      DisplayMemberPath="DisplayName"
-                                      Margin="0,0,0,6" />
-                            <TextBlock Text="{Binding ProjectionWorkspace.SelectedMethod.Description}"
-                                       Foreground="#555"
-                                       TextWrapping="Wrap" />
+                            <ListBox ItemsSource="{Binding ProjectionWorkspace.AvailableScenes}" SelectedItem="{Binding ProjectionWorkspace.SelectedScene}" DisplayMemberPath="Name" Height="140" />
+                            <Button Content="Import Hit Points CSV" Command="{Binding ProjectionWorkspace.ImportHitPointsCsvCommand}" Height="28" Margin="0,6,0,0"/>
+                            <Button Content="Delete Selected Scene" Command="{Binding ProjectionWorkspace.DeleteSelectedProjectionSceneCommand}" Height="28" Margin="0,6,0,0"/>
                         </StackPanel>
                     </GroupBox>
 
@@ -56,96 +33,93 @@
                         <StackPanel>
                             <TextBlock Text="Result Name"/>
                             <TextBox Text="{Binding ProjectionWorkspace.NewResultName, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,6"/>
-                            <TextBlock Text="Saved Results"/>
-                            <ListBox ItemsSource="{Binding ProjectionWorkspace.SavedResults}"
-                                     SelectedItem="{Binding ProjectionWorkspace.SelectedResult}"
-                                     DisplayMemberPath="DisplayName"
-                                     Height="90" />
-                            <Button Content="Delete Selected Result"
-                                    Command="{Binding ProjectionWorkspace.DeleteSelectedResultCommand}"
-                                    Height="28"
-                                    Margin="0,6,0,0"/>
+                            <ListBox ItemsSource="{Binding ProjectionWorkspace.SavedResults}" SelectedItem="{Binding ProjectionWorkspace.SelectedResult}" DisplayMemberPath="DisplayName" Height="90" />
+                            <Button Content="Delete Selected Result" Command="{Binding ProjectionWorkspace.DeleteSelectedResultCommand}" Height="28" Margin="0,6,0,0"/>
                         </StackPanel>
                     </GroupBox>
 
-                    <GroupBox Header="Point Source Parameters" Margin="0,0,0,8" Padding="8"
-                              Visibility="{Binding ProjectionWorkspace.IsPointSourceMethodSelected, Converter={StaticResource BoolToVisibility}}">
+                    <GroupBox Header="Geometry Definition" Margin="0,0,0,8" Padding="8">
                         <StackPanel>
-                            <TextBlock Text="Point Source Origin"/>
-                            <UniformGrid Columns="3" Margin="0,0,0,6">
-                                <StackPanel Margin="2"><TextBlock Text="Point Source X"/><TextBox Text="{Binding ProjectionWorkspace.PointSourceX, UpdateSourceTrigger=LostFocus, Converter={StaticResource FlexibleNumericConverter}}"/></StackPanel>
-                                <StackPanel Margin="2"><TextBlock Text="Point Source Y"/><TextBox Text="{Binding ProjectionWorkspace.PointSourceY, UpdateSourceTrigger=LostFocus, Converter={StaticResource FlexibleNumericConverter}}"/></StackPanel>
-                                <StackPanel Margin="2"><TextBlock Text="Point Source Z"/><TextBox Text="{Binding ProjectionWorkspace.PointSourceZ, UpdateSourceTrigger=LostFocus, Converter={StaticResource FlexibleNumericConverter}}"/></StackPanel>
-                            </UniformGrid>
-                            <TextBlock Text="Laser Beam Frame Origin"/>
-                            <UniformGrid Columns="3" Margin="0,0,0,6">
-                                <StackPanel Margin="2"><TextBlock Text="Beam Origin X"/><TextBox Text="{Binding ProjectionWorkspace.BeamOriginX, UpdateSourceTrigger=LostFocus, Converter={StaticResource FlexibleNumericConverter}}"/></StackPanel>
-                                <StackPanel Margin="2"><TextBlock Text="Beam Origin Y"/><TextBox Text="{Binding ProjectionWorkspace.BeamOriginY, UpdateSourceTrigger=LostFocus, Converter={StaticResource FlexibleNumericConverter}}"/></StackPanel>
-                                <StackPanel Margin="2"><TextBlock Text="Beam Origin Z"/><TextBox Text="{Binding ProjectionWorkspace.BeamOriginZ, UpdateSourceTrigger=LostFocus, Converter={StaticResource FlexibleNumericConverter}}"/></StackPanel>
-                            </UniformGrid>
-                            <TextBlock Text="Laser Beam Frame X Direction"/>
-                            <UniformGrid Columns="3" Margin="0,0,0,6">
-                                <StackPanel Margin="2"><TextBlock Text="Xx"/><TextBox Text="{Binding ProjectionWorkspace.SourceFrameXx, UpdateSourceTrigger=LostFocus, Converter={StaticResource FlexibleNumericConverter}}"/></StackPanel>
-                                <StackPanel Margin="2"><TextBlock Text="Xy"/><TextBox Text="{Binding ProjectionWorkspace.SourceFrameXy, UpdateSourceTrigger=LostFocus, Converter={StaticResource FlexibleNumericConverter}}"/></StackPanel>
-                                <StackPanel Margin="2"><TextBlock Text="Xz"/><TextBox Text="{Binding ProjectionWorkspace.SourceFrameXz, UpdateSourceTrigger=LostFocus, Converter={StaticResource FlexibleNumericConverter}}"/></StackPanel>
-                            </UniformGrid>
-                            <TextBlock Text="Laser Beam Frame Y Direction"/>
-                            <UniformGrid Columns="3" Margin="0,0,0,6">
-                                <StackPanel Margin="2"><TextBlock Text="Yx"/><TextBox Text="{Binding ProjectionWorkspace.SourceFrameYx, UpdateSourceTrigger=LostFocus, Converter={StaticResource FlexibleNumericConverter}}"/></StackPanel>
-                                <StackPanel Margin="2"><TextBlock Text="Yy"/><TextBox Text="{Binding ProjectionWorkspace.SourceFrameYy, UpdateSourceTrigger=LostFocus, Converter={StaticResource FlexibleNumericConverter}}"/></StackPanel>
-                                <StackPanel Margin="2"><TextBlock Text="Yz"/><TextBox Text="{Binding ProjectionWorkspace.SourceFrameYz, UpdateSourceTrigger=LostFocus, Converter={StaticResource FlexibleNumericConverter}}"/></StackPanel>
-                            </UniformGrid>
-                        </StackPanel>
-                    </GroupBox>
+                            <Grid Margin="0,0,0,6"><Grid.ColumnDefinitions><ColumnDefinition Width="120"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><TextBlock Grid.Column="0" Text="Geometry Type" VerticalAlignment="Center"/><ComboBox Grid.Column="1" ItemsSource="{Binding ProjectionWorkspace.AxisymmetricSourceKinds}" SelectedItem="{Binding ProjectionWorkspace.SelectedProjectionGeometryKind}"/></Grid>
 
-                    <GroupBox Header="Cylindrical Source Parameters" Margin="0,0,0,8" Padding="8"
-                              Visibility="{Binding ProjectionWorkspace.IsAnyCylindricalMethodSelected, Converter={StaticResource BoolToVisibility}}">
-                        <StackPanel>
                             <TextBlock Text="Source Frame Origin"/>
-                            <UniformGrid Columns="3" Margin="0,0,0,6">
-                                <StackPanel Margin="2"><TextBlock Text="Origin X"/><TextBox Text="{Binding ProjectionWorkspace.BeamOriginX, UpdateSourceTrigger=LostFocus, Converter={StaticResource FlexibleNumericConverter}}"/></StackPanel>
-                                <StackPanel Margin="2"><TextBlock Text="Origin Y"/><TextBox Text="{Binding ProjectionWorkspace.BeamOriginY, UpdateSourceTrigger=LostFocus, Converter={StaticResource FlexibleNumericConverter}}"/></StackPanel>
-                                <StackPanel Margin="2"><TextBlock Text="Origin Z"/><TextBox Text="{Binding ProjectionWorkspace.BeamOriginZ, UpdateSourceTrigger=LostFocus, Converter={StaticResource FlexibleNumericConverter}}"/></StackPanel>
-                            </UniformGrid>
+                            <UniformGrid Columns="3" Margin="0,0,0,6"><StackPanel Margin="2"><TextBlock Text="Origin X"/><TextBox Text="{Binding ProjectionWorkspace.BeamOriginX, Converter={StaticResource FlexibleNumericConverter}}"/></StackPanel><StackPanel Margin="2"><TextBlock Text="Origin Y"/><TextBox Text="{Binding ProjectionWorkspace.BeamOriginY, Converter={StaticResource FlexibleNumericConverter}}"/></StackPanel><StackPanel Margin="2"><TextBlock Text="Origin Z"/><TextBox Text="{Binding ProjectionWorkspace.BeamOriginZ, Converter={StaticResource FlexibleNumericConverter}}"/></StackPanel></UniformGrid>
+
                             <TextBlock Text="Source Frame X Direction"/>
-                            <UniformGrid Columns="3" Margin="0,0,0,6">
-                                <StackPanel Margin="2"><TextBlock Text="Xx"/><TextBox Text="{Binding ProjectionWorkspace.SourceFrameXx, UpdateSourceTrigger=LostFocus, Converter={StaticResource FlexibleNumericConverter}}"/></StackPanel>
-                                <StackPanel Margin="2"><TextBlock Text="Xy"/><TextBox Text="{Binding ProjectionWorkspace.SourceFrameXy, UpdateSourceTrigger=LostFocus, Converter={StaticResource FlexibleNumericConverter}}"/></StackPanel>
-                                <StackPanel Margin="2"><TextBlock Text="Xz"/><TextBox Text="{Binding ProjectionWorkspace.SourceFrameXz, UpdateSourceTrigger=LostFocus, Converter={StaticResource FlexibleNumericConverter}}"/></StackPanel>
-                            </UniformGrid>
+                            <UniformGrid Columns="3" Margin="0,0,0,6"><StackPanel Margin="2"><TextBlock Text="Xx"/><TextBox Text="{Binding ProjectionWorkspace.SourceFrameXx, Converter={StaticResource FlexibleNumericConverter}}"/></StackPanel><StackPanel Margin="2"><TextBlock Text="Xy"/><TextBox Text="{Binding ProjectionWorkspace.SourceFrameXy, Converter={StaticResource FlexibleNumericConverter}}"/></StackPanel><StackPanel Margin="2"><TextBlock Text="Xz"/><TextBox Text="{Binding ProjectionWorkspace.SourceFrameXz, Converter={StaticResource FlexibleNumericConverter}}"/></StackPanel></UniformGrid>
+
                             <TextBlock Text="Source Frame Y Direction"/>
-                            <UniformGrid Columns="3" Margin="0,0,0,6">
-                                <StackPanel Margin="2"><TextBlock Text="Yx"/><TextBox Text="{Binding ProjectionWorkspace.SourceFrameYx, UpdateSourceTrigger=LostFocus, Converter={StaticResource FlexibleNumericConverter}}"/></StackPanel>
-                                <StackPanel Margin="2"><TextBlock Text="Yy"/><TextBox Text="{Binding ProjectionWorkspace.SourceFrameYy, UpdateSourceTrigger=LostFocus, Converter={StaticResource FlexibleNumericConverter}}"/></StackPanel>
-                                <StackPanel Margin="2"><TextBlock Text="Yz"/><TextBox Text="{Binding ProjectionWorkspace.SourceFrameYz, UpdateSourceTrigger=LostFocus, Converter={StaticResource FlexibleNumericConverter}}"/></StackPanel>
-                            </UniformGrid>
-                            <UniformGrid Columns="2" Margin="0,0,0,6">
-                                <StackPanel Margin="2"><TextBlock Text="Radius"/><TextBox Text="{Binding ProjectionWorkspace.CylindricalRadius, UpdateSourceTrigger=LostFocus, Converter={StaticResource FlexibleNumericConverter}}"/></StackPanel>
-                                <StackPanel Margin="2"><TextBlock Text="Length"/><TextBox Text="{Binding ProjectionWorkspace.CylindricalLength, UpdateSourceTrigger=LostFocus, Converter={StaticResource FlexibleNumericConverter}}"/></StackPanel>
-                            </UniformGrid>
-                            <StackPanel Visibility="{Binding ProjectionWorkspace.IsTiltPointVisibleForSelectedMethod, Converter={StaticResource BoolToVisibility}}">
-                                <TextBlock Text="Local Tilt Point"/>
-                                <UniformGrid Columns="3" Margin="0,0,0,6">
-                                    <StackPanel Margin="2"><TextBlock Text="Tilt X"/><TextBox Text="{Binding ProjectionWorkspace.TiltPointX, UpdateSourceTrigger=LostFocus, Converter={StaticResource FlexibleNumericConverter}}"/></StackPanel>
-                                    <StackPanel Margin="2"><TextBlock Text="Tilt Y"/><TextBox Text="{Binding ProjectionWorkspace.TiltPointY, UpdateSourceTrigger=LostFocus, Converter={StaticResource FlexibleNumericConverter}}"/></StackPanel>
-                                    <StackPanel Margin="2"><TextBlock Text="Tilt Z"/><TextBox Text="{Binding ProjectionWorkspace.TiltPointZ, UpdateSourceTrigger=LostFocus, Converter={StaticResource FlexibleNumericConverter}}"/></StackPanel>
-                                </UniformGrid>
-                            </StackPanel>
+                            <UniformGrid Columns="3" Margin="0,0,0,6"><StackPanel Margin="2"><TextBlock Text="Yx"/><TextBox Text="{Binding ProjectionWorkspace.SourceFrameYx, Converter={StaticResource FlexibleNumericConverter}}"/></StackPanel><StackPanel Margin="2"><TextBlock Text="Yy"/><TextBox Text="{Binding ProjectionWorkspace.SourceFrameYy, Converter={StaticResource FlexibleNumericConverter}}"/></StackPanel><StackPanel Margin="2"><TextBlock Text="Yz"/><TextBox Text="{Binding ProjectionWorkspace.SourceFrameYz, Converter={StaticResource FlexibleNumericConverter}}"/></StackPanel></UniformGrid>
+
+                            <GroupBox Header="Cylinder" Margin="0,0,0,6" Padding="6" Visibility="{Binding ProjectionWorkspace.IsProjectionGeometryCylinder, Converter={StaticResource BoolToVisibility}}">
+                                <UniformGrid Columns="2"><StackPanel Margin="2"><TextBlock Text="Radius"/><TextBox Text="{Binding ProjectionWorkspace.GeometryRadiusStart, Converter={StaticResource FlexibleNumericConverter}}"/></StackPanel><StackPanel Margin="2"><TextBlock Text="Length"/><TextBox Text="{Binding ProjectionWorkspace.GeometryLength, Converter={StaticResource FlexibleNumericConverter}}"/></StackPanel></UniformGrid>
+                            </GroupBox>
+
+                            <GroupBox Header="Conical Frustum" Margin="0,0,0,6" Padding="6" Visibility="{Binding ProjectionWorkspace.IsProjectionGeometryConicalFrustum, Converter={StaticResource BoolToVisibility}}">
+                                <UniformGrid Columns="3"><StackPanel Margin="2"><TextBlock Text="R1"/><TextBox Text="{Binding ProjectionWorkspace.GeometryRadiusStart, Converter={StaticResource FlexibleNumericConverter}}"/></StackPanel><StackPanel Margin="2"><TextBlock Text="R2"/><TextBox Text="{Binding ProjectionWorkspace.GeometryRadiusEnd, Converter={StaticResource FlexibleNumericConverter}}"/></StackPanel><StackPanel Margin="2"><TextBlock Text="Length"/><TextBox Text="{Binding ProjectionWorkspace.GeometryLength, Converter={StaticResource FlexibleNumericConverter}}"/></StackPanel></UniformGrid>
+                            </GroupBox>
+
+                            <GroupBox Header="Circular Ogive" Margin="0,0,0,6" Padding="6" Visibility="{Binding ProjectionWorkspace.IsProjectionGeometryCircularOgive, Converter={StaticResource BoolToVisibility}}">
+                                <StackPanel>
+                                    <UniformGrid Columns="4"><StackPanel Margin="2"><TextBlock Text="R1"/><TextBox Text="{Binding ProjectionWorkspace.GeometryRadiusStart, Converter={StaticResource FlexibleNumericConverter}}"/></StackPanel><StackPanel Margin="2"><TextBlock Text="R2"/><TextBox Text="{Binding ProjectionWorkspace.GeometryRadiusEnd, Converter={StaticResource FlexibleNumericConverter}}"/></StackPanel><StackPanel Margin="2"><TextBlock Text="Length"/><TextBox Text="{Binding ProjectionWorkspace.GeometryLength, Converter={StaticResource FlexibleNumericConverter}}"/></StackPanel><StackPanel Margin="2"><TextBlock Text="ArcRadius"/><TextBox Text="{Binding ProjectionWorkspace.GeometryArcRadius, Converter={StaticResource FlexibleNumericConverter}}"/></StackPanel></UniformGrid>
+                                    <Grid Margin="0,4,0,0"><Grid.ColumnDefinitions><ColumnDefinition Width="120"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><TextBlock Grid.Column="0" Text="Curvature" VerticalAlignment="Center"/><ComboBox Grid.Column="1" ItemsSource="{Binding ProjectionWorkspace.OgiveCurvatureDirections}" SelectedItem="{Binding ProjectionWorkspace.GeometryOgiveCurvatureDirection}"/></Grid>
+                                </StackPanel>
+                            </GroupBox>
+
+                            <GroupBox Header="Hybrid Geometry" Margin="0,0,0,6" Padding="6" Visibility="{Binding ProjectionWorkspace.IsProjectionGeometryHybrid, Converter={StaticResource BoolToVisibility}}">
+                                <StackPanel>
+                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,6"><Button Content="Add Segment" Command="{Binding ProjectionWorkspace.AddHybridSegmentCommand}" Width="110" Margin="0,0,8,0"/><Button Content="Remove Selected Segment" Command="{Binding ProjectionWorkspace.RemoveSelectedHybridSegmentCommand}" Width="170"/></StackPanel>
+                                    <ListBox ItemsSource="{Binding ProjectionWorkspace.HybridSegments}" SelectedItem="{Binding ProjectionWorkspace.SelectedHybridSegment}" DisplayMemberPath="Summary" Height="120" Margin="0,0,0,8"/>
+                                    <GroupBox Header="Selected Segment" Padding="6">
+                                        <StackPanel>
+                                            <Grid Margin="0,0,0,6"><Grid.ColumnDefinitions><ColumnDefinition Width="90"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><TextBlock Grid.Column="0" Text="Type" VerticalAlignment="Center"/><ComboBox Grid.Column="1" ItemsSource="{Binding ProjectionWorkspace.HybridSegmentKinds}" SelectedItem="{Binding ProjectionWorkspace.SelectedHybridSegment.SegmentKind}"/></Grid>
+                                            <Grid Margin="0,0,0,6"><Grid.ColumnDefinitions><ColumnDefinition Width="90"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><TextBlock Grid.Column="0" Text="Length" VerticalAlignment="Center"/><TextBox Grid.Column="1" Text="{Binding ProjectionWorkspace.SelectedHybridSegment.Length}"/></Grid>
+                                            <StackPanel Visibility="{Binding ProjectionWorkspace.SelectedHybridSegment.IsCylinder, Converter={StaticResource BoolToVisibility}}"><Grid Margin="0,0,0,6"><Grid.ColumnDefinitions><ColumnDefinition Width="90"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><TextBlock Grid.Column="0" Text="Radius" VerticalAlignment="Center"/><TextBox Grid.Column="1" Text="{Binding ProjectionWorkspace.SelectedHybridSegment.Radius}"/></Grid></StackPanel>
+                                            <StackPanel Visibility="{Binding ProjectionWorkspace.SelectedHybridSegment.IsConicalFrustum, Converter={StaticResource BoolToVisibility}}"><UniformGrid Columns="2"><StackPanel Margin="2"><TextBlock Text="R1"/><TextBox Text="{Binding ProjectionWorkspace.SelectedHybridSegment.RadiusStart}" IsEnabled="{Binding ProjectionWorkspace.SelectedHybridSegment.IsRadiusStartEditable}"/></StackPanel><StackPanel Margin="2"><TextBlock Text="R2"/><TextBox Text="{Binding ProjectionWorkspace.SelectedHybridSegment.RadiusEnd}"/></StackPanel></UniformGrid></StackPanel>
+                                            <StackPanel Visibility="{Binding ProjectionWorkspace.SelectedHybridSegment.IsCircularOgive, Converter={StaticResource BoolToVisibility}}"><UniformGrid Columns="3"><StackPanel Margin="2"><TextBlock Text="R1"/><TextBox Text="{Binding ProjectionWorkspace.SelectedHybridSegment.RadiusStart}" IsEnabled="{Binding ProjectionWorkspace.SelectedHybridSegment.IsRadiusStartEditable}"/></StackPanel><StackPanel Margin="2"><TextBlock Text="R2"/><TextBox Text="{Binding ProjectionWorkspace.SelectedHybridSegment.RadiusEnd}"/></StackPanel><StackPanel Margin="2"><TextBlock Text="ArcRadius"/><TextBox Text="{Binding ProjectionWorkspace.SelectedHybridSegment.ArcRadius}"/></StackPanel></UniformGrid><Grid Margin="0,4,0,0"><Grid.ColumnDefinitions><ColumnDefinition Width="120"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><TextBlock Grid.Column="0" Text="Curvature" VerticalAlignment="Center"/><ComboBox Grid.Column="1" ItemsSource="{Binding ProjectionWorkspace.OgiveCurvatureDirections}" SelectedItem="{Binding ProjectionWorkspace.SelectedHybridSegment.OgiveCurvatureDirection}"/></Grid></StackPanel>
+                                        </StackPanel>
+                                    </GroupBox>
+                                </StackPanel>
+                            </GroupBox>
+
+                            <Grid Margin="0,0,0,6"><Grid.ColumnDefinitions><ColumnDefinition Width="140"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><TextBlock Grid.Column="0" Text="Target Collision Scene" VerticalAlignment="Center"/><ComboBox Grid.Column="1" ItemsSource="{Binding ProjectionWorkspace.TargetCollisionScenes}" SelectedItem="{Binding ProjectionWorkspace.SelectedTargetCollisionScene}" DisplayMemberPath="Name"/></Grid>
+                            <Button Content="Add Projected Light Source to Collision Scene" Command="{Binding ProjectionWorkspace.AddProjectedLightSourceToCollisionSceneCommand}" Height="28"/>
                         </StackPanel>
                     </GroupBox>
 
-                    <StackPanel Margin="0,0,0,8"
-                                Visibility="{Binding ProjectionWorkspace.IsProgressVisible, Converter={StaticResource BoolToVisibility}}">
+                    <GroupBox Header="Projection Methodology" Margin="0,0,0,8" Padding="8">
+                        <StackPanel>
+                            <ComboBox ItemsSource="{Binding ProjectionWorkspace.ProjectionMethods}" SelectedItem="{Binding ProjectionWorkspace.SelectedMethod}" DisplayMemberPath="DisplayName" Margin="0,0,0,6" />
+                            <TextBlock Text="{Binding ProjectionWorkspace.SelectedMethod.Description}" Foreground="#555" TextWrapping="Wrap" />
+                        </StackPanel>
+                    </GroupBox>
+
+                    <GroupBox Header="Method Parameters" Margin="0,0,0,8" Padding="8">
+                        <StackPanel>
+                            <GroupBox Header="Point Source Parameters" Margin="0,0,0,6" Padding="6" Visibility="{Binding ProjectionWorkspace.IsPointSourceMethodSelected, Converter={StaticResource BoolToVisibility}}">
+                                <UniformGrid Columns="3"><StackPanel Margin="2"><TextBlock Text="Point Source X"/><TextBox Text="{Binding ProjectionWorkspace.PointSourceX, Converter={StaticResource FlexibleNumericConverter}}"/></StackPanel><StackPanel Margin="2"><TextBlock Text="Point Source Y"/><TextBox Text="{Binding ProjectionWorkspace.PointSourceY, Converter={StaticResource FlexibleNumericConverter}}"/></StackPanel><StackPanel Margin="2"><TextBlock Text="Point Source Z"/><TextBox Text="{Binding ProjectionWorkspace.PointSourceZ, Converter={StaticResource FlexibleNumericConverter}}"/></StackPanel></UniformGrid>
+                            </GroupBox>
+                            <GroupBox Header="Local Tilt Point" Margin="0,0,0,6" Padding="6" Visibility="{Binding ProjectionWorkspace.IsTiltPointMethodSelected, Converter={StaticResource BoolToVisibility}}">
+                                <UniformGrid Columns="3"><StackPanel Margin="2"><TextBlock Text="Tilt X"/><TextBox Text="{Binding ProjectionWorkspace.TiltPointX, Converter={StaticResource FlexibleNumericConverter}}"/></StackPanel><StackPanel Margin="2"><TextBlock Text="Tilt Y"/><TextBox Text="{Binding ProjectionWorkspace.TiltPointY, Converter={StaticResource FlexibleNumericConverter}}"/></StackPanel><StackPanel Margin="2"><TextBlock Text="Tilt Z"/><TextBox Text="{Binding ProjectionWorkspace.TiltPointZ, Converter={StaticResource FlexibleNumericConverter}}"/></StackPanel></UniformGrid>
+                            </GroupBox>
+                            <GroupBox Header="Least-Squares Parameters" Margin="0,0,0,6" Padding="6" Visibility="{Binding ProjectionWorkspace.IsLeastSquaresAxisymmetricAlignmentMethodSelected, Converter={StaticResource BoolToVisibility}}">
+                                <StackPanel>
+                                    <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="160"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><TextBlock Grid.Column="0" Text="Max Iterations" VerticalAlignment="Center"/><TextBox Grid.Column="1" Text="{Binding ProjectionWorkspace.LeastSquaresMaxIterations, UpdateSourceTrigger=PropertyChanged}"/></Grid>
+                                    <Grid Margin="0,4,0,0"><Grid.ColumnDefinitions><ColumnDefinition Width="160"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><TextBlock Grid.Column="0" Text="Error Bound" VerticalAlignment="Center"/><TextBox Grid.Column="1" Text="{Binding ProjectionWorkspace.LeastSquaresConvergenceTolerance, UpdateSourceTrigger=PropertyChanged, Converter={StaticResource FlexibleNumericConverter}}"/></Grid>
+                                    <Grid Margin="0,4,0,0"><Grid.ColumnDefinitions><ColumnDefinition Width="160"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><TextBlock Grid.Column="0" Text="Point Step Scale" VerticalAlignment="Center"/><TextBox Grid.Column="1" Text="{Binding ProjectionWorkspace.LeastSquaresPointStepScale, UpdateSourceTrigger=PropertyChanged, Converter={StaticResource FlexibleNumericConverter}}"/></Grid>
+                                    <Grid Margin="0,4,0,0"><Grid.ColumnDefinitions><ColumnDefinition Width="160"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><TextBlock Grid.Column="0" Text="Theta Step Scale" VerticalAlignment="Center"/><TextBox Grid.Column="1" Text="{Binding ProjectionWorkspace.LeastSquaresThetaStepScale, UpdateSourceTrigger=PropertyChanged, Converter={StaticResource FlexibleNumericConverter}}"/></Grid>
+                                    <Grid Margin="0,4,0,0"><Grid.ColumnDefinitions><ColumnDefinition Width="160"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><TextBlock Grid.Column="0" Text="Lambda Step Scale" VerticalAlignment="Center"/><TextBox Grid.Column="1" Text="{Binding ProjectionWorkspace.LeastSquaresLambdaStepScale, UpdateSourceTrigger=PropertyChanged, Converter={StaticResource FlexibleNumericConverter}}"/></Grid>
+                                </StackPanel>
+                            </GroupBox>
+                        </StackPanel>
+                    </GroupBox>
+
+                    <StackPanel Margin="0,0,0,8" Visibility="{Binding ProjectionWorkspace.IsProgressVisible, Converter={StaticResource BoolToVisibility}}">
                         <ProgressBar Minimum="0" Maximum="100" Height="18" Value="{Binding ProjectionWorkspace.ProjectionProgressPercent, Mode=OneWay}" />
                         <TextBlock Text="{Binding ProjectionWorkspace.ProjectionProgressMessage}" Foreground="#666" Margin="0,4,0,0" TextWrapping="Wrap"/>
                     </StackPanel>
 
-                    <Button Content="Run Projection"
-                            Command="{Binding ProjectionWorkspace.RunProjectionCommand}"
-                            Width="130"
-                            Height="30"
-                            Margin="0,0,0,8"/>
-
+                    <Button Content="Run Projection" Command="{Binding ProjectionWorkspace.RunProjectionCommand}" Width="130" Height="30" Margin="0,0,0,8"/>
                     <TextBlock Text="{Binding ProjectionWorkspace.StatusMessage}" TextWrapping="Wrap" Foreground="#444" />
                 </StackPanel>
             </ScrollViewer>

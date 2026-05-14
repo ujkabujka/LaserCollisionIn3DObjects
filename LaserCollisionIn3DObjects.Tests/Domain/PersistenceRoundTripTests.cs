@@ -83,6 +83,12 @@ public class PersistenceRoundTripTests
                 {
                     SelectedSceneName = "Scene A",
                     SelectedMethodId = "point-source",
+                    TiltPointX = 12.5,
+                    TiltPointY = -6.25,
+                    TiltPointZ = 3.75,
+                    HybridTiltPointX = 12.5f,
+                    HybridTiltPointY = -6.25f,
+                    HybridTiltPointZ = 3.75f,
                 },
             };
 
@@ -102,6 +108,9 @@ public class PersistenceRoundTripTests
             Assert.Equal(2f, roundTrip.Scenes[0].CylindricalLightSources[0].TiltPointZ, 3);
             Assert.False(roundTrip.AnnotationWorkspace.IsFolderResolved);
             Assert.Equal("/missing/path", roundTrip.AnnotationWorkspace.FolderPath);
+            Assert.Equal(12.5, roundTrip.ProjectionWorkspace.TiltPointX, 6);
+            Assert.Equal(-6.25, roundTrip.ProjectionWorkspace.TiltPointY, 6);
+            Assert.Equal(3.75, roundTrip.ProjectionWorkspace.TiltPointZ, 6);
         }
         finally
         {
@@ -200,7 +209,7 @@ public class PersistenceRoundTripTests
     }
 
     [Fact]
-    public void CylindricalSource_BaseOrientation_RoundTrip_PreservesQuaternionAndFinalOrientation()
+    public void AxisymmetricSource_BaseOrientation_RoundTrip_PreservesQuaternionAndFinalOrientation()
     {
         var baseOrientation = Quaternion.Normalize(Quaternion.CreateFromAxisAngle(Vector3.UnitY, 0.7f));
         const float rx = 10f;
@@ -272,7 +281,7 @@ public class PersistenceRoundTripTests
     }
 
     [Fact]
-    public void CylindricalSource_MissingTiltPointFields_DefaultsToOrigin()
+    public void AxisymmetricSource_MissingTiltPointFields_DefaultsToOrigin()
     {
         const string legacyJson = """
                                   {
@@ -315,14 +324,14 @@ public class PersistenceRoundTripTests
                     Name = "Projection Scene",
                     Projection = new SceneProjectionStateDto
                     {
-                        SelectedMethodId = ProjectionMethodIds.CylindricalSource,
+                        SelectedMethodId = ProjectionMethodIds.AxisymmetricSource,
                         Results =
                         [
                             new ProjectionResultStateDto
                             {
                                 Key = "proj-1",
                                 Name = "Cyl",
-                                MethodId = ProjectionMethodIds.CylindricalSource,
+                                MethodId = ProjectionMethodIds.AxisymmetricSource,
                                 SourceFrame = new PointSourceFrameStateDto
                                 {
                                     Origin = new Point3(1, 2, 3),
@@ -330,7 +339,7 @@ public class PersistenceRoundTripTests
                                     AxisY = new Vector3D(0, 1, 0),
                                     AxisZ = new Vector3D(0, 0, 1),
                                 },
-                                CylindricalSource = new CylindricalProjectionStateDto
+                                AxisymmetricSource = new AxisymmetricProjectionStateDto
                                 {
                                     SourceFrame = new PointSourceFrameStateDto
                                     {
@@ -339,11 +348,10 @@ public class PersistenceRoundTripTests
                                         AxisY = new Vector3D(0, 1, 0),
                                         AxisZ = new Vector3D(0, 0, 1),
                                     },
-                                    Radius = 4,
-                                    Length = 12,
+                                    ProfileDefinition = new AxisymmetricSourceProfileDefinition { Kind = AxisymmetricSourceKind.Cylinder, Radius = 4, Length = 12 },
                                     Points =
                                     [
-                                        new CylindricalProjectionPointStateDto
+                                        new AxisymmetricProjectionPointStateDto
                                         {
                                             HolePoint = new Point3(4, 0, 0),
                                             SourceSurfacePoint = new Point3(0, 4, 0),
@@ -363,11 +371,11 @@ public class PersistenceRoundTripTests
         var restored = JsonSerializer.Deserialize<ProjectState>(json)!;
         var result = restored.Scenes[0].Projection.Results[0];
 
-        Assert.NotNull(result.CylindricalSource);
-        Assert.Equal(4d, result.CylindricalSource!.Radius, 6);
-        Assert.Equal(12d, result.CylindricalSource.Length, 6);
-        Assert.Single(result.CylindricalSource.Points);
-        Assert.Equal(new Point3(0, 4, 0), result.CylindricalSource.Points[0].SourceSurfacePoint);
+        Assert.NotNull(result.AxisymmetricSource);
+        Assert.Equal(4d, result.AxisymmetricSource!.ProfileDefinition.Radius, 6);
+        Assert.Equal(12d, result.AxisymmetricSource.ProfileDefinition.Length, 6);
+        Assert.Single(result.AxisymmetricSource.Points);
+        Assert.Equal(new Point3(0, 4, 0), result.AxisymmetricSource.Points[0].SourceSurfacePoint);
     }
 
     [Fact]
@@ -410,14 +418,14 @@ public class PersistenceRoundTripTests
                         Name = "Scene SC",
                         Projection = new SceneProjectionStateDto
                         {
-                            SelectedMethodId = ProjectionMethodIds.SelfCalibratingCylindricalSource,
+                            SelectedMethodId = ProjectionMethodIds.SelfCalibratingAxisymmetricSource,
                             Results =
                             [
                                 new ProjectionResultStateDto
                                 {
                                     Key = "k",
                                     Name = "r",
-                                    MethodId = ProjectionMethodIds.SelfCalibratingCylindricalSource,
+                                    MethodId = ProjectionMethodIds.SelfCalibratingAxisymmetricSource,
                                     SourceFrame = new PointSourceFrameStateDto
                                     {
                                         Origin = new Point3(0, 0, 0),
@@ -425,7 +433,7 @@ public class PersistenceRoundTripTests
                                         AxisY = new Vector3D(0, 1, 0),
                                         AxisZ = new Vector3D(0, 0, 1),
                                     },
-                                    CylindricalSource = new CylindricalProjectionStateDto
+                                    AxisymmetricSource = new AxisymmetricProjectionStateDto
                                     {
                                         SourceFrame = new PointSourceFrameStateDto
                                         {
@@ -434,16 +442,15 @@ public class PersistenceRoundTripTests
                                             AxisY = new Vector3D(0, 1, 0),
                                             AxisZ = new Vector3D(0, 0, 1),
                                         },
-                                        Radius = 1.5,
-                                        Length = 6,
+                                        ProfileDefinition = new AxisymmetricSourceProfileDefinition { Kind = AxisymmetricSourceKind.Cylinder, Radius = 1.5f, Length = 6f },
                                         LocalTiltPoint = new Point3(1, 2, 3),
                                         EstimatedTiltWeight = 0.42,
-                                        Diagnostics = new SelfCalibratingCylindricalProjectionDiagnosticsDto
+                                        Diagnostics = new SelfCalibratingAxisymmetricProjectionDiagnosticsDto
                                         {
                                             RegularityWeight = 0.1,
                                             CandidateScores =
                                             [
-                                                new SelfCalibratingCylindricalCandidateDiagnosticsDto
+                                                new SelfCalibratingAxisymmetricCandidateDiagnosticsDto
                                                 {
                                                     Lambda = 0.42,
                                                     MeanFitError = 0.01,
@@ -454,7 +461,7 @@ public class PersistenceRoundTripTests
                                         },
                                         Points =
                                         [
-                                            new CylindricalProjectionPointStateDto
+                                            new AxisymmetricProjectionPointStateDto
                                             {
                                                 HolePoint = new Point3(9, 9, 9),
                                                 SourceSurfacePoint = new Point3(1, 1, 1),
@@ -479,7 +486,7 @@ public class PersistenceRoundTripTests
             service.SaveProject(filePath, state);
             var roundTrip = service.LoadProject(filePath);
 
-            var result = roundTrip.Scenes[0].Projection.Results[0].CylindricalSource!;
+            var result = roundTrip.Scenes[0].Projection.Results[0].AxisymmetricSource!;
             Assert.Equal(0.42, result.EstimatedTiltWeight ?? 0d, 6);
             Assert.Equal(new Point3(1, 2, 3), result.LocalTiltPoint);
             Assert.NotNull(result.Diagnostics);
@@ -513,14 +520,14 @@ public class PersistenceRoundTripTests
                         Name = "Scene LS",
                         Projection = new SceneProjectionStateDto
                         {
-                            SelectedMethodId = ProjectionMethodIds.LeastSquaresCylindricalAlignmentSource,
+                            SelectedMethodId = ProjectionMethodIds.LeastSquaresAxisymmetricAlignmentSource,
                             Results =
                             [
                                 new ProjectionResultStateDto
                                 {
                                     Key = "k-ls",
                                     Name = "r-ls",
-                                    MethodId = ProjectionMethodIds.LeastSquaresCylindricalAlignmentSource,
+                                    MethodId = ProjectionMethodIds.LeastSquaresAxisymmetricAlignmentSource,
                                     SourceFrame = new PointSourceFrameStateDto
                                     {
                                         Origin = new Point3(0, 0, 0),
@@ -528,7 +535,7 @@ public class PersistenceRoundTripTests
                                         AxisY = new Vector3D(0, 1, 0),
                                         AxisZ = new Vector3D(0, 0, 1),
                                     },
-                                    CylindricalSource = new CylindricalProjectionStateDto
+                                    AxisymmetricSource = new AxisymmetricProjectionStateDto
                                     {
                                         SourceFrame = new PointSourceFrameStateDto
                                         {
@@ -537,11 +544,10 @@ public class PersistenceRoundTripTests
                                             AxisY = new Vector3D(0, 1, 0),
                                             AxisZ = new Vector3D(0, 0, 1),
                                         },
-                                        Radius = 1.5,
-                                        Length = 6,
+                                        ProfileDefinition = new AxisymmetricSourceProfileDefinition { Kind = AxisymmetricSourceKind.Cylinder, Radius = 1.5f, Length = 6f },
                                         LocalTiltPoint = new Point3(1, 2, 3),
                                         EstimatedTiltWeight = 0.31,
-                                        LeastSquaresDiagnostics = new LeastSquaresCylindricalAlignmentDiagnosticsDto
+                                        LeastSquaresDiagnostics = new LeastSquaresAxisymmetricAlignmentDiagnosticsDto
                                         {
                                             InitialLambda = 0.34,
                                             RefinedLambda = 0.31,
@@ -556,18 +562,22 @@ public class PersistenceRoundTripTests
                                             UsesRegularization = false,
                                             IterationHistory =
                                             [
-                                                new LeastSquaresCylindricalAlignmentIterationDiagnosticsDto
+                                                new AxisymmetricLeastSquaresIterationDiagnosticsDto
                                                 {
                                                     Iteration = 1,
+                                                    ObjectiveError = 0.005,
                                                     Lambda = 0.32,
                                                     MeanAlignmentError = 0.02,
+                                                    RmsAlignmentError = 0.025,
                                                     MeanAngularErrorDegrees = 1.8,
+                                                    MaxAngularErrorDegrees = 2.9,
+                                                    Improved = true,
                                                 },
                                             ],
                                         },
                                         Points =
                                         [
-                                            new CylindricalProjectionPointStateDto
+                                            new AxisymmetricProjectionPointStateDto
                                             {
                                                 HolePoint = new Point3(9, 9, 9),
                                                 SourceSurfacePoint = new Point3(1, 1, 1),
@@ -594,13 +604,16 @@ public class PersistenceRoundTripTests
             service.SaveProject(filePath, state);
             var roundTrip = service.LoadProject(filePath);
 
-            var result = roundTrip.Scenes[0].Projection.Results[0].CylindricalSource!;
+            var result = roundTrip.Scenes[0].Projection.Results[0].AxisymmetricSource!;
             Assert.Equal(0.31, result.EstimatedTiltWeight ?? 0d, 6);
             Assert.NotNull(result.LeastSquaresDiagnostics);
             Assert.Equal(0.34, result.LeastSquaresDiagnostics!.InitialLambda, 6);
             Assert.Equal(0.31, result.LeastSquaresDiagnostics.RefinedLambda, 6);
             Assert.False(result.LeastSquaresDiagnostics.UsesRegularization);
             Assert.Single(result.LeastSquaresDiagnostics.IterationHistory);
+            Assert.Equal(0.005, result.LeastSquaresDiagnostics.IterationHistory[0].ObjectiveError, 6);
+            Assert.Equal(0.025, result.LeastSquaresDiagnostics.IterationHistory[0].RmsAlignmentError, 6);
+            Assert.True(result.LeastSquaresDiagnostics.IterationHistory[0].Improved);
             Assert.Equal(0.03, result.Points[0].AlignmentError ?? 0d, 6);
             Assert.Equal(1.2, result.Points[0].AngularErrorDegrees ?? 0d, 6);
         }
@@ -612,4 +625,160 @@ public class PersistenceRoundTripTests
             }
         }
     }
+
+    [Fact]
+    public void AxisymmetricLightSources_RoundTrip_PreservesFrustumAndOgiveParameters()
+    {
+        var service = new JsonStateFileService();
+        var filePath = Path.Combine(Path.GetTempPath(), $"lc3d-axis-{Guid.NewGuid():N}.json");
+
+        try
+        {
+            var state = new ProjectState
+            {
+                Scenes =
+                [
+                    new SceneState
+                    {
+                        Name = "Scene A",
+                        LightSources =
+                        [
+                            new AxisymmetricLightSourceState
+                            {
+                                Name = "Frustum",
+                                SourceKind = AxisymmetricSourceKind.ConicalFrustum,
+                                RadiusStart = 2f,
+                                RadiusEnd = 3f,
+                                Length = 4f,
+                                RayCount = 25,
+                            },
+                            new AxisymmetricLightSourceState
+                            {
+                                Name = "Ogive",
+                                SourceKind = AxisymmetricSourceKind.CircularOgive,
+                                RadiusStart = 2f,
+                                RadiusEnd = 4f,
+                                Length = 5f,
+                                ArcRadius = 10f,
+                                OgiveCurvatureDirection = OgiveCurvatureDirection.Inward,
+                                RayCount = 36,
+                            },
+                        ],
+                    },
+                ],
+            };
+
+            service.SaveProject(filePath, state);
+            var restored = service.LoadProject(filePath);
+
+            Assert.Equal(2, restored.Scenes[0].LightSources.Count);
+            Assert.Equal(AxisymmetricSourceKind.ConicalFrustum, restored.Scenes[0].LightSources[0].SourceKind);
+            Assert.Equal(3f, restored.Scenes[0].LightSources[0].RadiusEnd, 3);
+            Assert.Equal(AxisymmetricSourceKind.CircularOgive, restored.Scenes[0].LightSources[1].SourceKind);
+            Assert.Equal(OgiveCurvatureDirection.Inward, restored.Scenes[0].LightSources[1].OgiveCurvatureDirection);
+        }
+        finally
+        {
+            if (File.Exists(filePath))
+            {
+                File.Delete(filePath);
+            }
+        }
+    }
+
+    [Fact]
+    public void AxisymmetricLightSources_RoundTrip_PreservesHybridSegments()
+    {
+        var service = new JsonStateFileService();
+        var filePath = Path.Combine(Path.GetTempPath(), $"lc3d-hybrid-{Guid.NewGuid():N}.json");
+
+        try
+        {
+            var state = new ProjectState
+            {
+                Scenes =
+                [
+                    new SceneState
+                    {
+                        Name = "Scene Hybrid",
+                        LightSources =
+                        [
+                            new AxisymmetricLightSourceState
+                            {
+                                Name = "Hybrid",
+                                SourceKind = AxisymmetricSourceKind.Hybrid,
+                                RayCount = 12,
+                                Segments =
+                                [
+                                    new AxisymmetricSourceSegmentStateDto { SegmentKind = HybridAxisymmetricSourceSegmentKind.Cylinder, Length = 2f, RadiusStart = 3f, RadiusEnd = 3f },
+                                    new AxisymmetricSourceSegmentStateDto { SegmentKind = HybridAxisymmetricSourceSegmentKind.ConicalFrustum, Length = 2f, RadiusStart = 3f, RadiusEnd = 4f },
+                                ],
+                            },
+                        ],
+                    },
+                ],
+                ProjectionWorkspace = new ProjectionWorkspaceStateDto
+                {
+                    HybridSegmentCount = 2,
+                    HybridSegments =
+                    [
+                        new AxisymmetricSourceSegmentStateDto { SegmentKind = HybridAxisymmetricSourceSegmentKind.Cylinder, Length = 1f, RadiusStart = 2f, RadiusEnd = 2f },
+                        new AxisymmetricSourceSegmentStateDto { SegmentKind = HybridAxisymmetricSourceSegmentKind.ConicalFrustum, Length = 1f, RadiusStart = 2f, RadiusEnd = 3f },
+                    ],
+                },
+            };
+
+            service.SaveProject(filePath, state);
+            var restored = service.LoadProject(filePath);
+
+            Assert.Equal(AxisymmetricSourceKind.Hybrid, restored.Scenes[0].LightSources[0].SourceKind);
+            Assert.Equal(2, restored.Scenes[0].LightSources[0].Segments.Count);
+            Assert.Equal(HybridAxisymmetricSourceSegmentKind.ConicalFrustum, restored.Scenes[0].LightSources[0].Segments[1].SegmentKind);
+            Assert.Equal(2, restored.ProjectionWorkspace.HybridSegments.Count);
+        }
+        finally
+        {
+            if (File.Exists(filePath))
+            {
+                File.Delete(filePath);
+            }
+        }
+    }
+
+    [Fact]
+    public void ProjectionWorkspaceState_RoundTrip_PreservesGeometryKind()
+    {
+        var service = new JsonStateFileService();
+        var filePath = Path.Combine(Path.GetTempPath(), $"lc3d-geom-{Guid.NewGuid():N}.json");
+
+        try
+        {
+            var state = new ProjectState
+            {
+                ProjectionWorkspace = new ProjectionWorkspaceStateDto
+                {
+                    ProjectionGeometryKind = AxisymmetricSourceKind.CircularOgive,
+                    GeometryRadiusStart = 2.5,
+                    GeometryRadiusEnd = 1.25,
+                    GeometryLength = 11,
+                    GeometryArcRadius = 24,
+                },
+            };
+
+            service.SaveProject(filePath, state);
+            var restored = service.LoadProject(filePath);
+
+            Assert.Equal(AxisymmetricSourceKind.CircularOgive, restored.ProjectionWorkspace.ProjectionGeometryKind);
+            Assert.Equal(2.5, restored.ProjectionWorkspace.GeometryRadiusStart, 6);
+            Assert.Equal(1.25, restored.ProjectionWorkspace.GeometryRadiusEnd, 6);
+        }
+        finally
+        {
+            if (File.Exists(filePath))
+            {
+                File.Delete(filePath);
+            }
+        }
+    }
+
 }

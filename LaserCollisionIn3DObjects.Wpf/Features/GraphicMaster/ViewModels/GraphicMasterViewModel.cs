@@ -20,6 +20,7 @@ namespace LaserCollisionIn3DObjects.Wpf.Features.GraphicMaster.ViewModels;
 public sealed class GraphicMasterViewModel : ObservableObject
 {
     private readonly SceneCollectionService _sceneCollectionService;
+    private readonly CompletedSourceStore _completedSourceStore;
     private readonly GraphSourceExtractionService _sourceExtractionService = new();
     private readonly GraphTypeRegistry _graphTypeRegistry = new(new IGraphType[]
     {
@@ -45,10 +46,12 @@ public sealed class GraphicMasterViewModel : ObservableObject
 
     public GraphicMasterViewModel(
         SceneCollectionService sceneCollectionService,
+        CompletedSourceStore completedSourceStore,
         IGraphicMasterSaveFileDialogService? saveFileDialogService = null,
         IGraphicMasterPngExportService? pngExportService = null)
     {
         _sceneCollectionService = sceneCollectionService ?? throw new ArgumentNullException(nameof(sceneCollectionService));
+        _completedSourceStore = completedSourceStore ?? throw new ArgumentNullException(nameof(completedSourceStore));
         _saveFileDialogService = saveFileDialogService ?? new GraphicMasterSaveFileDialogService();
         _pngExportService = pngExportService ?? new GraphicMasterPngExportService();
 
@@ -69,6 +72,7 @@ public sealed class GraphicMasterViewModel : ObservableObject
         {
             AttachSceneObservers(scene);
         }
+        _completedSourceStore.CompletedSources.CollectionChanged += (_, _) => RefreshSources();
         RefreshSources();
     }
 
@@ -388,7 +392,12 @@ public sealed class GraphicMasterViewModel : ObservableObject
 
     private static PlotModel BuildPlotModel(GraphResult result, string title)
     {
-        var plotModel = new PlotModel { Title = title, Background = OxyColors.White };
+        var plotModel = new PlotModel
+        {
+            Title = title,
+            Background = OxyColors.White,
+            IsLegendVisible = false,
+        };
 
         if (result.VisualizationKind is GraphVisualizationKind.AngleGroupedBar or GraphVisualizationKind.AzimuthGroupedBar)
         {
@@ -403,6 +412,8 @@ public sealed class GraphicMasterViewModel : ObservableObject
 
             var seriesCount = result.Series.Count;
             var binTemplate = result.Series[0].Bins;
+
+            plotModel.IsLegendVisible = result.Series.Count > 1;
 
             for (var seriesIndex = 0; seriesIndex < result.Series.Count; seriesIndex++)
             {
@@ -430,7 +441,20 @@ public sealed class GraphicMasterViewModel : ObservableObject
             var heatmap = result.Heatmap ?? throw new InvalidOperationException("Heatmap visualization requires heatmap data.");
             plotModel.Axes.Add(new LinearAxis { Position = AxisPosition.Bottom, Title = "Azimuth (deg)", Minimum = heatmap.XMin, Maximum = heatmap.XMax });
             plotModel.Axes.Add(new LinearAxis { Position = AxisPosition.Left, Title = "Polar (deg)", Minimum = heatmap.YMin, Maximum = heatmap.YMax });
-            plotModel.Axes.Add(new LinearColorAxis { Position = AxisPosition.Right, Title = "Ray Count", Palette = OxyPalettes.Hot(200) });
+            var heatmapPalette = OxyPalette.Interpolate(
+                256,
+                OxyColors.Blue,
+                OxyColors.Green,
+                OxyColors.Yellow,
+                OxyColors.Orange,
+                OxyColors.Red);
+
+            plotModel.Axes.Add(new LinearColorAxis
+            {
+                Position = AxisPosition.Right,
+                Title = "Ray Count",
+                Palette = heatmapPalette,
+            });
             plotModel.Series.Add(new HeatMapSeries
             {
                 X0 = heatmap.XMin,
@@ -440,7 +464,9 @@ public sealed class GraphicMasterViewModel : ObservableObject
                 Data = heatmap.Values,
                 Interpolate = false,
                 RenderMethod = HeatMapRenderMethod.Rectangles,
+                RenderInLegend = false,
             });
+            plotModel.IsLegendVisible = false;
             return plotModel;
         }
 
@@ -453,6 +479,8 @@ public sealed class GraphicMasterViewModel : ObservableObject
 
             plotModel.Axes.Add(new LinearAxis { Position = AxisPosition.Bottom, Title = "Normalized axial position (x/L)" });
             plotModel.Axes.Add(new LinearAxis { Position = AxisPosition.Left, Title = "Angle to source X axis (deg)", Minimum = 0, Maximum = 180 });
+
+            plotModel.IsLegendVisible = result.Series.Count > 1;
 
             foreach (var series in result.Series)
             {
@@ -480,6 +508,8 @@ public sealed class GraphicMasterViewModel : ObservableObject
 
         plotModel.Axes.Add(new LinearAxis { Position = AxisPosition.Bottom, Title = "Angle Bin Center (deg)", Minimum = 0, Maximum = 180 });
         plotModel.Axes.Add(new LinearAxis { Position = AxisPosition.Left, Title = "Ray Count", Minimum = 0 });
+
+        plotModel.IsLegendVisible = result.Series.Count > 1;
 
         foreach (var series in result.Series)
         {
@@ -545,15 +575,28 @@ public sealed class GraphicMasterViewModel : ObservableObject
             .Select(scene => new GraphSceneData
             {
                 SceneName = scene.Name,
-                CylindricalSources = scene.LightSources.Select(MapToDomainLightSource).ToList(),
+                AxisymmetricSources = scene.LightSources.Where(source => source.SourceKind == AxisymmetricSourceKind.Cylinder).Select(MapToDomainLightSource).ToList(),
                 ProjectionResults = scene.ProjectionState.SavedResults,
             })
             .ToList();
 
         var extracted = _sourceExtractionService.Extract(scenes);
+        var completed = _completedSourceStore.CompletedSources
+            .Select((source, idx) => new GraphableSourceData
+            {
+                Id = $"completed::{source.Id}",
+                DisplayName = $"Completed Source - {source.Methodology} {idx + 1}",
+                Kind = GraphableSourceKind.ProjectionResult,
+                AxisX = new Vector3((float)source.SourceFrame.AxisX.X, (float)source.SourceFrame.AxisX.Y, (float)source.SourceFrame.AxisX.Z),
+                AxisY = new Vector3((float)source.SourceFrame.AxisY.X, (float)source.SourceFrame.AxisY.Y, (float)source.SourceFrame.AxisY.Z),
+                AxisZ = new Vector3((float)source.SourceFrame.AxisZ.X, (float)source.SourceFrame.AxisZ.Y, (float)source.SourceFrame.AxisZ.Z),
+                FrameOrigin = new Vector3((float)source.SourceFrame.Origin.X, (float)source.SourceFrame.Origin.Y, (float)source.SourceFrame.Origin.Z),
+                SourceLength = source.ProfileDefinition.Length,
+                Rays = source.CompletedRays.Select(ray => ray.Ray).ToList(),
+            });
 
         Sources.Clear();
-        foreach (var source in extracted)
+        foreach (var source in extracted.Concat(completed))
         {
             Sources.Add(new GraphableSourceItemViewModel
             {

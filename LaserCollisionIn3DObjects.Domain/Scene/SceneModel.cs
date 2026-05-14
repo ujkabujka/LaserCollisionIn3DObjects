@@ -19,6 +19,11 @@ public sealed class SceneModel
     public List<CylindricalLightSource> CylindricalLightSources { get; } = new();
 
     /// <summary>
+    /// Gets additional axisymmetric (non-cylindrical) light sources in the scene.
+    /// </summary>
+    public List<AxisymmetricLightSource> AxisymmetricLightSources { get; } = new();
+
+    /// <summary>
     /// Gets the rays in the scene.
     /// </summary>
     public List<Ray3D> Rays { get; } = new();
@@ -27,6 +32,13 @@ public sealed class SceneModel
     /// Gets the rays generated from cylindrical light sources.
     /// </summary>
     public List<Ray3D> GeneratedRays { get; } = new();
+
+    /// <summary>
+    /// Gets exact candidate rays copied from projected light-source results.
+    /// These rays are used for collision. Rendering should always show their origins,
+    /// but should only show line segments for rays that hit.
+    /// </summary>
+    public List<Ray3D> ProjectedSourceRays { get; } = new();
 
 
     /// <summary>

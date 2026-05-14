@@ -33,6 +33,7 @@ public sealed class HelixSceneBuilder
 
         var visuals = new List<Visual3D>();
         var generatedRayLookup = scene.GeneratedRays.Count > 0 ? new HashSet<Ray3D>(scene.GeneratedRays) : null;
+        var projectedRayLookup = scene.ProjectedSourceRays.Count > 0 ? new HashSet<Ray3D>(scene.ProjectedSourceRays) : null;
         visuals.AddRange(_frameVisualizer.CreateGlobalFrameVisuals(3f));
 
         visuals.Add(_meshFactory.CreateRectangularPrismBatch(scene.RectangularPrisms, Colors.LightGreen));
@@ -40,23 +41,43 @@ public sealed class HelixSceneBuilder
             scene.RectangularPrisms.Select(prism => (prism.Frame, GetPrismFrameAxisLength(prism))).ToList()));
 
         visuals.Add(_meshFactory.CreateCylindricalLightSourceBatch(scene.CylindricalLightSources, Colors.Gold));
-        visuals.AddRange(_frameVisualizer.CreateFrameVisualsBatch(
-            scene.CylindricalLightSources.Select(lightSource => (lightSource.Frame, GetLightSourceFrameAxisLength(lightSource))).ToList()));
+        visuals.Add(_meshFactory.CreateAxisymmetricLightSourceBatch(scene.AxisymmetricLightSources, Colors.Goldenrod));
+
+        var lightSourceFrames = scene.CylindricalLightSources
+            .Select(lightSource => (lightSource.Frame, GetLightSourceFrameAxisLength(lightSource)))
+            .Concat(scene.AxisymmetricLightSources.Select(lightSource => (lightSource.Frame, GetLightSourceFrameAxisLength(lightSource))))
+            .ToList();
+        visuals.AddRange(_frameVisualizer.CreateFrameVisualsBatch(lightSourceFrames));
 
         var raySegments = new List<(Ray3D Ray, float Length)>(scene.Rays.Count);
         var generatedRayOriginsWithoutHit = new List<Ray3D>();
+        var projectedRayOrigins = new List<Ray3D>();
 
         List<RayHitResult> hitResultList = new List<RayHitResult>();
         foreach (var ray in scene.Rays)
         {
             RayHitResult? hit = null;
             var isGeneratedRay = generatedRayLookup?.Contains(ray) == true;
+            var isProjectedSourceRay = projectedRayLookup?.Contains(ray) == true;
             var hasHit = hitResults is not null && hitResults.TryGetValue(ray, out hit) && hit is not null && hit.HasHit;
 
             if (isGeneratedRay && !hasHit)
             {
                 generatedRayOriginsWithoutHit.Add(ray);
                 continue;
+            }
+
+            // Projected source rays are collision candidates.
+            // Their origins should always be visible as source samples,
+            // but their lines are rendered only after a collision hit exists.
+            if (isProjectedSourceRay)
+            {
+                projectedRayOrigins.Add(ray);
+
+                if (!hasHit)
+                {
+                    continue;
+                }
             }
 
             var rayLength = hasHit && hit is not null ? hit.Distance : defaultRayLength;
@@ -88,6 +109,11 @@ public sealed class HelixSceneBuilder
             visuals.Add(_rayVisualizer.CreateRayOriginPointBatch(generatedRayOriginsWithoutHit, color: Colors.OrangeRed));
         }
 
+        if (projectedRayOrigins.Count > 0)
+        {
+            visuals.Add(_rayVisualizer.CreateRayOriginPointBatch(projectedRayOrigins, radius: 0.08d, color: Colors.DeepPink));
+        }
+
         if (scene.HolePoints.Count > 0)
         {
             visuals.Add(_rayVisualizer.CreatePoints(scene.HolePoints, color: Colors.Blue));
@@ -96,9 +122,44 @@ public sealed class HelixSceneBuilder
         return visuals;
     }
 
+
+    public IReadOnlyList<Visual3D> BuildSourceCompletionPreviewVisuals(
+        PointSourceFrameState? sourceFrame,
+        IAxisymmetricSourceProfile? profile,
+        IReadOnlyList<Ray3D>? originalRays,
+        IReadOnlyList<Ray3D>? syntheticRays)
+    {
+        var visuals = new List<Visual3D>();
+
+        if (sourceFrame is null || profile is null)
+        {
+            return visuals;
+        }
+
+        var frame = ToFrame3D(sourceFrame);
+        visuals.Add(_meshFactory.CreateAxisymmetricSourceProfileVisual(profile, frame, Colors.Goldenrod, 0.45d, slices: 32, stacks: 24));
+        visuals.AddRange(_frameVisualizer.CreateFrameVisualsBatch(new[] { (frame, 0.9f) }));
+
+        if (originalRays is not null && originalRays.Count > 0)
+        {
+            visuals.Add(_rayVisualizer.CreateRayOriginPointBatch(originalRays, color: Colors.OrangeRed));
+        }
+
+        if (syntheticRays is not null && syntheticRays.Count > 0)
+        {
+            visuals.Add(_rayVisualizer.CreateRayOriginPointBatch(syntheticRays, color: Colors.LimeGreen));
+        }
+
+        return visuals;
+    }
+
     public IReadOnlyList<Visual3D> BuildProjectionVisuals(
         IReadOnlyList<Point3> holePoints,
-        ProjectionComputationResult? projectionResult)
+        ProjectionComputationResult? projectionResult,
+        IAxisymmetricSourceProfile? previewProfile = null,
+        Frame3D? previewFrame = null,
+        bool previewAsGhost = true,
+        Point3? previewTiltPointLocal = null)
     {
         ArgumentNullException.ThrowIfNull(holePoints);
 
@@ -113,24 +174,24 @@ public sealed class HelixSceneBuilder
             visuals.AddRange(_frameVisualizer.CreateFrameVisualsBatch(new[] { (ToFrame3D(sourceFrame), 1.5f) }));
         }
 
-        if (projectionResult?.CylindricalSource is { } cylindrical)
+        if (previewProfile is not null && previewFrame is not null)
         {
-            var cylindricalFrame = ToFrame3D(cylindrical.SourceFrame);
-            visuals.Add(_meshFactory.CreateCylindricalLightSourceBatch(
-                new[]
-                {
-                    new CylindricalLightSource(
-                        "Projected Cylindrical Source",
-                        cylindricalFrame,
-                        (float)cylindrical.Radius,
-                        (float)cylindrical.Length,
-                        rayCount: 1)
-                },
-                Colors.Goldenrod));
+            var previewOpacity = previewAsGhost ? 0.25d : 1d;
+            visuals.Add(_meshFactory.CreateAxisymmetricSourceProfileVisual(previewProfile, previewFrame, Colors.MediumPurple, previewOpacity, slices: 32, stacks: 24));
+            visuals.AddRange(_frameVisualizer.CreateFrameVisualsBatch(new[] { (previewFrame, 1.5f) }));
 
-            if (cylindrical.Points.Count > 0)
+            if (previewTiltPointLocal is Point3 tiltLocal)
             {
-                visuals.Add(_rayVisualizer.CreatePoints(cylindrical.Points.Select(point => point.SourceSurfacePoint).ToList(), Colors.MediumPurple, size: 4));
+                var tiltWorld = previewFrame.TransformPointToWorld(new Vector3((float)tiltLocal.X, (float)tiltLocal.Y, (float)tiltLocal.Z));
+                visuals.Add(_rayVisualizer.CreatePoints(new[] { new Point3(tiltWorld.X, tiltWorld.Y, tiltWorld.Z) }, Colors.Orange, size: 8));
+            }
+        }
+
+        if (projectionResult?.AxisymmetricSource is { } axisymmetric)
+        {
+            if (axisymmetric.Points.Count > 0)
+            {
+                visuals.Add(_rayVisualizer.CreatePoints(axisymmetric.Points.Select(point => point.SourceSurfacePoint).ToList(), Colors.Red, size: 5));
             }
         }
         else
@@ -167,8 +228,14 @@ public sealed class HelixSceneBuilder
 
     private static float GetLightSourceFrameAxisLength(CylindricalLightSource source)
     {
-        //return Math.Max(source.Height, source.Radius * 2f) * 0.65f;
-        return 1f;
+        return Math.Max(source.Height, source.Radius * 2f) * 0.25f;
+    }
+
+    private static float GetLightSourceFrameAxisLength(AxisymmetricLightSource source)
+    {
+        var startRadius = source.Profile.RadiusAt(0f);
+        var endRadius = source.Profile.RadiusAt(source.Profile.Length);
+        return Math.Max(source.Profile.Length, Math.Max(startRadius, endRadius) * 2f) * 0.25f;
     }
 
     private static Frame3D ToFrame3D(PointSourceFrameState frame)
