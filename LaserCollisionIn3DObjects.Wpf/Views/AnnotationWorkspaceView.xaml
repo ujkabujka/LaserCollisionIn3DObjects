@@ -21,6 +21,7 @@
                 <StackPanel>
                     <TextBlock Text="VIA Annotation Workspace" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,8" />
                     <Button Content="Select Annotation Folder" Command="{Binding AnnotationWorkspace.SelectFolderCommand}" Height="30" />
+                    <Button Content="Import Panel Measurements CSV..." Command="{Binding AnnotationWorkspace.ImportPanelMeasurementsCsvCommand}" Height="26" Margin="0,6,0,0"/>
                     <Button Content="Restore / Relink Missing Folder" Command="{Binding AnnotationWorkspace.RelinkMissingFolderCommand}" Height="26" Margin="0,6,0,0"/>
                     <TextBlock Text="{Binding AnnotationWorkspace.SelectedFolderPath}" TextWrapping="Wrap" Margin="0,8,0,8" Foreground="#444" />
                     <TextBlock Text="{Binding AnnotationWorkspace.StatusMessage}" TextWrapping="Wrap" Margin="0,0,0,8" Foreground="#1A5276" />
@@ -165,14 +166,11 @@
                         <Canvas.RenderTransform>
                             <ScaleTransform x:Name="OriginalScaleTransform"/>
                         </Canvas.RenderTransform>
-                        <Image x:Name="OriginalBaseImage"
-                               Source="{Binding AnnotationWorkspace.SelectedImage.OriginalImage}"
+                        <Image x:Name="OriginalPreviewImage"
+                               Source="{Binding AnnotationWorkspace.SelectedImage.OriginalOverlay, NotifyOnTargetUpdated=True}"
                                Stretch="None"
-                               SizeChanged="OnOriginalBaseImageSizeChanged"/>
-                        <Image Source="{Binding AnnotationWorkspace.SelectedImage.OriginalOverlay}"
-                               Stretch="None"
-                               IsHitTestVisible="False"
-                               Panel.ZIndex="1"/>
+                               SizeChanged="OnOriginalPreviewImageSizeChanged"
+                               TargetUpdated="OnOriginalPreviewImageTargetUpdated"/>
                     </Canvas>
                 </Grid>
             </ScrollViewer>
@@ -189,14 +187,11 @@
                         <Canvas.RenderTransform>
                             <ScaleTransform x:Name="WarpedScaleTransform"/>
                         </Canvas.RenderTransform>
-                        <Image x:Name="WarpedBaseImage"
-                               Source="{Binding AnnotationWorkspace.SelectedImage.WarpedImage}"
+                        <Image x:Name="WarpedPreviewImage"
+                               Source="{Binding AnnotationWorkspace.SelectedImage.WarpedOverlay, NotifyOnTargetUpdated=True}"
                                Stretch="None"
-                               SizeChanged="OnWarpedBaseImageSizeChanged"/>
-                        <Image Source="{Binding AnnotationWorkspace.SelectedImage.WarpedOverlay}"
-                               Stretch="None"
-                               IsHitTestVisible="False"
-                               Panel.ZIndex="1"/>
+                               SizeChanged="OnWarpedPreviewImageSizeChanged"
+                               TargetUpdated="OnWarpedPreviewImageTargetUpdated"/>
                     </Canvas>
                 </Grid>
             </ScrollViewer>
