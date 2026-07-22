@@ -314,10 +314,20 @@ public sealed class AnnotationWorkspaceViewModel : ObservableObject
 
         try
         {
-            var bitmap = image.OriginalImage ?? _workspaceService.LoadImage(image.Record.ImagePath!);
+            var bitmap = image.OriginalImage;
+            if (bitmap is null)
+            {
+                var loadResult = _workspaceService.LoadImageWithDetails(image.Record.ImagePath!);
+                bitmap = loadResult.Image;
+                image.OriginalImage = bitmap;
+                if (loadResult.Orientation != LaserCollisionIn3DObjects.Domain.Imaging.ExifOrientation.Normal)
+                {
+                    AddProcessingDiagnostic(image, $"EXIF orientation {((ushort)loadResult.Orientation)} normalized: raw {loadResult.RawPixelWidth}x{loadResult.RawPixelHeight}, displayed {bitmap.PixelWidth}x{bitmap.PixelHeight}.");
+                    AddCoordinateSystemDiagnostic(image, loadResult.RawPixelWidth, loadResult.RawPixelHeight, bitmap.PixelWidth, bitmap.PixelHeight);
+                }
+            }
             if (updatePreview)
             {
-                image.OriginalImage = bitmap;
                 image.OriginalOverlay = _workspaceService.CreateOriginalOverlay(image.Record, bitmap);
             }
 
@@ -374,6 +384,20 @@ public sealed class AnnotationWorkspaceViewModel : ObservableObject
         if (!image.Record.Diagnostics.Contains(message, StringComparer.Ordinal))
         {
             image.Record.Diagnostics.Add(message);
+        }
+    }
+
+    private static void AddCoordinateSystemDiagnostic(AnnotatedImageViewModel image, int rawWidth, int rawHeight, int normalizedWidth, int normalizedHeight)
+    {
+        var annotationPoints = image.Record.Panel?.OriginalPolygonPoints.Concat(image.Record.Holes.Select(static hole => hole.CenterPoint)).ToArray()
+            ?? image.Record.Holes.Select(static hole => hole.CenterPoint).ToArray();
+        if (annotationPoints.Length == 0) return;
+
+        static bool IsWithinBounds(Point point, int width, int height) => point.X >= 0 && point.X < width && point.Y >= 0 && point.Y < height;
+        if (annotationPoints.Any(point => !IsWithinBounds(point, normalizedWidth, normalizedHeight))
+            && annotationPoints.All(point => IsWithinBounds(point, rawWidth, rawHeight)))
+        {
+            AddProcessingDiagnostic(image, "Annotation coordinates fit the raw image bounds but not the EXIF-normalized bounds; verify that the VIA annotations were created against the visually oriented image.");
         }
     }
 
