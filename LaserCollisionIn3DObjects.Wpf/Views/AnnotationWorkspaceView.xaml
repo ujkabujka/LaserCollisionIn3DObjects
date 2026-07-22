@@ -21,6 +21,7 @@
                 <StackPanel>
                     <TextBlock Text="VIA Annotation Workspace" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,8" />
                     <Button Content="Select Annotation Folder" Command="{Binding AnnotationWorkspace.SelectFolderCommand}" Height="30" />
+                    <Button Content="Import Panel Measurements CSV..." Command="{Binding AnnotationWorkspace.ImportPanelMeasurementsCsvCommand}" Height="26" Margin="0,6,0,0"/>
                     <Button Content="Restore / Relink Missing Folder" Command="{Binding AnnotationWorkspace.RelinkMissingFolderCommand}" Height="26" Margin="0,6,0,0"/>
                     <TextBlock Text="{Binding AnnotationWorkspace.SelectedFolderPath}" TextWrapping="Wrap" Margin="0,8,0,8" Foreground="#444" />
                     <TextBlock Text="{Binding AnnotationWorkspace.StatusMessage}" TextWrapping="Wrap" Margin="0,0,0,8" Foreground="#1A5276" />
