@@ -4,6 +4,7 @@ using System.Windows;
 using System.Windows.Input;
 using Microsoft.Win32;
 using LaserCollisionIn3DObjects.Domain.Persistence;
+using LaserCollisionIn3DObjects.Domain.Import;
 using LaserCollisionIn3DObjects.Wpf.Commands;
 using LaserCollisionIn3DObjects.Wpf.Features.Annotations.Models;
 using LaserCollisionIn3DObjects.Wpf.Features.Annotations.Services;
@@ -20,6 +21,7 @@ public sealed class AnnotationWorkspaceViewModel : ObservableObject
 {
     private readonly SceneCollectionService? _sceneCollectionService;
     private readonly AnnotationWorkspaceService _workspaceService = new();
+    private readonly PanelMeasurementsCsvImportService _panelMeasurementsImporter = new();
     private readonly Dictionary<AnnotatedImageViewModel, RectificationResult?> _rectificationByImage = new();
     private string _selectedFolderPath = "No folder selected.";
     private string _statusMessage = "Select an annotation folder to begin.";
@@ -35,6 +37,7 @@ public sealed class AnnotationWorkspaceViewModel : ObservableObject
     {
         _sceneCollectionService = sceneCollectionService;
         SelectFolderCommand = new RelayCommand(SelectFolder);
+        ImportPanelMeasurementsCsvCommand = new RelayCommand(ImportPanelMeasurementsCsv, () => Images.Count > 0);
         SelectPreviousImageCommand = new RelayCommand(SelectPreviousImage, () => SelectedImageIndex > 0);
         SelectNextImageCommand = new RelayCommand(SelectNextImage, () => SelectedImageIndex >= 0 && SelectedImageIndex < Images.Count - 1);
         ApplyGlobalPanelDimensionsCommand = new RelayCommand(ApplyGlobalPanelDimensions, () => Images.Count > 0);
@@ -43,6 +46,8 @@ public sealed class AnnotationWorkspaceViewModel : ObservableObject
     }
 
     public ICommand SelectFolderCommand { get; }
+
+    public ICommand ImportPanelMeasurementsCsvCommand { get; }
 
     public ICommand SelectPreviousImageCommand { get; }
 
@@ -158,6 +163,66 @@ public sealed class AnnotationWorkspaceViewModel : ObservableObject
         MissingFolderPath = null;
     }
 
+    private void ImportPanelMeasurementsCsv()
+    {
+        if (Images.Count == 0)
+        {
+            StatusMessage = "Load annotation images before importing panel measurements.";
+            return;
+        }
+
+        var dialog = new OpenFileDialog { Title = "Import Panel Measurements CSV", Filter = "CSV files (*.csv)|*.csv|All files (*.*)|*.*" };
+        if (dialog.ShowDialog() != true) return;
+        try
+        {
+            using var reader = File.OpenText(dialog.FileName);
+            ImportPanelMeasurements(reader);
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Panel measurements CSV import failed: {ex.Message}";
+        }
+    }
+
+    public bool ImportPanelMeasurements(TextReader reader)
+    {
+        IReadOnlyList<PanelMeasurementRecord> rows;
+        try { rows = _panelMeasurementsImporter.Parse(reader); }
+        catch (FormatException ex) { StatusMessage = $"Panel measurements CSV is invalid: {ex.Message}"; return false; }
+
+        if (rows.Count != Images.Count)
+        {
+            StatusMessage = $"Panel measurements CSV has {rows.Count} data rows but {Images.Count} annotation images are loaded. No values were applied.";
+            return false;
+        }
+
+        var orderedImages = Images.OrderBy(static image => image.FileName, NaturalFileNameComparer.Instance).ToList();
+        for (var i = 0; i < orderedImages.Count; i++) ApplyPanelMeasurements(orderedImages[i], rows[i]);
+        foreach (var image in orderedImages) RebuildHoleRows(image);
+        RaiseCanExecuteChanges();
+        StatusMessage = $"Imported panel measurements for {rows.Count} panel record(s).";
+        return true;
+    }
+
+    private static void ApplyPanelMeasurements(AnnotatedImageViewModel image, PanelMeasurementRecord row)
+    {
+        image.PanelWidthMm = row.WidthMm;
+        image.PanelHeightMm = row.HeightMm;
+        image.PanelThicknessMm = row.ThicknessMm;
+        ApplyCorner(image.LeftTopCorner, row.LeftTop);
+        ApplyCorner(image.RightTopCorner, row.RightTop);
+        ApplyCorner(image.RightBottomCorner, row.RightBottom);
+        ApplyCorner(image.LeftBottomCorner, row.LeftBottom);
+    }
+
+    private static void ApplyCorner(CornerMeasurementViewModel corner, PanelCornerMeasurement measurement)
+    {
+        corner.SelectedMode = CornerMeasurementMode.ManualMeasurement;
+        corner.ManualDistanceMeters = measurement.DistanceMeters;
+        corner.ManualAzimuthDeg = measurement.AzimuthDeg;
+        corner.ManualElevationDeg = measurement.ElevationDeg;
+    }
+
     private void SelectPreviousImage()
     {
         if (SelectedImageIndex > 0)
@@ -271,6 +336,7 @@ public sealed class AnnotationWorkspaceViewModel : ObservableObject
         (SelectPreviousImageCommand as RelayCommand)?.RaiseCanExecuteChanged();
         (SelectNextImageCommand as RelayCommand)?.RaiseCanExecuteChanged();
         (ApplyGlobalPanelDimensionsCommand as RelayCommand)?.RaiseCanExecuteChanged();
+        (ImportPanelMeasurementsCsvCommand as RelayCommand)?.RaiseCanExecuteChanged();
         (GenerateSceneCommand as RelayCommand)?.RaiseCanExecuteChanged();
         (RelinkMissingFolderCommand as RelayCommand)?.RaiseCanExecuteChanged();
     }
