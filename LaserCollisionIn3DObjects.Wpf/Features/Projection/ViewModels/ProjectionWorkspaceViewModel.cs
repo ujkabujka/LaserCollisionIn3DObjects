@@ -52,6 +52,7 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
     private double _leastSquaresThetaStepScale = LeastSquaresAxisymmetricAlignmentSolverSettings.Default.ThetaStepScale;
     private double _leastSquaresLambdaStepScale = LeastSquaresAxisymmetricAlignmentSolverSettings.Default.LambdaStepScale;
     private bool _isApplyingWorkspaceState;
+    private bool _showPanels = true;
 
     public ProjectionWorkspaceViewModel(
         SceneCollectionService sceneCollectionService,
@@ -288,6 +289,15 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
         }
     }
 
+    public bool ShowPanels
+    {
+        get => _showPanels;
+        set
+        {
+            if (SetProperty(ref _showPanels, value)) RefreshViewport(zoomExtents: false);
+        }
+    }
+
     public CollisionSceneViewModel? SelectedScene
     {
         get => _selectedScene;
@@ -348,6 +358,7 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
         return new ProjectionWorkspaceStateDto
         {
             SelectedSceneName = SelectedScene?.Name,
+            ShowPanels = ShowPanels,
             SelectedMethodId = SelectedMethod?.Id ?? ProjectionWorkspaceState.DefaultMethodId,
             ProjectionGeometryKind = SelectedAxisymmetricSourceKind,
             GeometryRadiusStart = GeometryRadiusStart,
@@ -385,6 +396,7 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
         _isApplyingWorkspaceState = true;
         try
         {
+            ShowPanels = state.ShowPanels ?? true;
             SelectedMethod = ProjectionMethods.FirstOrDefault(method => method.Id == state.SelectedMethodId)
                 ?? ProjectionMethods.FirstOrDefault(method => method.Id == ProjectionWorkspaceState.DefaultMethodId)
                 ?? ProjectionMethods.FirstOrDefault();
@@ -849,10 +861,13 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
         }
     }
 
-    private void RefreshViewport()
+    private void RefreshViewport(bool zoomExtents = true)
     {
         var scene = SelectedScene;
         var holePoints = scene?.HolePoints?.ToList() ?? new List<Point3>();
+        IReadOnlyList<RectangularPrism> panels = ShowPanels && scene is not null
+            ? scene.Prisms.Select(PrismGeometryConverter.CreateDomainPrism).ToList()
+            : Array.Empty<RectangularPrism>();
         var result = scene?.ProjectionState.SelectedResult;
         _projectionRenderSyncService.SyncProjectionScene(
             holePoints,
@@ -860,7 +875,9 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
             BuildSelectedProjectionGeometryProfile(),
             BuildPreviewFrame(),
             previewAsGhost: true,
-            previewTiltPointLocal: new Point3(TiltPointX, TiltPointY, TiltPointZ));
+            previewTiltPointLocal: new Point3(TiltPointX, TiltPointY, TiltPointZ),
+            panels: panels,
+            zoomExtents: zoomExtents);
     }
 
     private void OnScenesCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)

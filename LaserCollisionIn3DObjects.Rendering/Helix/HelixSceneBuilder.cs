@@ -159,11 +159,17 @@ public sealed class HelixSceneBuilder
         IAxisymmetricSourceProfile? previewProfile = null,
         Frame3D? previewFrame = null,
         bool previewAsGhost = true,
-        Point3? previewTiltPointLocal = null)
+        Point3? previewTiltPointLocal = null,
+        IReadOnlyList<RectangularPrism>? panels = null)
     {
         ArgumentNullException.ThrowIfNull(holePoints);
 
         var visuals = new List<Visual3D>();
+        if (panels is { Count: > 0 })
+        {
+            visuals.Add(_meshFactory.CreateRectangularPrismBatch(panels, Colors.LightGreen, opacity: 0.5d));
+        }
+
         if (holePoints.Count > 0)
         {
             visuals.Add(_rayVisualizer.CreatePoints(holePoints, Colors.DodgerBlue, size: 4));
