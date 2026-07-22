@@ -25,16 +25,18 @@ public sealed class ProjectionRenderSyncService
         IAxisymmetricSourceProfile? previewProfile = null,
         Frame3D? previewFrame = null,
         bool previewAsGhost = true,
-        Point3? previewTiltPointLocal = null)
+        Point3? previewTiltPointLocal = null,
+        IReadOnlyList<RectangularPrism>? panels = null,
+        bool zoomExtents = true)
     {
-        var visuals = _sceneBuilder.BuildProjectionVisuals(holePoints, projectionResult, previewProfile, previewFrame, previewAsGhost, previewTiltPointLocal);
+        var visuals = _sceneBuilder.BuildProjectionVisuals(holePoints, projectionResult, previewProfile, previewFrame, previewAsGhost, previewTiltPointLocal, panels);
         _dynamicVisualRoot.Children.Clear();
         foreach (var visual in visuals)
         {
             _dynamicVisualRoot.Children.Add(visual);
         }
 
-        if (projectionResult is not null)
+        if (zoomExtents && projectionResult is not null)
         {
             _viewport.ZoomExtents();
         }

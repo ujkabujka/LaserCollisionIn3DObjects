@@ -11,6 +11,10 @@ public sealed class AnnotatedImageViewModel : ObservableObject
     private double? _panelWidthMm;
     private double? _panelHeightMm;
     private double? _panelThicknessMm;
+    private BitmapSource? _originalImage;
+    private BitmapSource? _originalOverlay;
+    private BitmapSource? _warpedImage;
+    private BitmapSource? _warpedOverlay;
 
     public AnnotatedImageViewModel()
     {
@@ -35,13 +39,29 @@ public sealed class AnnotatedImageViewModel : ObservableObject
 
     public int HoleCount => Record.Holes.Count;
 
-    public BitmapSource? OriginalImage { get; set; }
+    public BitmapSource? OriginalImage
+    {
+        get => _originalImage;
+        set => SetProperty(ref _originalImage, value);
+    }
 
-    public BitmapSource? OriginalOverlay { get; set; }
+    public BitmapSource? OriginalOverlay
+    {
+        get => _originalOverlay;
+        set => SetProperty(ref _originalOverlay, value);
+    }
 
-    public BitmapSource? WarpedImage { get; set; }
+    public BitmapSource? WarpedImage
+    {
+        get => _warpedImage;
+        set => SetProperty(ref _warpedImage, value);
+    }
 
-    public BitmapSource? WarpedOverlay { get; set; }
+    public BitmapSource? WarpedOverlay
+    {
+        get => _warpedOverlay;
+        set => SetProperty(ref _warpedOverlay, value);
+    }
 
     public ObservableCollection<HoleViewModel> Holes { get; } = new();
     public ObservableCollection<Point> WarpedHoleCentersMm { get; } = new();

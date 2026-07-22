@@ -86,19 +86,7 @@ public sealed class SceneRenderSyncService
 
         foreach (var prism in prisms)
         {
-            var orientation = FrameOrientationBuilder.ApplyLocalEulerDegrees(
-                prism.BaseOrientation,
-                prism.RotationX,
-                prism.RotationY,
-                prism.RotationZ);
-
-            scene.RectangularPrisms.Add(
-                new RectangularPrism(
-                    string.IsNullOrWhiteSpace(prism.Name) ? "Prism" : prism.Name,
-                    new Frame3D(new Vector3(prism.PositionX, prism.PositionY, prism.PositionZ), orientation),
-                    prism.SizeX,
-                    prism.SizeY,
-                    prism.SizeZ));
+            scene.RectangularPrisms.Add(PrismGeometryConverter.CreateDomainPrism(prism));
         }
 
         foreach (var lightSource in lightSources)
