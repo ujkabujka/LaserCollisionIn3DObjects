@@ -11,11 +11,13 @@ namespace LaserCollisionIn3DObjects.Rendering.Helix;
 /// </summary>
 public sealed class HelixMeshFactory
 {
-    public ModelVisual3D CreateRectangularPrismBatch(IReadOnlyList<RectangularPrism> prisms, Color? color = null)
+    public ModelVisual3D CreateRectangularPrismBatch(IReadOnlyList<RectangularPrism> prisms, Color? color = null, double opacity = 1d)
     {
         ArgumentNullException.ThrowIfNull(prisms);
 
-        var material = MaterialHelper.CreateMaterial(color ?? Colors.SteelBlue);
+        var baseColor = color ?? Colors.SteelBlue;
+        var alpha = (byte)Math.Round(255d * Math.Clamp(opacity, 0d, 1d));
+        var material = MaterialHelper.CreateMaterial(Color.FromArgb(alpha, baseColor.R, baseColor.G, baseColor.B));
         var group = new Model3DGroup();
 
         foreach (var prism in prisms)

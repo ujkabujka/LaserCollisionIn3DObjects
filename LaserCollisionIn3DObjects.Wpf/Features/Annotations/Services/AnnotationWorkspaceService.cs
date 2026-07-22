@@ -10,22 +10,16 @@ namespace LaserCollisionIn3DObjects.Wpf.Features.Annotations.Services;
 public sealed class AnnotationWorkspaceService
 {
     private readonly ViaAnnotationLoader _loader = new();
+    private readonly AnnotationImageLoader _imageLoader = new();
     private readonly PanelQuadrilateralFitter _fitter = new();
     private readonly PanelRectificationService _rectifier = new();
     private readonly OverlayRenderer _overlayRenderer = new();
 
     public AnnotationProject LoadProject(string folderPath) => _loader.LoadFromFolder(folderPath);
 
-    public BitmapSource LoadImage(string imagePath)
-    {
-        var bitmap = new BitmapImage();
-        bitmap.BeginInit();
-        bitmap.CacheOption = BitmapCacheOption.OnLoad;
-        bitmap.UriSource = new Uri(imagePath, UriKind.Absolute);
-        bitmap.EndInit();
-        bitmap.Freeze();
-        return bitmap;
-    }
+    public BitmapSource LoadImage(string imagePath) => LoadImageWithDetails(imagePath).Image;
+
+    public AnnotationImageLoadResult LoadImageWithDetails(string imagePath) => _imageLoader.Load(imagePath);
 
     public void FitPanel(AnnotatedImageRecord record)
     {
