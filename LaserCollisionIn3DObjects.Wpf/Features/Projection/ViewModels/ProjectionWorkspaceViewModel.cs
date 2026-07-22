@@ -865,7 +865,7 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
     {
         var scene = SelectedScene;
         var holePoints = scene?.HolePoints?.ToList() ?? new List<Point3>();
-        var panels = ShowPanels && scene is not null
+        IReadOnlyList<RectangularPrism> panels = ShowPanels && scene is not null
             ? scene.Prisms.Select(PrismGeometryConverter.CreateDomainPrism).ToList()
             : Array.Empty<RectangularPrism>();
         var result = scene?.ProjectionState.SelectedResult;
