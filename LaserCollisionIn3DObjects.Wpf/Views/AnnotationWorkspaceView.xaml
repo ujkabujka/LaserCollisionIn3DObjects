@@ -166,14 +166,11 @@
                         <Canvas.RenderTransform>
                             <ScaleTransform x:Name="OriginalScaleTransform"/>
                         </Canvas.RenderTransform>
-                        <Image x:Name="OriginalBaseImage"
-                               Source="{Binding AnnotationWorkspace.SelectedImage.OriginalImage}"
+                        <Image x:Name="OriginalPreviewImage"
+                               Source="{Binding AnnotationWorkspace.SelectedImage.OriginalOverlay, NotifyOnTargetUpdated=True}"
                                Stretch="None"
-                               SizeChanged="OnOriginalBaseImageSizeChanged"/>
-                        <Image Source="{Binding AnnotationWorkspace.SelectedImage.OriginalOverlay}"
-                               Stretch="None"
-                               IsHitTestVisible="False"
-                               Panel.ZIndex="1"/>
+                               SizeChanged="OnOriginalPreviewImageSizeChanged"
+                               TargetUpdated="OnOriginalPreviewImageTargetUpdated"/>
                     </Canvas>
                 </Grid>
             </ScrollViewer>
@@ -190,14 +187,11 @@
                         <Canvas.RenderTransform>
                             <ScaleTransform x:Name="WarpedScaleTransform"/>
                         </Canvas.RenderTransform>
-                        <Image x:Name="WarpedBaseImage"
-                               Source="{Binding AnnotationWorkspace.SelectedImage.WarpedImage}"
+                        <Image x:Name="WarpedPreviewImage"
+                               Source="{Binding AnnotationWorkspace.SelectedImage.WarpedOverlay, NotifyOnTargetUpdated=True}"
                                Stretch="None"
-                               SizeChanged="OnWarpedBaseImageSizeChanged"/>
-                        <Image Source="{Binding AnnotationWorkspace.SelectedImage.WarpedOverlay}"
-                               Stretch="None"
-                               IsHitTestVisible="False"
-                               Panel.ZIndex="1"/>
+                               SizeChanged="OnWarpedPreviewImageSizeChanged"
+                               TargetUpdated="OnWarpedPreviewImageTargetUpdated"/>
                     </Canvas>
                 </Grid>
             </ScrollViewer>
