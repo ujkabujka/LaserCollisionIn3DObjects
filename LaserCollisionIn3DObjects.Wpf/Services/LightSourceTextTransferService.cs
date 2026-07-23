@@ -21,7 +21,7 @@ public sealed class LightSourceTextTransferService
     }
     public LightSourceTextFile Export(ProjectedLightSourceItemViewModel source)
     {
-        var frame=BuildFrame(source.SourceFrame,source.BaseOrientation); var rays=source.ExactRays.Count>0?source.ExactRays:source.Rays.Select(x=>x.Ray).ToList();
+        var frame=BuildFrame(source.SourceFrame,source.BaseOrientation); IEnumerable<Ray3D> rays = source.ExactRays.Count > 0 ? source.ExactRays : source.Rays.Select(x => x.Ray);
         return Create(source.Name,source.ProfileDefinition,frame,0,Vector3.Zero,rays);
     }
     public ProjectedLightSourceItemViewModel Import(LightSourceTextFile file)

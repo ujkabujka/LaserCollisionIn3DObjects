@@ -1429,7 +1429,7 @@ public sealed class MainWindowViewModel : ObservableObject
         var dialog = new SaveFileDialog { Filter = "Light Source Text Files (*.txt)|*.txt|All Files (*.*)|*.*", FileName = safe + ".txt", DefaultExt = ".txt" };
         if (dialog.ShowDialog() != true) return;
         try { var file = SelectedLightSource is not null ? _lightSourceTextTransferService.Export(SelectedLightSource) : _lightSourceTextTransferService.Export(SelectedProjectedLightSource!); File.WriteAllText(dialog.FileName, LightSourceTextSerializer.Serialize(file)); SetStatus($"Exported source '{file.Name}' with {file.Rays.Count} rays to '{dialog.FileName}'."); AppLog.LogInfo(StatusMessage, nameof(MainWindowViewModel)); }
-        catch (Exception ex) { SetStatus($"Could not export light source: {ex.Message}"); AppLog.LogError(StatusMessage, nameof(MainWindowViewModel)); }
+        catch (Exception ex) { SetStatus($"Could not export light source: {ex.Message}"); AppLog.LogError(StatusMessage, ex, nameof(MainWindowViewModel)); }
     }
 
     private void ImportLightSource()
@@ -1438,7 +1438,7 @@ public sealed class MainWindowViewModel : ObservableObject
         var dialog = new OpenFileDialog { Filter = "Light Source Text Files (*.txt)|*.txt|All Files (*.*)|*.*", DefaultExt = ".txt" };
         if (dialog.ShowDialog() != true) return;
         try { var file = LightSourceTextSerializer.Parse(File.ReadAllText(dialog.FileName)); var source = _lightSourceTextTransferService.Import(file); SelectedScene.ProjectedLightSources.Add(source); SelectedProjectedLightSource = source; RefreshViewport(false); SetStatus($"Imported source '{source.Name}' with {source.ExactRays.Count} exact rays."); AppLog.LogInfo(StatusMessage, nameof(MainWindowViewModel)); }
-        catch (Exception ex) { SetStatus($"Could not import light source '{dialog.FileName}': {ex.Message}"); AppLog.LogError(StatusMessage, nameof(MainWindowViewModel)); }
+        catch (Exception ex) { SetStatus($"Could not import light source '{dialog.FileName}': {ex.Message}"); AppLog.LogError(StatusMessage, ex, nameof(MainWindowViewModel)); }
     }
 
     private void SaveProject()
