@@ -109,6 +109,9 @@
                 <MenuItem Header="Save Project" Command="{Binding SaveProjectCommand}"/>
                 <MenuItem Header="Load Project" Command="{Binding LoadProjectCommand}"/>
                 <Separator/>
+                <MenuItem Header="Export Light Source..." Command="{Binding ExportLightSourceCommand}"/>
+                <MenuItem Header="Import Light Source..." Command="{Binding ImportLightSourceCommand}"/>
+                <Separator/>
                 <MenuItem Header="Save Collision View State" Command="{Binding SaveCollisionTabCommand}"/>
                 <MenuItem Header="Load Collision View State" Command="{Binding LoadCollisionTabCommand}"/>
                 <MenuItem Header="Save Annotation View State" Command="{Binding SaveAnnotationTabCommand}"/>

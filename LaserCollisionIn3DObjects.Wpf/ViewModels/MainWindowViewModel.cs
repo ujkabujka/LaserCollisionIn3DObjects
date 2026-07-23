@@ -50,6 +50,7 @@ public sealed class MainWindowViewModel : ObservableObject
     private readonly SceneCollectionService _sceneCollectionService;
     private readonly CompletedSourceStore _completedSourceStore = new();
     private readonly ProjectPersistenceCoordinator _projectPersistenceCoordinator = new();
+    private readonly LightSourceTextTransferService _lightSourceTextTransferService = new();
     private IReadOnlyList<CollisionHitPointRecord> _lastCollisionHitPointRecords = Array.Empty<CollisionHitPointRecord>();
     private string _newSceneName = "Scene 1";
     private string _newPrismName = "Prism 1";
@@ -136,6 +137,8 @@ public sealed class MainWindowViewModel : ObservableObject
         ResetDemoSceneCommand = new RelayCommand(ResetDemoScene, () => SelectedScene is not null);
         SaveProjectCommand = new RelayCommand(SaveProject);
         LoadProjectCommand = new RelayCommand(LoadProject);
+        ExportLightSourceCommand = new RelayCommand(ExportLightSource, () => SelectedLightSource is not null || SelectedProjectedLightSource is not null);
+        ImportLightSourceCommand = new RelayCommand(ImportLightSource, () => SelectedScene is not null && !SelectedScene.IsProjectionOnly);
         SaveCollisionTabCommand = new RelayCommand(SaveCollisionTabState);
         LoadCollisionTabCommand = new RelayCommand(LoadCollisionTabState);
         SaveProjectionTabCommand = new RelayCommand(SaveProjectionTabState);
@@ -243,6 +246,8 @@ public sealed class MainWindowViewModel : ObservableObject
     public ICommand ResetDemoSceneCommand { get; }
     public ICommand SaveProjectCommand { get; }
     public ICommand LoadProjectCommand { get; }
+    public ICommand ExportLightSourceCommand { get; }
+    public ICommand ImportLightSourceCommand { get; }
     public ICommand SaveCollisionTabCommand { get; }
     public ICommand LoadCollisionTabCommand { get; }
     public ICommand SaveProjectionTabCommand { get; }
@@ -1415,6 +1420,27 @@ public sealed class MainWindowViewModel : ObservableObject
         RefreshSceneBindingsAndViewport();
     }
 
+
+    private void ExportLightSource()
+    {
+        if (SelectedLightSource is null && SelectedProjectedLightSource is null) { SetStatus("Cannot export a light source because no source is selected."); return; }
+        var name = SelectedLightSource?.Name ?? SelectedProjectedLightSource!.Name;
+        var safe = string.Concat((string.IsNullOrWhiteSpace(name) ? "Light Source" : name).Select(c => Path.GetInvalidFileNameChars().Contains(c) ? '_' : c));
+        var dialog = new SaveFileDialog { Filter = "Light Source Text Files (*.txt)|*.txt|All Files (*.*)|*.*", FileName = safe + ".txt", DefaultExt = ".txt" };
+        if (dialog.ShowDialog() != true) return;
+        try { var file = SelectedLightSource is not null ? _lightSourceTextTransferService.Export(SelectedLightSource) : _lightSourceTextTransferService.Export(SelectedProjectedLightSource!); File.WriteAllText(dialog.FileName, LightSourceTextSerializer.Serialize(file)); SetStatus($"Exported source '{file.Name}' with {file.Rays.Count} rays to '{dialog.FileName}'."); AppLog.LogInfo(StatusMessage, nameof(MainWindowViewModel)); }
+        catch (Exception ex) { SetStatus($"Could not export light source: {ex.Message}"); AppLog.LogError(StatusMessage, ex, nameof(MainWindowViewModel)); }
+    }
+
+    private void ImportLightSource()
+    {
+        if (SelectedScene is null || SelectedScene.IsProjectionOnly) { SetStatus("Cannot import a light source because no collision scene is selected."); return; }
+        var dialog = new OpenFileDialog { Filter = "Light Source Text Files (*.txt)|*.txt|All Files (*.*)|*.*", DefaultExt = ".txt" };
+        if (dialog.ShowDialog() != true) return;
+        try { var file = LightSourceTextSerializer.Parse(File.ReadAllText(dialog.FileName)); var source = _lightSourceTextTransferService.Import(file); SelectedScene.ProjectedLightSources.Add(source); SelectedProjectedLightSource = source; RefreshViewport(false); SetStatus($"Imported source '{source.Name}' with {source.ExactRays.Count} exact rays."); AppLog.LogInfo(StatusMessage, nameof(MainWindowViewModel)); }
+        catch (Exception ex) { SetStatus($"Could not import light source '{dialog.FileName}': {ex.Message}"); AppLog.LogError(StatusMessage, ex, nameof(MainWindowViewModel)); }
+    }
+
     private void SaveProject()
     {
         var dialog = new SaveFileDialog
@@ -1882,6 +1908,8 @@ public sealed class MainWindowViewModel : ObservableObject
         {
             runCollisionCommand.RaiseCanExecuteChanged();
         }
+        if (ExportLightSourceCommand is RelayCommand exportLightSourceCommand) exportLightSourceCommand.RaiseCanExecuteChanged();
+        if (ImportLightSourceCommand is RelayCommand importLightSourceCommand) importLightSourceCommand.RaiseCanExecuteChanged();
 
         if (RegenerateLightSourceRaysCommand is RelayCommand regenerateCommand)
         {
