@@ -13,7 +13,7 @@ public sealed record LightSourceTransferData(
 public sealed record LightSourceTransferRay(Vector3 PositionLocal, Vector3 DirectionLocal);
 
 /// <summary>Reads and writes LASER_SOURCE_FILE_VERSION 1 files using invariant, round-trip-safe values.</summary>
-public static class LightSourceTextSerializer
+internal static class CanonicalTextV1Serializer
 {
     public const int Version = 1;
     private static readonly CultureInfo Culture = CultureInfo.InvariantCulture;

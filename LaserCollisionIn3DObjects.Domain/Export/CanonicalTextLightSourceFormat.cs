@@ -14,12 +14,12 @@ public sealed class CanonicalTextLightSourceFormat : ILightSourceFormat
     {
         ArgumentNullException.ThrowIfNull(output);
         using var writer = new StreamWriter(output, new UTF8Encoding(false), 1024, leaveOpen: true);
-        writer.Write(LightSourceTextSerializer.Serialize(source));
+        writer.Write(CanonicalTextV1Serializer.Serialize(source));
     }
     public LightSourceTransferData Read(Stream input)
     {
         ArgumentNullException.ThrowIfNull(input);
         using var reader = new StreamReader(input, Encoding.UTF8, detectEncodingFromByteOrderMarks: true, 1024, leaveOpen: true);
-        return LightSourceTextSerializer.Parse(reader.ReadToEnd());
+        return CanonicalTextV1Serializer.Parse(reader.ReadToEnd());
     }
 }
