@@ -216,6 +216,7 @@ public sealed class ProjectPersistenceCoordinator
             },
             ProfileDefinition = source.ProfileDefinition,
             Rays = source.Rays.Select(MapProjectionRay).ToList(),
+            ExactRays = source.ExactRays.Select(ray => new RayState { OriginX = ray.Origin.X, OriginY = ray.Origin.Y, OriginZ = ray.Origin.Z, DirectionX = ray.Direction.X, DirectionY = ray.Direction.Y, DirectionZ = ray.Direction.Z }).ToList(),
             BaseOrientationX = source.BaseOrientation.X,
             BaseOrientationY = source.BaseOrientation.Y,
             BaseOrientationZ = source.BaseOrientation.Z,
@@ -533,6 +534,10 @@ public sealed class ProjectPersistenceCoordinator
         foreach (var ray in state.Rays)
         {
             restored.Rays.Add(MapProjectionRay(ray));
+        }
+        foreach (var ray in state.ExactRays)
+        {
+            restored.ExactRays.Add(new DomainRay3D(new Vector3(ray.OriginX, ray.OriginY, ray.OriginZ), new Vector3(ray.DirectionX, ray.DirectionY, ray.DirectionZ)));
         }
 
         return restored;
