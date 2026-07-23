@@ -50,7 +50,8 @@ public sealed class MainWindowViewModel : ObservableObject
     private readonly SceneCollectionService _sceneCollectionService;
     private readonly CompletedSourceStore _completedSourceStore = new();
     private readonly ProjectPersistenceCoordinator _projectPersistenceCoordinator = new();
-    private readonly LightSourceTextTransferService _lightSourceTextTransferService = new();
+    private readonly LightSourceTransferService _lightSourceTransferService = new();
+    private readonly LightSourceFileService _lightSourceFileService = new();
     private IReadOnlyList<CollisionHitPointRecord> _lastCollisionHitPointRecords = Array.Empty<CollisionHitPointRecord>();
     private string _newSceneName = "Scene 1";
     private string _newPrismName = "Prism 1";
@@ -1424,20 +1425,26 @@ public sealed class MainWindowViewModel : ObservableObject
     private void ExportLightSource()
     {
         if (SelectedLightSource is null && SelectedProjectedLightSource is null) { SetStatus("Cannot export a light source because no source is selected."); return; }
-        var name = SelectedLightSource?.Name ?? SelectedProjectedLightSource!.Name;
-        var safe = string.Concat((string.IsNullOrWhiteSpace(name) ? "Light Source" : name).Select(c => Path.GetInvalidFileNameChars().Contains(c) ? '_' : c));
-        var dialog = new SaveFileDialog { Filter = "Light Source Text Files (*.txt)|*.txt|All Files (*.*)|*.*", FileName = safe + ".txt", DefaultExt = ".txt" };
-        if (dialog.ShowDialog() != true) return;
-        try { var file = SelectedLightSource is not null ? _lightSourceTextTransferService.Export(SelectedLightSource) : _lightSourceTextTransferService.Export(SelectedProjectedLightSource!); File.WriteAllText(dialog.FileName, LightSourceTextSerializer.Serialize(file)); SetStatus($"Exported source '{file.Name}' with {file.Rays.Count} rays to '{dialog.FileName}'."); AppLog.LogInfo(StatusMessage, nameof(MainWindowViewModel)); }
+        try
+        {
+            var data = SelectedLightSource is not null ? _lightSourceTransferService.Export(SelectedLightSource) : _lightSourceTransferService.Export(SelectedProjectedLightSource!);
+            var formats = _lightSourceFileService.GetExportFormats(data);
+            if (formats.Count == 0) { SetStatus("No installed light-source format supports the selected source."); return; }
+            var safe = string.Concat((string.IsNullOrWhiteSpace(data.Name) ? "Light Source" : data.Name).Select(c => Path.GetInvalidFileNameChars().Contains(c) ? '_' : c));
+            var dialog = new SaveFileDialog { Filter = _lightSourceFileService.BuildExportFilter(formats), FilterIndex = 1, FileName = safe, DefaultExt = _lightSourceFileService.DefaultExtension(formats[0]) };
+            if (dialog.ShowDialog() != true) return;
+            var format = _lightSourceFileService.GetExportFormat(formats, dialog.FilterIndex); _lightSourceFileService.Write(format, data, dialog.FileName);
+            SetStatus($"Exported source '{data.Name}' with {data.Rays.Count} rays using '{format.DisplayName}' to '{dialog.FileName}'."); AppLog.LogInfo(StatusMessage, nameof(MainWindowViewModel));
+        }
         catch (Exception ex) { SetStatus($"Could not export light source: {ex.Message}"); AppLog.LogError(StatusMessage, ex, nameof(MainWindowViewModel)); }
     }
 
     private void ImportLightSource()
     {
         if (SelectedScene is null || SelectedScene.IsProjectionOnly) { SetStatus("Cannot import a light source because no collision scene is selected."); return; }
-        var dialog = new OpenFileDialog { Filter = "Light Source Text Files (*.txt)|*.txt|All Files (*.*)|*.*", DefaultExt = ".txt" };
+        var dialog = new OpenFileDialog { Filter = _lightSourceFileService.BuildImportFilter(), FilterIndex = 1 };
         if (dialog.ShowDialog() != true) return;
-        try { var file = LightSourceTextSerializer.Parse(File.ReadAllText(dialog.FileName)); var source = _lightSourceTextTransferService.Import(file); SelectedScene.ProjectedLightSources.Add(source); SelectedProjectedLightSource = source; RefreshViewport(false); SetStatus($"Imported source '{source.Name}' with {source.ExactRays.Count} exact rays."); AppLog.LogInfo(StatusMessage, nameof(MainWindowViewModel)); }
+        try { var (data, format) = _lightSourceFileService.Read(dialog.FileName); var source = _lightSourceTransferService.Import(data); SelectedScene.ProjectedLightSources.Add(source); SelectedProjectedLightSource = source; RefreshViewport(false); SetStatus($"Imported source '{source.Name}' with {source.ExactRays.Count} exact rays using '{format.DisplayName}'."); AppLog.LogInfo(StatusMessage, nameof(MainWindowViewModel)); }
         catch (Exception ex) { SetStatus($"Could not import light source '{dialog.FileName}': {ex.Message}"); AppLog.LogError(StatusMessage, ex, nameof(MainWindowViewModel)); }
     }
 
