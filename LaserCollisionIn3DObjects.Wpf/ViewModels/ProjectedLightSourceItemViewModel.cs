@@ -10,6 +10,7 @@ public enum ProjectedLightSourceOriginKind
 {
     ProjectionResult,
     CompletedProjectionResult,
+    ImportedTextFile,
 }
 
 public sealed class ProjectedLightSourceItemViewModel : ObservableObject
@@ -33,6 +34,9 @@ public sealed class ProjectedLightSourceItemViewModel : ObservableObject
     };
 
     public ObservableCollection<ProjectionRay> Rays { get; } = new();
+
+    /// <summary>Exact rays for non-projection sources. They intentionally carry no target-hole metadata.</summary>
+    public ObservableCollection<Ray3D> ExactRays { get; } = new();
 
     public NumericsQuaternion BaseOrientation { get; set; } = NumericsQuaternion.Identity;
     public ProjectedLightSourceOriginKind OriginKind { get; set; } = ProjectedLightSourceOriginKind.ProjectionResult;
