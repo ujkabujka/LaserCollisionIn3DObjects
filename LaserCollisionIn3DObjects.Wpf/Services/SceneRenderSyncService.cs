@@ -157,16 +157,19 @@ public sealed class SceneRenderSyncService
                 frame,
                 projectedSource.ProfileDefinition.Kind,
                 profile,
-                projectedSource.Rays.Count,
+                projectedSource.ExactRays.Count > 0 ? projectedSource.ExactRays.Count : projectedSource.Rays.Count,
                 0f,
                 Vector3.Zero);
 
             scene.AxisymmetricLightSources.Add(axisymmetricSource);
 
-            foreach (var projectionRay in projectedSource.Rays)
+            var exactRays = projectedSource.ExactRays.Count > 0
+                ? projectedSource.ExactRays
+                : projectedSource.Rays.Select(projectionRay => projectionRay.Ray);
+            foreach (var exactRay in exactRays)
             {
-                scene.ProjectedSourceRays.Add(projectionRay.Ray);
-                scene.Rays.Add(projectionRay.Ray);
+                scene.ProjectedSourceRays.Add(exactRay);
+                scene.Rays.Add(exactRay);
                 raySourceTypes.Add(CollisionRaySourceType.ProjectionResult);
             }
         }
