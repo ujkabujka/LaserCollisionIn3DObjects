@@ -10,10 +10,9 @@ public sealed class LightSourceFormatTests
     [Fact]
     public void Registry_discovers_canonical_text_format()
     {
-        var format = Assert.Single(new LightSourceFormatRegistry().Formats);
-        Assert.Equal("canonical-text-v1", format.Id);
-        Assert.Equal("Laser Source Text", format.DisplayName);
-        Assert.Contains(".txt", format.FileExtensions);
+        var formats = new LightSourceFormatRegistry().Formats;
+        Assert.Contains(formats, format => format.Id == "canonical-text-v1");
+        Assert.Contains(formats, format => format.Id == "spherical-direction-text-v1");
     }
 
     [Fact]
@@ -58,4 +57,25 @@ public sealed class LightSourceFormatTests
         public void Write(LightSourceTransferData source, Stream output) { }
         public LightSourceTransferData Read(Stream input) => Sample();
     }
+    [Theory]
+    [InlineData(1f, 0f, 0f, 0f, 0f)]
+    [InlineData(0f, 1f, 0f, 1.5707964f, 0f)]
+    [InlineData(0f, 0f, 1f, 0f, 1.5707964f)]
+    [InlineData(0f, 0f, -1f, 0f, -1.5707964f)]
+    public void Src2_writes_expected_spherical_direction(float x, float y, float z, float azimuth, float elevation)
+    {
+        var source = Sample() with { Rays = new[] { new LightSourceTransferRay(Vector3.Zero, new Vector3(x, y, z)) } };
+        var format = new SphericalDirectionLightSourceFormat(); using var stream = new MemoryStream(); format.Write(source, stream);
+        var text = System.Text.Encoding.UTF8.GetString(stream.ToArray()); var line = Assert.Single(text.Split('\n').Where(value => value.StartsWith("Direction_Spherical 1:")));
+        var values = line.Split(':')[1].Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries); Assert.Equal(azimuth, float.Parse(values[0], System.Globalization.CultureInfo.InvariantCulture), 5); Assert.Equal(elevation, float.Parse(values[1], System.Globalization.CultureInfo.InvariantCulture), 5);
+        stream.Position = 0; Assert.Single(format.Read(stream).Rays);
+    }
+
+    [Fact]
+    public void Src2_rejects_mismatched_spherical_direction()
+    {
+        const string content = "LASER_SOURCE_FORMAT: SRC2\nLASER_SOURCE_FORMAT_VERSION: 1\nNAME: Test\nSOURCE_KIND: Cylinder\nRAY_COUNT: 1\nFRAME_ORIGIN_WORLD: 0 0 0\nFRAME_AXIS_X_WORLD: 1 0 0\nFRAME_AXIS_Y_WORLD: 0 1 0\nFRAME_AXIS_Z_WORLD: 0 0 1\nGEOMETRY_BEGIN\nRADIUS: 1\nLENGTH: 1\nGEOMETRY_END\nRAYS_BEGIN\nPosition 1: 0 0 0\nDirection 1: 1 0 0\nDirection_Spherical 1: 1.57079632679 0\nRAYS_END";
+        using var stream = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(content)); var error = Assert.Throws<FormatException>(() => new SphericalDirectionLightSourceFormat().Read(stream)); Assert.Contains("does not match", error.Message);
+    }
+
 }
