@@ -19,6 +19,19 @@ public static class FrameOrientationBuilder
         return orientation;
     }
 
+    public static Quaternion ApplyLocalZYXulerDegrees(
+        Quaternion baseOrientation,
+        float rotationXDegrees,
+        float rotationYDegrees,
+        float rotationZDegrees)
+    {
+        var orientation = Quaternion.Normalize(baseOrientation);
+        orientation = ApplyLocalAxisRotation(orientation, Vector3.UnitZ, DegreesToRadians(rotationXDegrees));
+        orientation = ApplyLocalAxisRotation(orientation, Vector3.UnitY, DegreesToRadians(rotationYDegrees));
+        orientation = ApplyLocalAxisRotation(orientation, Vector3.UnitX, DegreesToRadians(rotationZDegrees));
+        return orientation;
+    }
+
     public static Quaternion CreateFacingOriginOrientation(Vector3 position)
     {
         var horizontalDirectionToOrigin = new Vector3(-position.X, -position.Y, 0f);

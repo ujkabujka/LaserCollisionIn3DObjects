@@ -220,7 +220,8 @@ public sealed class AnnotationWorkspaceViewModel : ObservableObject
     private static void ApplyCorner(CornerMeasurementViewModel corner, PanelCornerMeasurement measurement)
     {
         corner.SelectedMode = CornerMeasurementMode.ManualMeasurement;
-        corner.ManualDistanceMeters = measurement.DistanceMeters;
+        if(measurement.DistanceMeters > 1000) {corner.ManualDistanceMeters = measurement.DistanceMeters / 1000;}
+        else {corner.ManualDistanceMeters = measurement.DistanceMeters;}
         corner.ManualAzimuthDeg = measurement.AzimuthDeg;
         corner.ManualElevationDeg = measurement.ElevationDeg;
     }
@@ -598,14 +599,14 @@ public sealed class AnnotationWorkspaceViewModel : ObservableObject
         vec_y = Vector3.Normalize(vec_y);
         Vector3 vec_z = Vector3.Cross(vec_x, vec_y);
 
-        Vector3 centerPoint = cornerPoints[0] + vec_x * dimensions.Y / 2f + vec_z * dimensions.X / 2f + vec_y * dimensions.Z / 2f;
+        Vector3 centerPoint = cornerPoints[0] + vec_x * dimensions.Y / 2f + vec_y * dimensions.Z / 2f;
         //For the panel frame things are different
         // u vector is - vec_Z and v vector is -vec_y
         Vector3 u = -vec_z;
         Vector3 v = -vec_y;
         float x_angle = MathF.Atan2(v.Y, v.Z);
         float y_angle = MathF.Asin(-v.X);
-        float z_angle = MathF.Atan2(v.Y * u.Z - v.Z * u.Y, u.X);
+        float z_angle = -MathF.Atan2(v.Y * u.Z - v.Z * u.Y, u.X);
 
         x_angle = FrameOrientationBuilder.RadiansToDegrees(x_angle);
         y_angle = FrameOrientationBuilder.RadiansToDegrees(y_angle);
@@ -625,7 +626,7 @@ public sealed class AnnotationWorkspaceViewModel : ObservableObject
         if (azimuthDeg != null && elevationDeg != null && distance != null)
         {
             Vector3 distVec = Vector3.UnitX * (float)distance;
-            System.Numerics.Quaternion orientation = FrameOrientationBuilder.ApplyLocalEulerDegrees(System.Numerics.Quaternion.Identity, (float)azimuthDeg, (float)elevationDeg, 0);
+            System.Numerics.Quaternion orientation = FrameOrientationBuilder.ApplyLocalZYXulerDegrees(System.Numerics.Quaternion.Identity, (float)azimuthDeg, (float)elevationDeg, 0);
             Vector3 final = Vector3.Transform(distVec, orientation);
             return final;
         }
