@@ -10,6 +10,27 @@ namespace LaserCollisionIn3DObjects.Tests.Domain;
 public class PersistenceRoundTripTests
 {
     [Fact]
+    public void SceneMeasuredCornerPoints_RoundTrip_AndMissingFieldDefaultsEmpty()
+    {
+        var service = new JsonStateFileService();
+        var filePath = Path.GetTempFileName();
+        try
+        {
+            var expected = new Point3(1.25, -2.5, 3.75);
+            var state = new ProjectState { Scenes = { new SceneState { Name = "measured", MeasuredCornerPoints = { expected } } } };
+            service.SaveProject(filePath, state);
+            Assert.Equal(expected, Assert.Single(service.LoadProject(filePath).Scenes[0].MeasuredCornerPoints));
+
+            File.WriteAllText(filePath, "{\"schemaVersion\":1,\"scenes\":[{\"name\":\"old\"}]}");
+            Assert.Empty(service.LoadProject(filePath).Scenes[0].MeasuredCornerPoints);
+        }
+        finally
+        {
+            File.Delete(filePath);
+        }
+    }
+
+    [Fact]
     public void ProjectState_RoundTrip_PreservesProjectionAndAnnotationState()
     {
         var service = new JsonStateFileService();

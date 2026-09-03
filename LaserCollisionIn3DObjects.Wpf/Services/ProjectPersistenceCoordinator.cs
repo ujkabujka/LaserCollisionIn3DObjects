@@ -153,6 +153,7 @@ public sealed class ProjectPersistenceCoordinator
             LightSources = scene.LightSources.Select(MapGeneratedLightSource).ToList(),
             ProjectedLightSources = scene.ProjectedLightSources.Select(MapProjectedLightSource).ToList(),
             HolePoints = scene.HolePoints.ToList(),
+            MeasuredCornerPoints = scene.MeasuredCornerPoints.ToList(),
             Projection = new SceneProjectionStateDto
             {
                 SelectedMethodId = scene.ProjectionState.SelectedMethodId,
@@ -435,6 +436,11 @@ public sealed class ProjectPersistenceCoordinator
         foreach (var hole in sceneState.HolePoints)
         {
             scene.HolePoints.Add(hole);
+        }
+
+        foreach (var corner in sceneState.MeasuredCornerPoints ?? new List<Point3>())
+        {
+            scene.MeasuredCornerPoints.Add(corner);
         }
 
         scene.ProjectionState.SelectedMethodId = sceneState.Projection.SelectedMethodId;

@@ -34,6 +34,7 @@ public sealed class CollisionSceneViewModel : ObservableObject
     public ObservableCollection<ProjectedLightSourceItemViewModel> ProjectedLightSources { get; } = new();
     public ObservableCollection<HitResultItemViewModel> HitResults { get; } = new();
     public ObservableCollection<Point3> HolePoints { get; } = new();
+    public ObservableCollection<Point3> MeasuredCornerPoints { get; } = new();
     public SceneProjectionState ProjectionState { get; } = new();
     public bool HasHolePoints => HolePoints.Count > 0;
     public bool IsProjectionOnly
