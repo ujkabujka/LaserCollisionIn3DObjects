@@ -41,6 +41,7 @@ public sealed class SceneState
     public List<AxisymmetricLightSourceState> LightSources { get; set; } = new();
     public List<ProjectedLightSourceState> ProjectedLightSources { get; set; } = new();
     public List<Point3> HolePoints { get; set; } = new();
+    public List<Point3> MeasuredCornerPoints { get; set; } = new();
     public SceneProjectionStateDto Projection { get; set; } = new();
 }
 
@@ -261,6 +262,7 @@ public sealed class ProjectionWorkspaceStateDto
 {
     public string? SelectedSceneName { get; set; }
     public bool? ShowPanels { get; set; }
+    public bool? ShowMeasuredCorners { get; set; }
     public string SelectedMethodId { get; set; } = string.Empty;
     public AxisymmetricSourceKind ProjectionGeometryKind { get; set; } = AxisymmetricSourceKind.Cylinder;
     public double GeometryRadiusStart { get; set; } = 1d;

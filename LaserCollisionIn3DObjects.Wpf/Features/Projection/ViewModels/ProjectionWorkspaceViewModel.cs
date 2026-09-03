@@ -53,6 +53,7 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
     private double _leastSquaresLambdaStepScale = LeastSquaresAxisymmetricAlignmentSolverSettings.Default.LambdaStepScale;
     private bool _isApplyingWorkspaceState;
     private bool _showPanels = true;
+    private bool _showMeasuredCorners = true;
 
     public ProjectionWorkspaceViewModel(
         SceneCollectionService sceneCollectionService,
@@ -298,6 +299,15 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
         }
     }
 
+    public bool ShowMeasuredCorners
+    {
+        get => _showMeasuredCorners;
+        set
+        {
+            if (SetProperty(ref _showMeasuredCorners, value)) RefreshViewport(zoomExtents: false);
+        }
+    }
+
     public CollisionSceneViewModel? SelectedScene
     {
         get => _selectedScene;
@@ -359,6 +369,7 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
         {
             SelectedSceneName = SelectedScene?.Name,
             ShowPanels = ShowPanels,
+            ShowMeasuredCorners = ShowMeasuredCorners,
             SelectedMethodId = SelectedMethod?.Id ?? ProjectionWorkspaceState.DefaultMethodId,
             ProjectionGeometryKind = SelectedAxisymmetricSourceKind,
             GeometryRadiusStart = GeometryRadiusStart,
@@ -397,6 +408,7 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
         try
         {
             ShowPanels = state.ShowPanels ?? true;
+            ShowMeasuredCorners = state.ShowMeasuredCorners ?? true;
             SelectedMethod = ProjectionMethods.FirstOrDefault(method => method.Id == state.SelectedMethodId)
                 ?? ProjectionMethods.FirstOrDefault(method => method.Id == ProjectionWorkspaceState.DefaultMethodId)
                 ?? ProjectionMethods.FirstOrDefault();
@@ -868,6 +880,9 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
         IReadOnlyList<RectangularPrism> panels = ShowPanels && scene is not null
             ? scene.Prisms.Select(PrismGeometryConverter.CreateDomainPrism).ToList()
             : Array.Empty<RectangularPrism>();
+        IReadOnlyList<Point3> measuredCorners = ShowMeasuredCorners && scene is not null
+            ? scene.MeasuredCornerPoints.ToList()
+            : Array.Empty<Point3>();
         var result = scene?.ProjectionState.SelectedResult;
         _projectionRenderSyncService.SyncProjectionScene(
             holePoints,
@@ -877,6 +892,7 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
             previewAsGhost: true,
             previewTiltPointLocal: new Point3(TiltPointX, TiltPointY, TiltPointZ),
             panels: panels,
+            measuredCornerPoints: measuredCorners,
             zoomExtents: zoomExtents);
     }
 

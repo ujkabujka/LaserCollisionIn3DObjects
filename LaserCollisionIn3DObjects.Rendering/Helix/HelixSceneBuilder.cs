@@ -160,7 +160,8 @@ public sealed class HelixSceneBuilder
         Frame3D? previewFrame = null,
         bool previewAsGhost = true,
         Point3? previewTiltPointLocal = null,
-        IReadOnlyList<RectangularPrism>? panels = null)
+        IReadOnlyList<RectangularPrism>? panels = null,
+        IReadOnlyList<Point3>? measuredCornerPoints = null)
     {
         ArgumentNullException.ThrowIfNull(holePoints);
 
@@ -168,6 +169,11 @@ public sealed class HelixSceneBuilder
         if (panels is { Count: > 0 })
         {
             visuals.Add(_meshFactory.CreateRectangularPrismBatch(panels, Colors.LightGreen, opacity: 0.5d));
+        }
+
+        if (measuredCornerPoints is { Count: > 0 })
+        {
+            visuals.Add(_rayVisualizer.CreatePoints(measuredCornerPoints, Colors.Red, size: 7));
         }
 
         if (holePoints.Count > 0)

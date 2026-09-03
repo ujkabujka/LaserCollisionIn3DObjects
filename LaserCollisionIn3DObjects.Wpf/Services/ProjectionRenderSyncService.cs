@@ -27,9 +27,10 @@ public sealed class ProjectionRenderSyncService
         bool previewAsGhost = true,
         Point3? previewTiltPointLocal = null,
         IReadOnlyList<RectangularPrism>? panels = null,
+        IReadOnlyList<Point3>? measuredCornerPoints = null,
         bool zoomExtents = true)
     {
-        var visuals = _sceneBuilder.BuildProjectionVisuals(holePoints, projectionResult, previewProfile, previewFrame, previewAsGhost, previewTiltPointLocal, panels);
+        var visuals = _sceneBuilder.BuildProjectionVisuals(holePoints, projectionResult, previewProfile, previewFrame, previewAsGhost, previewTiltPointLocal, panels, measuredCornerPoints);
         _dynamicVisualRoot.Children.Clear();
         foreach (var visual in visuals)
         {

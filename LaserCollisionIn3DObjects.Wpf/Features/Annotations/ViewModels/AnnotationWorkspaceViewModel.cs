@@ -461,8 +461,11 @@ public sealed class AnnotationWorkspaceViewModel : ObservableObject
         var sceneModel = new CollisionSceneViewModel("Annotation scene");
         foreach (var item in Images)
         {
-            sceneModel.Prisms.Add(CreatePrism(item));
-            foreach (var hole in CreateHolePoints(item)) sceneModel.HolePoints.Add(hole);
+            var measuredCorners = ResolveMeasuredCornerWorldPoints(item);
+            sceneModel.Prisms.Add(CreatePrism(item, measuredCorners));
+            foreach (var hole in CreateHolePoints(item, measuredCorners)) sceneModel.HolePoints.Add(hole);
+            foreach (var corner in measuredCorners)
+                sceneModel.MeasuredCornerPoints.Add(new Point3(corner.X, corner.Y, corner.Z));
         }
         _sceneCollectionService?.AddScene(sceneModel);
     }
@@ -574,53 +577,27 @@ public sealed class AnnotationWorkspaceViewModel : ObservableObject
         return errors;
     }
 
-    private PrismItemViewModel CreatePrism(AnnotatedImageViewModel cornerMeasurement)
+    private PrismItemViewModel CreatePrism(AnnotatedImageViewModel cornerMeasurement, IReadOnlyList<Vector3> cornerPoints)
     {
         Vector3 dimensions = new Vector3(
-            (float)cornerMeasurement.PanelThicknessMm * 0.001f, 
-            (float)cornerMeasurement.PanelWidthMm * 0.001f, 
-            (float)cornerMeasurement.PanelHeightMm * 0.001f
+            (float)cornerMeasurement.PanelThicknessMm!.Value * 0.001f,
+            (float)cornerMeasurement.PanelWidthMm!.Value * 0.001f,
+            (float)cornerMeasurement.PanelHeightMm!.Value * 0.001f
             );
-        // From left top to counterclockwise
-        List<Vector3> cornerPoints = new List<Vector3>();
-        foreach (var item in cornerMeasurement.CornerMeasurements)
-        {
-            if(item.SelectedMode == CornerMeasurementMode.ManualMeasurement)
-                cornerPoints.Add(convertToPointFromManuel(item.ManualAzimuthDeg, item.ManualElevationDeg, item.ManualDistanceMeters));
-            else
-                cornerPoints.Add(new Vector3((float)item.DirectX, (float)item.DirectY, (float)item.DirectZ));
-        }
-
-        // From this points we will find all the prism locations pos, oriantation, size
-        Vector3 vec_x = cornerPoints[1] - cornerPoints[0];
-        Vector3 vec_y = cornerPoints[3] - cornerPoints[0];
-
-        vec_x = Vector3.Normalize(vec_x);
-        vec_y = Vector3.Normalize(vec_y);
-        Vector3 vec_z = Vector3.Cross(vec_x, vec_y);
-
-        Vector3 centerPoint = cornerPoints[0] + vec_x * dimensions.Y / 2f + vec_y * dimensions.Z / 2f;
-        //For the panel frame things are different
-        // u vector is - vec_Z and v vector is -vec_y
-        Vector3 u = -vec_z;
-        Vector3 v = -vec_y;
-        float x_angle = MathF.Atan2(v.Y, v.Z);
-        float y_angle = MathF.Asin(-v.X);
-        float z_angle = -MathF.Atan2(v.Y * u.Z - v.Z * u.Y, u.X);
-
-        x_angle = FrameOrientationBuilder.RadiansToDegrees(x_angle);
-        y_angle = FrameOrientationBuilder.RadiansToDegrees(y_angle);
-        z_angle = FrameOrientationBuilder.RadiansToDegrees(z_angle);
+        var panelFrame = MeasuredPanelFrameBuilder.Create(cornerPoints[0], cornerPoints[1], cornerPoints[3]);
+        // Measurements remain on the prism reference/mid-plane; thickness is deliberately not offset.
+        Vector3 centerPoint = cornerPoints[0] + panelFrame.Width * dimensions.Y / 2f + panelFrame.Down * dimensions.Z / 2f;
         
         PrismItemViewModel prism = new PrismItemViewModel();
         prism.PositionX = centerPoint.X; prism.PositionY = centerPoint.Y; prism.PositionZ = centerPoint.Z;
-        prism.RotationX = x_angle; prism.RotationY = y_angle; prism.RotationZ = z_angle;
+        prism.BaseOrientation = panelFrame.Orientation;
+        prism.RotationX = 0; prism.RotationY = 0; prism.RotationZ = 0;
         prism.SizeX = dimensions.X; prism.SizeY = dimensions.Y; prism.SizeZ = dimensions.Z;
 
         return prism;
     }
 
-    private Vector3 convertToPointFromManuel(double? azimuthDeg, double? elevationDeg, double? distance)
+    private static Vector3 ConvertToPointFromManual(double? azimuthDeg, double? elevationDeg, double? distance)
     {
         // All angles must be in degrees, distance in meters
         if (azimuthDeg != null && elevationDeg != null && distance != null)
@@ -634,7 +611,15 @@ public sealed class AnnotationWorkspaceViewModel : ObservableObject
 
         return new Vector3(float.NaN, float.NaN, float.NaN);
     }
-    private List<Point3> CreateHolePoints(AnnotatedImageViewModel cornerMeasurement)
+    private static IReadOnlyList<Vector3> ResolveMeasuredCornerWorldPoints(AnnotatedImageViewModel image)
+    {
+        // The view model constructs this collection in the documented LT, RT, RB, LB order.
+        return image.CornerMeasurements.Select(item => item.SelectedMode == CornerMeasurementMode.ManualMeasurement
+            ? ConvertToPointFromManual(item.ManualAzimuthDeg, item.ManualElevationDeg, item.ManualDistanceMeters)
+            : new Vector3((float)item.DirectX!.Value, (float)item.DirectY!.Value, (float)item.DirectZ!.Value)).ToArray();
+    }
+
+    private List<Point3> CreateHolePoints(AnnotatedImageViewModel cornerMeasurement, IReadOnlyList<Vector3> cornerPoints)
     {
         if (!_rectificationByImage.TryGetValue(cornerMeasurement, out var rectification) || rectification is null)
         {
@@ -645,51 +630,16 @@ public sealed class AnnotationWorkspaceViewModel : ObservableObject
             throw new InvalidOperationException($"Transformed hole coordinates are unavailable for '{cornerMeasurement.FileName}'.");
         }
 
-        //////////////////////
-        // From left top to counterclockwise
-        List<Vector3> cornerPoints = new List<Vector3>();
-        foreach (var item in cornerMeasurement.CornerMeasurements)
-        {
-            if(item.SelectedMode == CornerMeasurementMode.ManualMeasurement)
-                cornerPoints.Add(convertToPointFromManuel(item.ManualAzimuthDeg, item.ManualElevationDeg, item.ManualDistanceMeters));
-            else
-                cornerPoints.Add(new Vector3((float)item.DirectX, (float)item.DirectY, (float)item.DirectZ));
-        }
-
-        // From this points we will find all the prism locations pos, oriantation, size
-        Vector3 vec_x = cornerPoints[1] - cornerPoints[0];
-        Vector3 vec_y = cornerPoints[3] - cornerPoints[0];
-
-        vec_x = Vector3.Normalize(vec_x);
-        vec_y = Vector3.Normalize(vec_y);
-        Vector3 vec_z = Vector3.Cross(vec_x, vec_y);
-        //////////////////////////////////////////////
-        // Build rotation matrix from absolute to prism. Note that transpose of the matrix is true
-        // Matrix4x4 rotationMatrix = new Matrix4x4(
-        //     vec_x.X, vec_z.Y * vec_x.Z - vec_z.Z * vec_x.Y, vec_z.X, -cornerPoints[0].X,
-        //     vec_x.Y, vec_z.Z * vec_x.X - vec_z.X * vec_x.Z, vec_z.Y, -cornerPoints[0].Y,
-        //     vec_x.Z, vec_z.X * vec_x.Y - vec_z.Y * vec_x.X, vec_z.Z, -cornerPoints[0].Z,
-        //     0,0,0,1
-        // );
-
-        Matrix4x4 rotationMatrix = new Matrix4x4(
-            vec_x.X, vec_x.Y, vec_x.Z, 0,
-            vec_z.Y * vec_x.Z - vec_z.Z * vec_x.Y, vec_z.Z * vec_x.X - vec_z.X * vec_x.Z, vec_z.X * vec_x.Y - vec_z.Y * vec_x.X, 0,
-            vec_z.X, vec_z.Y, vec_z.Z, 0,
-            cornerPoints[0]. X,cornerPoints[0].Y, cornerPoints[0].Z, 1
-        );
+        var panelFrame = MeasuredPanelFrameBuilder.Create(cornerPoints[0], cornerPoints[1], cornerPoints[3]);
         
         List<Point3> point3s = new List<Point3>();
         
         foreach (var item in cornerMeasurement.WarpedHoleCentersMm)
         {
            //Turn holes into 3D from 2D
-           Vector3 hole = new Vector3((float)(item.X * 0.001), (float)(item.Y * 0.001), 0);
-            
-           //Rotate the frame to absolute coordinate
-           Vector3 transformed = Vector3.Transform(hole, rotationMatrix);
-
-           // Translate the coordinate to the absolute axis
+           Vector3 transformed = cornerPoints[0]
+               + panelFrame.Width * (float)(item.X * 0.001)
+               + panelFrame.Down * (float)(item.Y * 0.001);
            point3s.Add(new Point3(transformed.X, transformed.Y, transformed.Z));
         }
         return point3s;
