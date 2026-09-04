@@ -83,7 +83,7 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
         RunProjectionCommand = new RelayCommand(RunProjection, CanRunProjection);
         ImportHitPointsCsvCommand = new RelayCommand(ImportHitPointsCsv);
         DeleteSelectedResultCommand = new RelayCommand(DeleteSelectedResult, () => SelectedResult is not null);
-        DeleteSelectedProjectionSceneCommand = new RelayCommand(DeleteSelectedProjectionScene, () => CanDeleteSelectedProjectionScene);
+        DeleteSelectedSceneCommand = new RelayCommand(DeleteSelectedScene, () => CanDeleteSelectedScene);
         AddHybridSegmentCommand = new RelayCommand(AddHybridSegment);
         RemoveSelectedHybridSegmentCommand = new RelayCommand(RemoveSelectedHybridSegment, () => SelectedHybridSegment is not null);
         AddProjectedLightSourceToCollisionSceneCommand = new RelayCommand(AddProjectedLightSourceToCollision, CanAddProjectedLightSourceToCollision);
@@ -102,7 +102,7 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
     public ICommand RunProjectionCommand { get; }
     public ICommand ImportHitPointsCsvCommand { get; }
     public ICommand DeleteSelectedResultCommand { get; }
-    public ICommand DeleteSelectedProjectionSceneCommand { get; }
+    public ICommand DeleteSelectedSceneCommand { get; }
     public ICommand AddHybridSegmentCommand { get; }
     public ICommand RemoveSelectedHybridSegmentCommand { get; }
     public ICommand AddProjectedLightSourceToCollisionSceneCommand { get; }
@@ -224,7 +224,7 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
         private set => SetProperty(ref _projectionProgressMessage, value);
     }
 
-    public bool CanDeleteSelectedProjectionScene => SelectedScene?.IsProjectionOnly == true;
+    public bool CanDeleteSelectedScene => SelectedScene is not null && _sceneCollectionService.Scenes.Contains(SelectedScene);
 
     public string NewResultName
     {
@@ -338,7 +338,7 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
 
             RaisePropertyChanged(nameof(SavedResults));
             RaisePropertyChanged(nameof(SelectedResult));
-            RaisePropertyChanged(nameof(CanDeleteSelectedProjectionScene));
+            RaisePropertyChanged(nameof(CanDeleteSelectedScene));
             RefreshViewport();
             RaiseCanExecuteChanged();
         }
@@ -662,17 +662,11 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
         SetStatus($"Deleted projection result '{selectedResult.DisplayName}'.", ApplicationLogLevel.Success);
     }
 
-    private void DeleteSelectedProjectionScene()
+    private void DeleteSelectedScene()
     {
         if (SelectedScene is null)
         {
             SetStatus("Select a scene to delete.", ApplicationLogLevel.Warning);
-            return;
-        }
-
-        if (!SelectedScene.IsProjectionOnly)
-        {
-            SetStatus("Only projection-only scenes can be deleted from Projection Workspace.", ApplicationLogLevel.Warning);
             return;
         }
 
@@ -682,7 +676,8 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
         RefreshAvailableScenes();
         RefreshTargetCollisionScenes();
         RefreshViewport();
-        SetStatus($"Deleted projection scene '{deletedName}'.", ApplicationLogLevel.Success);
+        RaiseCanExecuteChanged();
+        SetStatus($"Deleted scene '{deletedName}'.", ApplicationLogLevel.Success);
     }
 
     private void SetStatus(string message, ApplicationLogLevel level = ApplicationLogLevel.Info, Exception? exception = null)
@@ -1252,7 +1247,7 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
             deleteSelectedResultCommand.RaiseCanExecuteChanged();
         }
 
-        if (DeleteSelectedProjectionSceneCommand is RelayCommand deleteSelectedSceneCommand)
+        if (DeleteSelectedSceneCommand is RelayCommand deleteSelectedSceneCommand)
         {
             deleteSelectedSceneCommand.RaiseCanExecuteChanged();
         }

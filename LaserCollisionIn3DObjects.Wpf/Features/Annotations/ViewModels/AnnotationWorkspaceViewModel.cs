@@ -32,6 +32,7 @@ public sealed class AnnotationWorkspaceViewModel : ObservableObject
     private bool _isFolderResolved;
     private string? _missingFolderPath;
     private AnnotationWorkspaceState? _pendingWorkspaceState;
+    private PrismGenerationMethodology _selectedPrismGenerationMethodology;
 
     public AnnotationWorkspaceViewModel(SceneCollectionService? sceneCollectionService = null)
     {
@@ -61,6 +62,12 @@ public sealed class AnnotationWorkspaceViewModel : ObservableObject
     public ObservableCollection<AnnotatedImageViewModel> Images { get; } = new();
 
     public CornerMeasurementMode[] CornerMeasurementModes { get; } = Enum.GetValues<CornerMeasurementMode>();
+    public PrismGenerationMethodology[] PrismGenerationMethodologies { get; } = Enum.GetValues<PrismGenerationMethodology>();
+    public PrismGenerationMethodology SelectedPrismGenerationMethodology
+    {
+        get => _selectedPrismGenerationMethodology;
+        set => SetProperty(ref _selectedPrismGenerationMethodology, value);
+    }
 
     // TODO Phase 2: generate collision scenes from annotation data and push through this shared scene collection.
     public SceneCollectionService? SceneCollectionService => _sceneCollectionService;
@@ -458,16 +465,27 @@ public sealed class AnnotationWorkspaceViewModel : ObservableObject
             return;
         }
 
-        var sceneModel = new CollisionSceneViewModel("Annotation scene");
-        foreach (var item in Images)
+        var methodology = SelectedPrismGenerationMethodology;
+        var baseName = methodology == PrismGenerationMethodology.LtRtAnchoredOrthogonal
+            ? "Annotation - LT-RT Anchored Orthogonal" : "Annotation - LT-Anchored 4-Point Best Fit";
+        var sceneModel = new CollisionSceneViewModel(_sceneCollectionService?.CreateUniqueSceneName(baseName) ?? baseName);
+        try
         {
-            var measuredCorners = ResolveMeasuredCornerWorldPoints(item);
-            sceneModel.Prisms.Add(CreatePrism(item, measuredCorners));
-            foreach (var hole in CreateHolePoints(item, measuredCorners)) sceneModel.HolePoints.Add(hole);
-            foreach (var corner in measuredCorners)
-                sceneModel.MeasuredCornerPoints.Add(new Point3(corner.X, corner.Y, corner.Z));
+            foreach (var item in Images)
+            {
+                var measuredCorners = ResolveMeasuredCornerWorldPoints(item);
+                var width = (float)(item.PanelWidthMm!.Value * .001);
+                var height = (float)(item.PanelHeightMm!.Value * .001);
+                var frame = MeasuredPanelFrameBuilder.Create(measuredCorners[0], measuredCorners[1], measuredCorners[2], measuredCorners[3], width, height, methodology);
+                sceneModel.Prisms.Add(CreatePrism(item, measuredCorners[0], frame));
+                foreach (var hole in CreateHolePoints(item, measuredCorners[0], frame)) sceneModel.HolePoints.Add(hole);
+                foreach (var corner in measuredCorners) sceneModel.MeasuredCornerPoints.Add(new Point3(corner.X, corner.Y, corner.Z));
+                if (frame.Residuals is { } residuals) AddProcessingDiagnostic(item, $"4-point fit RMSE: {residuals.Rmse * 1000:F2} mm.");
+            }
         }
+        catch (ArgumentException ex) { SetSceneGenerationFailure(new[] { ex.Message }); return; }
         _sceneCollectionService?.AddScene(sceneModel);
+        StatusMessage = $"Generated scene '{sceneModel.Name}'.";
     }
 
     private void SetSceneGenerationFailure(IReadOnlyList<string> errors)
@@ -577,16 +595,15 @@ public sealed class AnnotationWorkspaceViewModel : ObservableObject
         return errors;
     }
 
-    private PrismItemViewModel CreatePrism(AnnotatedImageViewModel cornerMeasurement, IReadOnlyList<Vector3> cornerPoints)
+    private PrismItemViewModel CreatePrism(AnnotatedImageViewModel cornerMeasurement, Vector3 leftTop, MeasuredPanelFrame panelFrame)
     {
         Vector3 dimensions = new Vector3(
             (float)cornerMeasurement.PanelThicknessMm!.Value * 0.001f,
             (float)cornerMeasurement.PanelWidthMm!.Value * 0.001f,
             (float)cornerMeasurement.PanelHeightMm!.Value * 0.001f
             );
-        var panelFrame = MeasuredPanelFrameBuilder.Create(cornerPoints[0], cornerPoints[1], cornerPoints[3]);
         // Measurements remain on the prism reference/mid-plane; thickness is deliberately not offset.
-        Vector3 centerPoint = cornerPoints[0] + panelFrame.Width * dimensions.Y / 2f + panelFrame.Down * dimensions.Z / 2f;
+        Vector3 centerPoint = leftTop + panelFrame.Width * dimensions.Y / 2f + panelFrame.Down * dimensions.Z / 2f;
         
         PrismItemViewModel prism = new PrismItemViewModel();
         prism.PositionX = centerPoint.X; prism.PositionY = centerPoint.Y; prism.PositionZ = centerPoint.Z;
@@ -619,7 +636,7 @@ public sealed class AnnotationWorkspaceViewModel : ObservableObject
             : new Vector3((float)item.DirectX!.Value, (float)item.DirectY!.Value, (float)item.DirectZ!.Value)).ToArray();
     }
 
-    private List<Point3> CreateHolePoints(AnnotatedImageViewModel cornerMeasurement, IReadOnlyList<Vector3> cornerPoints)
+    private List<Point3> CreateHolePoints(AnnotatedImageViewModel cornerMeasurement, Vector3 leftTop, MeasuredPanelFrame panelFrame)
     {
         if (!_rectificationByImage.TryGetValue(cornerMeasurement, out var rectification) || rectification is null)
         {
@@ -630,14 +647,12 @@ public sealed class AnnotationWorkspaceViewModel : ObservableObject
             throw new InvalidOperationException($"Transformed hole coordinates are unavailable for '{cornerMeasurement.FileName}'.");
         }
 
-        var panelFrame = MeasuredPanelFrameBuilder.Create(cornerPoints[0], cornerPoints[1], cornerPoints[3]);
-        
         List<Point3> point3s = new List<Point3>();
         
         foreach (var item in cornerMeasurement.WarpedHoleCentersMm)
         {
            //Turn holes into 3D from 2D
-           Vector3 transformed = cornerPoints[0]
+           Vector3 transformed = leftTop
                + panelFrame.Width * (float)(item.X * 0.001)
                + panelFrame.Down * (float)(item.Y * 0.001);
            point3s.Add(new Point3(transformed.X, transformed.Y, transformed.Z));
@@ -654,6 +669,7 @@ public sealed class AnnotationWorkspaceViewModel : ObservableObject
             GlobalPanelWidthMm = GlobalPanelWidthMm,
             GlobalPanelHeightMm = GlobalPanelHeightMm,
             GlobalPanelThicknessMm = GlobalPanelThicknessMm,
+            PrismGenerationMethodology = SelectedPrismGenerationMethodology.ToString(),
             Images = Images.Select(image => new AnnotationImageState
             {
                 FileName = image.FileName,
@@ -682,6 +698,8 @@ public sealed class AnnotationWorkspaceViewModel : ObservableObject
         GlobalPanelWidthMm = state.GlobalPanelWidthMm;
         GlobalPanelHeightMm = state.GlobalPanelHeightMm;
         GlobalPanelThicknessMm = state.GlobalPanelThicknessMm;
+        SelectedPrismGenerationMethodology = Enum.TryParse<PrismGenerationMethodology>(state.PrismGenerationMethodology, true, out var methodology)
+            ? methodology : PrismGenerationMethodology.LtRtAnchoredOrthogonal;
 
         if (string.IsNullOrWhiteSpace(state.FolderPath))
         {

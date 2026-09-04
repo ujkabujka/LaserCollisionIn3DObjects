@@ -27,7 +27,7 @@
                             <CheckBox Content="Show Panels" IsChecked="{Binding ProjectionWorkspace.ShowPanels, Mode=TwoWay}" Margin="0,6,0,0"/>
                             <CheckBox Content="Show Measured Corners" IsChecked="{Binding ProjectionWorkspace.ShowMeasuredCorners, Mode=TwoWay}" Margin="0,4,0,0"/>
                             <Button Content="Import Hit Points CSV" Command="{Binding ProjectionWorkspace.ImportHitPointsCsvCommand}" Height="28" Margin="0,6,0,0"/>
-                            <Button Content="Delete Selected Scene" Command="{Binding ProjectionWorkspace.DeleteSelectedProjectionSceneCommand}" Height="28" Margin="0,6,0,0"/>
+                            <Button Content="Delete Selected Scene" Command="{Binding ProjectionWorkspace.DeleteSelectedSceneCommand}" Height="28" Margin="0,6,0,0"/>
                         </StackPanel>
                     </GroupBox>
 

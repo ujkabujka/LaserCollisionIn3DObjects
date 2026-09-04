@@ -4,6 +4,7 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:avm="clr-namespace:LaserCollisionIn3DObjects.Wpf.Features.Annotations.ViewModels"
+             xmlns:gen="clr-namespace:LaserCollisionIn3DObjects.Domain.Generation;assembly=LaserCollisionIn3DObjects.Domain"
              xmlns:conv="clr-namespace:LaserCollisionIn3DObjects.Wpf.Converters"
              mc:Ignorable="d">
     <UserControl.Resources>
@@ -73,6 +74,12 @@
                             <Button Content="Generate Scene"
                                     Command="{Binding AnnotationWorkspace.GenerateSceneCommand}"
                                     Height="28"/>
+                            <TextBlock Text="Prism Generation Methodology" Margin="0,6,0,2"/>
+                            <ComboBox ItemsSource="{Binding AnnotationWorkspace.PrismGenerationMethodologies}"
+                                      SelectedItem="{Binding AnnotationWorkspace.SelectedPrismGenerationMethodology}"
+                                      Margin="0,0,0,6">
+                                <ComboBox.ItemTemplate><DataTemplate><TextBlock><TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Text" Value="LT-RT Anchored Orthogonal"/><Style.Triggers><DataTrigger Binding="{Binding}" Value="{x:Static gen:PrismGenerationMethodology.LtAnchoredFourPointBestFit}"><Setter Property="Text" Value="LT-Anchored 4-Point Best Fit"/></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock></DataTemplate></ComboBox.ItemTemplate>
+                            </ComboBox>
                         </StackPanel>
                     </Border>
 
