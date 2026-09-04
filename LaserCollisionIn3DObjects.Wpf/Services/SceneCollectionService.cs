@@ -31,6 +31,17 @@ public sealed class SceneCollectionService : ObservableObject
         return scene;
     }
 
+    public string CreateUniqueSceneName(string baseName)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(baseName);
+        if (Scenes.All(scene => !string.Equals(scene.Name, baseName, StringComparison.OrdinalIgnoreCase))) return baseName;
+        for (var suffix = 2; ; suffix++)
+        {
+            var candidate = $"{baseName} ({suffix})";
+            if (Scenes.All(scene => !string.Equals(scene.Name, candidate, StringComparison.OrdinalIgnoreCase))) return candidate;
+        }
+    }
+
     public void AddScene(CollisionSceneViewModel scene, bool selectScene = true)
     {
         ArgumentNullException.ThrowIfNull(scene);

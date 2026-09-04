@@ -42,6 +42,50 @@ public sealed class MeasuredPanelFrameBuilderTests
             && float.IsFinite(frame.Orientation.Z) && float.IsFinite(frame.Orientation.W));
     }
 
+    [Theory]
+    [MemberData(nameof(Orientations))]
+    public void CreateBestFit_PerfectRectangle_RecoversEveryRotation(float x, float y, float z)
+    {
+        var rotation = FrameOrientationBuilder.ApplyLocalEulerDegrees(Quaternion.Identity, x, y, z);
+        var width = Vector3.Transform(Vector3.UnitY, rotation);
+        var down = Vector3.Transform(-Vector3.UnitZ, rotation);
+        var lt = new Vector3(2, -3, 4);
+        var frame = MeasuredPanelFrameBuilder.CreateBestFit(lt, lt + width * 2, lt + width * 2 + down * 3, lt + down * 3, 2, 3);
+
+        AssertDirection(width, frame.Width);
+        AssertDirection(down, frame.Down);
+        Assert.NotNull(frame.Residuals);
+        Assert.InRange(frame.Residuals!.Value.Rmse, 0, 1e-5f);
+        AssertDirection(Vector3.Transform(Vector3.UnitY, rotation), Vector3.Transform(Vector3.UnitY, frame.Orientation));
+    }
+
+    [Fact]
+    public void CreateBestFit_NoisyCorners_UsesEveryNonAnchorAndImprovesObjective()
+    {
+        var lt = Vector3.Zero;
+        var rt = new Vector3(2, .15f, .05f);
+        var lb = new Vector3(-.2f, 3, .15f);
+        var rb = new Vector3(2.15f, 3.2f, -.2f);
+        var oldFrame = MeasuredPanelFrameBuilder.Create(lt, rt, lb);
+        var fit = MeasuredPanelFrameBuilder.CreateBestFit(lt, rt, rb, lb, 2, 3);
+
+        Assert.True(Vector3.Distance(oldFrame.Width, fit.Width) > 1e-3f);
+        Assert.True(Error(fit) <= Error(oldFrame) + 1e-5f);
+        Assert.InRange(MathF.Abs(Vector3.Dot(fit.Width, fit.Down)), 0, 1e-5f);
+        AssertDirection(fit.Normal, Vector3.Cross(fit.Width, fit.Down));
+
+        float Error(MeasuredPanelFrame frame)
+            => Vector3.DistanceSquared(rt, frame.Width * 2) + Vector3.DistanceSquared(lb, frame.Down * 3)
+               + Vector3.DistanceSquared(rb, frame.Width * 2 + frame.Down * 3);
+    }
+
+    [Fact]
+    public void CreateBestFit_RejectsDegenerateOrNonFiniteMeasurements()
+    {
+        Assert.Throws<ArgumentException>(() => MeasuredPanelFrameBuilder.CreateBestFit(Vector3.Zero, Vector3.Zero, Vector3.One, Vector3.UnitY, 1, 1));
+        Assert.Throws<ArgumentException>(() => MeasuredPanelFrameBuilder.CreateBestFit(Vector3.Zero, Vector3.UnitX, Vector3.One, new Vector3(float.NaN), 1, 1));
+    }
+
     private static void AssertDirection(Vector3 expected, Vector3 actual)
         => Assert.True(Vector3.Distance(expected, actual) < 1e-5f, $"Expected {expected}, actual {actual}.");
 }

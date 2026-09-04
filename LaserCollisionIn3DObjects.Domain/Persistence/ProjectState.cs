@@ -289,6 +289,7 @@ public sealed class ProjectionWorkspaceStateDto
 
 public sealed class AnnotationWorkspaceState
 {
+    public string? PrismGenerationMethodology { get; set; }
     public string? FolderPath { get; set; }
     public bool IsFolderResolved { get; set; }
     public double GlobalPanelWidthMm { get; set; }
