@@ -203,7 +203,7 @@ public sealed class AnnotationWorkspaceViewModel : ObservableObject
             return false;
         }
 
-        var orderedImages = Images.OrderBy(static image => image.FileName, NaturalFileNameComparer.Instance).ToList();
+        var orderedImages = Images.OrderBy(static image => image.FileName, AnnotationImageFileNameComparer.Instance).ToList();
         for (var i = 0; i < orderedImages.Count; i++) ApplyPanelMeasurements(orderedImages[i], rows[i]);
         var failedImages = orderedImages.Where(image => !EnsureImageRectification(image, updatePreview: image == SelectedImage)).Select(static image => image.FileName).ToList();
         RaiseCanExecuteChanges();

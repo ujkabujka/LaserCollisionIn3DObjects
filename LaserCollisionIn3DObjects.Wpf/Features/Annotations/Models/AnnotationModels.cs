@@ -1,6 +1,7 @@
 using System.IO;
 using System.Windows;
 using System.Windows.Media.Imaging;
+using LaserCollisionIn3DObjects.Domain.Import;
 
 namespace LaserCollisionIn3DObjects.Wpf.Features.Annotations.Models;
 
@@ -27,6 +28,12 @@ public sealed class AnnotatedImageRecord
     public required string FileName { get; init; }
 
     public string? ImagePath { get; set; }
+
+    public AnnotationImageIdentity? Identity { get; init; }
+
+    public int? TestNumber => Identity?.TestNumber;
+
+    public int? PanelNumber => Identity?.PanelNumber;
 
     public PanelAnnotation? Panel { get; set; }
 
