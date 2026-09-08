@@ -806,4 +806,66 @@ public class PersistenceRoundTripTests
         }
     }
 
+    [Fact]
+    public void ProjectionWorkspaceState_DefaultsUseCompactCylinderAndCanonicalFrame()
+    {
+        var state = new ProjectionWorkspaceStateDto();
+
+        Assert.Equal(AxisymmetricSourceKind.Cylinder, state.ProjectionGeometryKind);
+        Assert.Equal(0.15d, state.GeometryRadiusStart);
+        Assert.Equal(0.15d, state.GeometryRadiusEnd);
+        Assert.Equal(0.30d, state.GeometryLength);
+        Assert.Equal(0d, state.BeamOriginX);
+        Assert.Equal(1d, state.SourceFrameXx);
+        Assert.Equal(1d, state.SourceFrameYy);
+    }
+
+    [Fact]
+    public void ProjectionWorkspaceState_RoundTrip_PreservesSourceFrame()
+    {
+        var service = new JsonStateFileService();
+        var filePath = Path.Combine(Path.GetTempPath(), $"lc3d-frame-{Guid.NewGuid():N}.json");
+        try
+        {
+            service.SaveProject(filePath, new ProjectState
+            {
+                ProjectionWorkspace = new ProjectionWorkspaceStateDto
+                {
+                    BeamOriginX = 1, BeamOriginY = 2, BeamOriginZ = 3,
+                    SourceFrameXx = 0, SourceFrameXy = 1, SourceFrameXz = 0,
+                    SourceFrameYx = 0, SourceFrameYy = 0, SourceFrameYz = 1,
+                },
+            });
+
+            var restored = service.LoadProject(filePath).ProjectionWorkspace;
+            Assert.Equal((1d, 2d, 3d), (restored.BeamOriginX, restored.BeamOriginY, restored.BeamOriginZ));
+            Assert.Equal((0d, 1d, 0d), (restored.SourceFrameXx, restored.SourceFrameXy, restored.SourceFrameXz));
+            Assert.Equal((0d, 0d, 1d), (restored.SourceFrameYx, restored.SourceFrameYy, restored.SourceFrameYz));
+        }
+        finally
+        {
+            if (File.Exists(filePath)) File.Delete(filePath);
+        }
+    }
+
+    [Fact]
+    public void ProjectionWorkspaceState_OldJsonUsesSourceFrameDefaults()
+    {
+        var service = new JsonStateFileService();
+        var filePath = Path.Combine(Path.GetTempPath(), $"lc3d-old-frame-{Guid.NewGuid():N}.json");
+        try
+        {
+            File.WriteAllText(filePath, "{\"projectionWorkspace\":{\"geometryLength\":4.5}}");
+            var restored = service.LoadProject(filePath).ProjectionWorkspace;
+            Assert.Equal(0d, restored.BeamOriginX);
+            Assert.Equal((1d, 0d, 0d), (restored.SourceFrameXx, restored.SourceFrameXy, restored.SourceFrameXz));
+            Assert.Equal((0d, 1d, 0d), (restored.SourceFrameYx, restored.SourceFrameYy, restored.SourceFrameYz));
+            Assert.Equal(4.5d, restored.GeometryLength);
+        }
+        finally
+        {
+            if (File.Exists(filePath)) File.Delete(filePath);
+        }
+    }
+
 }
