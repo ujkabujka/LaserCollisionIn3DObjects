@@ -33,17 +33,21 @@ public sealed class AnnotationWorkspaceViewModel : ObservableObject
     private string? _missingFolderPath;
     private AnnotationWorkspaceState? _pendingWorkspaceState;
     private PrismGenerationMethodology _selectedPrismGenerationMethodology;
+    private bool _isBusy;
+    private string _busyMessage = string.Empty;
+    private double _busyProgressPercent;
+    private bool _isBusyIndeterminate = true;
 
     public AnnotationWorkspaceViewModel(SceneCollectionService? sceneCollectionService = null)
     {
         _sceneCollectionService = sceneCollectionService;
-        SelectFolderCommand = new RelayCommand(SelectFolder);
-        ImportPanelMeasurementsCsvCommand = new RelayCommand(ImportPanelMeasurementsCsv, () => Images.Count > 0);
-        SelectPreviousImageCommand = new RelayCommand(SelectPreviousImage, () => SelectedImageIndex > 0);
-        SelectNextImageCommand = new RelayCommand(SelectNextImage, () => SelectedImageIndex >= 0 && SelectedImageIndex < Images.Count - 1);
-        ApplyGlobalPanelDimensionsCommand = new RelayCommand(ApplyGlobalPanelDimensions, () => Images.Count > 0);
-        GenerateSceneCommand = new RelayCommand(GenerateScene, () => Images.Count > 0);
-        RelinkMissingFolderCommand = new RelayCommand(RestoreMissingFolder, () => !string.IsNullOrWhiteSpace(MissingFolderPath));
+        SelectFolderCommand = new RelayCommand(SelectFolder, () => !IsBusy);
+        ImportPanelMeasurementsCsvCommand = new AsyncRelayCommand(ImportPanelMeasurementsCsvAsync, () => !IsBusy && Images.Count > 0);
+        SelectPreviousImageCommand = new RelayCommand(SelectPreviousImage, () => !IsBusy && SelectedImageIndex > 0);
+        SelectNextImageCommand = new RelayCommand(SelectNextImage, () => !IsBusy && SelectedImageIndex >= 0 && SelectedImageIndex < Images.Count - 1);
+        ApplyGlobalPanelDimensionsCommand = new RelayCommand(ApplyGlobalPanelDimensions, () => !IsBusy && Images.Count > 0);
+        GenerateSceneCommand = new AsyncRelayCommand(GenerateSceneAsync, () => !IsBusy && Images.Count > 0);
+        RelinkMissingFolderCommand = new RelayCommand(RestoreMissingFolder, () => !IsBusy && !string.IsNullOrWhiteSpace(MissingFolderPath));
     }
 
     public ICommand SelectFolderCommand { get; }
@@ -60,6 +64,19 @@ public sealed class AnnotationWorkspaceViewModel : ObservableObject
     public ICommand RelinkMissingFolderCommand { get; }
 
     public ObservableCollection<AnnotatedImageViewModel> Images { get; } = new();
+
+    public bool IsBusy
+    {
+        get => _isBusy;
+        private set
+        {
+            if (SetProperty(ref _isBusy, value)) RaiseCanExecuteChanges();
+        }
+    }
+
+    public string BusyMessage { get => _busyMessage; private set => SetProperty(ref _busyMessage, value); }
+    public double BusyProgressPercent { get => _busyProgressPercent; private set => SetProperty(ref _busyProgressPercent, value); }
+    public bool IsBusyIndeterminate { get => _isBusyIndeterminate; private set => SetProperty(ref _isBusyIndeterminate, value); }
 
     public CornerMeasurementMode[] CornerMeasurementModes { get; } = Enum.GetValues<CornerMeasurementMode>();
     public PrismGenerationMethodology[] PrismGenerationMethodologies { get; } = Enum.GetValues<PrismGenerationMethodology>();
@@ -170,7 +187,7 @@ public sealed class AnnotationWorkspaceViewModel : ObservableObject
         MissingFolderPath = null;
     }
 
-    private void ImportPanelMeasurementsCsv()
+    private async Task ImportPanelMeasurementsCsvAsync()
     {
         if (Images.Count == 0)
         {
@@ -180,15 +197,40 @@ public sealed class AnnotationWorkspaceViewModel : ObservableObject
 
         var dialog = new OpenFileDialog { Title = "Import Panel Measurements CSV", Filter = "CSV files (*.csv)|*.csv|All files (*.*)|*.*" };
         if (dialog.ShowDialog() != true) return;
+        BeginBusy("Importing panel measurements...");
         try
         {
-            using var reader = File.OpenText(dialog.FileName);
-            ImportPanelMeasurements(reader);
+            var csv = await File.ReadAllTextAsync(dialog.FileName);
+            using var reader = new StringReader(csv);
+            var rows = _panelMeasurementsImporter.Parse(reader);
+            if (rows.Count != Images.Count)
+            {
+                StatusMessage = $"Panel measurements CSV has {rows.Count} data rows but {Images.Count} annotation images are loaded. No values were applied.";
+                return;
+            }
+
+            var orderedImages = Images.OrderBy(static image => image.FileName, AnnotationImageFileNameComparer.Instance).ToList();
+            for (var i = 0; i < orderedImages.Count; i++) ApplyPanelMeasurements(orderedImages[i], rows[i]);
+
+            var failedImages = new List<string>();
+            for (var i = 0; i < orderedImages.Count; i++)
+            {
+                ReportBusyProgress("Rectifying panels", i + 1, orderedImages.Count);
+                if (!await EnsureImageRectificationAsync(orderedImages[i], updatePreview: orderedImages[i] == SelectedImage))
+                    failedImages.Add(orderedImages[i].FileName);
+            }
+
+            RaiseCanExecuteChanges();
+            StatusMessage = failedImages.Count == 0
+                ? $"Imported panel measurements for {rows.Count} panel record(s)."
+                : $"Imported panel measurements for {rows.Count} panel record(s), but rectification failed for: {string.Join(", ", failedImages)}.";
         }
+        catch (FormatException ex) { StatusMessage = $"Panel measurements CSV is invalid: {ex.Message}"; }
         catch (Exception ex)
         {
             StatusMessage = $"Panel measurements CSV import failed: {ex.Message}";
         }
+        finally { EndBusy(); }
     }
 
     public bool ImportPanelMeasurements(TextReader reader)
@@ -227,8 +269,8 @@ public sealed class AnnotationWorkspaceViewModel : ObservableObject
     private static void ApplyCorner(CornerMeasurementViewModel corner, PanelCornerMeasurement measurement)
     {
         corner.SelectedMode = CornerMeasurementMode.ManualMeasurement;
-        if(measurement.DistanceMeters > 1000) {corner.ManualDistanceMeters = measurement.DistanceMeters / 1000;}
-        else {corner.ManualDistanceMeters = measurement.DistanceMeters;}
+        if (measurement.DistanceMeters > 1000) { corner.ManualDistanceMeters = measurement.DistanceMeters / 1000; }
+        else { corner.ManualDistanceMeters = measurement.DistanceMeters; }
         corner.ManualAzimuthDeg = measurement.AzimuthDeg;
         corner.ManualElevationDeg = measurement.ElevationDeg;
     }
@@ -387,6 +429,69 @@ public sealed class AnnotationWorkspaceViewModel : ObservableObject
         }
     }
 
+    private async Task<bool> EnsureImageRectificationAsync(AnnotatedImageViewModel image, bool updatePreview)
+    {
+        image.Holes.Clear();
+        if (image.Record.IsImageMissing)
+        {
+            _rectificationByImage[image] = null;
+            AddProcessingDiagnostic(image, $"Image file is missing: {image.Record.FileName}");
+            RebuildHoleRows(image);
+            return false;
+        }
+
+        try
+        {
+            var bitmap = image.OriginalImage;
+            if (bitmap is null)
+            {
+                var loadResult = await Task.Run(() => _workspaceService.LoadImageWithDetails(image.Record.ImagePath!));
+                bitmap = loadResult.Image;
+                image.OriginalImage = bitmap;
+                if (loadResult.Orientation != LaserCollisionIn3DObjects.Domain.Imaging.ExifOrientation.Normal)
+                {
+                    AddProcessingDiagnostic(image, $"EXIF orientation {((ushort)loadResult.Orientation)} normalized: raw {loadResult.RawPixelWidth}x{loadResult.RawPixelHeight}, displayed {bitmap.PixelWidth}x{bitmap.PixelHeight}.");
+                    AddCoordinateSystemDiagnostic(image, loadResult.RawPixelWidth, loadResult.RawPixelHeight, bitmap.PixelWidth, bitmap.PixelHeight);
+                }
+            }
+
+            if (image.Record.Panel is null)
+            {
+                _rectificationByImage[image] = null;
+                AddProcessingDiagnostic(image, "Panel annotation is missing.");
+                RebuildHoleRows(image);
+                return false;
+            }
+            if (image.Record.Panel.FittedQuadrilateralCorners.Count != 4) _workspaceService.FitPanel(image.Record);
+
+            if (!_rectificationByImage.TryGetValue(image, out var rectification) || rectification is null)
+            {
+                if (!bitmap.IsFrozen && bitmap.CanFreeze) bitmap.Freeze();
+                rectification = bitmap.IsFrozen
+                    ? await Task.Run(() => _workspaceService.CreateRectification(image.Record, bitmap))
+                    : _workspaceService.CreateRectification(image.Record, bitmap);
+                _rectificationByImage[image] = rectification;
+            }
+
+            RebuildHoleRows(image);
+            if (updatePreview)
+            {
+                image.OriginalOverlay = _workspaceService.CreateOriginalOverlay(image.Record, bitmap);
+                image.WarpedImage = rectification?.WarpedImage;
+                image.WarpedOverlay = rectification is null ? null : _workspaceService.CreateWarpedOverlay(rectification, rectification.WarpedImage);
+            }
+            return rectification is not null;
+        }
+        catch (Exception ex)
+        {
+            _rectificationByImage[image] = null;
+            RebuildHoleRows(image);
+            AddProcessingDiagnostic(image, $"Image processing failed: {ex.Message}");
+            if (updatePreview) { image.WarpedImage = null; image.WarpedOverlay = null; }
+            return false;
+        }
+    }
+
     private static void AddProcessingDiagnostic(AnnotatedImageViewModel image, string message)
     {
         if (!image.Record.Diagnostics.Contains(message, StringComparer.Ordinal))
@@ -411,12 +516,36 @@ public sealed class AnnotationWorkspaceViewModel : ObservableObject
 
     private void RaiseCanExecuteChanges()
     {
+        (SelectFolderCommand as RelayCommand)?.RaiseCanExecuteChanged();
         (SelectPreviousImageCommand as RelayCommand)?.RaiseCanExecuteChanged();
         (SelectNextImageCommand as RelayCommand)?.RaiseCanExecuteChanged();
         (ApplyGlobalPanelDimensionsCommand as RelayCommand)?.RaiseCanExecuteChanged();
-        (ImportPanelMeasurementsCsvCommand as RelayCommand)?.RaiseCanExecuteChanged();
-        (GenerateSceneCommand as RelayCommand)?.RaiseCanExecuteChanged();
         (RelinkMissingFolderCommand as RelayCommand)?.RaiseCanExecuteChanged();
+        (ImportPanelMeasurementsCsvCommand as AsyncRelayCommand)?.RaiseCanExecuteChanged();
+        (GenerateSceneCommand as AsyncRelayCommand)?.RaiseCanExecuteChanged();
+    }
+
+    private void BeginBusy(string message)
+    {
+        BusyMessage = message;
+        BusyProgressPercent = 0;
+        IsBusyIndeterminate = true;
+        IsBusy = true;
+    }
+
+    private void ReportBusyProgress(string stage, int current, int total)
+    {
+        BusyMessage = $"{stage} — {current} of {total}";
+        BusyProgressPercent = total == 0 ? 100 : current * 100d / total;
+        IsBusyIndeterminate = false;
+    }
+
+    private void EndBusy()
+    {
+        IsBusy = false;
+        BusyMessage = string.Empty;
+        BusyProgressPercent = 0;
+        IsBusyIndeterminate = true;
     }
 
     private void ApplyGlobalPanelDimensions()
@@ -448,44 +577,57 @@ public sealed class AnnotationWorkspaceViewModel : ObservableObject
 
         RebuildHoleRows(image);
     }
-    private void GenerateScene()
+    private async Task GenerateSceneAsync()
     {
-        var validationErrors = ValidateSceneGenerationInputs(includeRectification: false);
-        if (validationErrors.Count > 0)
-        {
-            SetSceneGenerationFailure(validationErrors);
-            return;
-        }
-
-        var failedImages = Images.Where(image => !EnsureImageRectification(image, updatePreview: false)).Select(static image => image.FileName).ToList();
-        validationErrors = failedImages.Count == 0 ? ValidateSceneGenerationInputs(includeRectification: true) : failedImages.Select(name => $"{name}: rectification could not be created.").ToList();
-        if (validationErrors.Count > 0)
-        {
-            SetSceneGenerationFailure(validationErrors);
-            return;
-        }
-
-        var methodology = SelectedPrismGenerationMethodology;
-        var baseName = methodology == PrismGenerationMethodology.LtRtAnchoredOrthogonal
-            ? "Annotation - LT-RT Anchored Orthogonal" : "Annotation - LT-Anchored 4-Point Best Fit";
-        var sceneModel = new CollisionSceneViewModel(_sceneCollectionService?.CreateUniqueSceneName(baseName) ?? baseName);
+        BeginBusy("Preparing scene...");
         try
         {
-            foreach (var item in Images)
+            var validationErrors = ValidateSceneGenerationInputs(includeRectification: false);
+            if (validationErrors.Count > 0)
             {
-                var measuredCorners = ResolveMeasuredCornerWorldPoints(item);
-                var width = (float)(item.PanelWidthMm!.Value * .001);
-                var height = (float)(item.PanelHeightMm!.Value * .001);
-                var frame = MeasuredPanelFrameBuilder.Create(measuredCorners[0], measuredCorners[1], measuredCorners[2], measuredCorners[3], width, height, methodology);
-                sceneModel.Prisms.Add(CreatePrism(item, measuredCorners[0], frame));
-                foreach (var hole in CreateHolePoints(item, measuredCorners[0], frame)) sceneModel.HolePoints.Add(hole);
-                foreach (var corner in measuredCorners) sceneModel.MeasuredCornerPoints.Add(new Point3(corner.X, corner.Y, corner.Z));
-                if (frame.Residuals is { } residuals) AddProcessingDiagnostic(item, $"4-point fit RMSE: {residuals.Rmse * 1000:F2} mm.");
+                SetSceneGenerationFailure(validationErrors);
+                return;
             }
+
+            var failedImages = new List<string>();
+            for (var i = 0; i < Images.Count; i++)
+            {
+                ReportBusyProgress("Rectifying panels", i + 1, Images.Count);
+                if (!await EnsureImageRectificationAsync(Images[i], updatePreview: false)) failedImages.Add(Images[i].FileName);
+            }
+            validationErrors = failedImages.Count == 0 ? ValidateSceneGenerationInputs(includeRectification: true) : failedImages.Select(name => $"{name}: rectification could not be created.").ToList();
+            if (validationErrors.Count > 0)
+            {
+                SetSceneGenerationFailure(validationErrors);
+                return;
+            }
+
+            var methodology = SelectedPrismGenerationMethodology;
+            var baseName = methodology == PrismGenerationMethodology.LtRtAnchoredOrthogonal
+                ? "Annotation - LT-RT Anchored Orthogonal" : "Annotation - LT-Anchored 4-Point Best Fit";
+            var sceneModel = new CollisionSceneViewModel(_sceneCollectionService?.CreateUniqueSceneName(baseName) ?? baseName);
+            try
+            {
+                for (var index = 0; index < Images.Count; index++)
+                {
+                    var item = Images[index];
+                    ReportBusyProgress("Generating scene", index + 1, Images.Count);
+                    await Task.Yield();
+                    var measuredCorners = ResolveMeasuredCornerWorldPoints(item);
+                    var width = (float)(item.PanelWidthMm!.Value * .001);
+                    var height = (float)(item.PanelHeightMm!.Value * .001);
+                    var frame = MeasuredPanelFrameBuilder.Create(measuredCorners[0], measuredCorners[1], measuredCorners[2], measuredCorners[3], width, height, methodology);
+                    sceneModel.Prisms.Add(CreatePrism(item, measuredCorners[0], frame));
+                    foreach (var hole in CreateHolePoints(item, measuredCorners[0], frame)) sceneModel.HolePoints.Add(hole);
+                    foreach (var corner in measuredCorners) sceneModel.MeasuredCornerPoints.Add(new Point3(corner.X, corner.Y, corner.Z));
+                    if (frame.Residuals is { } residuals) AddProcessingDiagnostic(item, $"4-point fit RMSE: {residuals.Rmse * 1000:F2} mm.");
+                }
+            }
+            catch (ArgumentException ex) { SetSceneGenerationFailure(new[] { ex.Message }); return; }
+            _sceneCollectionService?.AddScene(sceneModel);
+            StatusMessage = $"Generated scene '{sceneModel.Name}'.";
         }
-        catch (ArgumentException ex) { SetSceneGenerationFailure(new[] { ex.Message }); return; }
-        _sceneCollectionService?.AddScene(sceneModel);
-        StatusMessage = $"Generated scene '{sceneModel.Name}'.";
+        finally { EndBusy(); }
     }
 
     private void SetSceneGenerationFailure(IReadOnlyList<string> errors)

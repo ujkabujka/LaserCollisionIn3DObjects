@@ -6,11 +6,23 @@
              xmlns:avm="clr-namespace:LaserCollisionIn3DObjects.Wpf.Features.Annotations.ViewModels"
              xmlns:gen="clr-namespace:LaserCollisionIn3DObjects.Domain.Generation;assembly=LaserCollisionIn3DObjects.Domain"
              xmlns:conv="clr-namespace:LaserCollisionIn3DObjects.Wpf.Converters"
+             xmlns:controls="clr-namespace:LaserCollisionIn3DObjects.Wpf.Controls"
              mc:Ignorable="d">
     <UserControl.Resources>
         <conv:FlexibleNumericConverter x:Key="FlexibleNumericConverter"/>
+        <BooleanToVisibilityConverter x:Key="BoolToVisibility"/>
     </UserControl.Resources>
     <Grid Margin="10">
+        <Grid.Style>
+            <Style TargetType="Grid">
+                <Setter Property="Cursor" Value="Arrow"/>
+                <Style.Triggers>
+                    <DataTrigger Binding="{Binding AnnotationWorkspace.IsBusy}" Value="True">
+                        <Setter Property="Cursor" Value="Wait"/>
+                    </DataTrigger>
+                </Style.Triggers>
+            </Style>
+        </Grid.Style>
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="380" />
             <ColumnDefinition Width="*" />
@@ -203,5 +215,10 @@
                 </Grid>
             </ScrollViewer>
         </GroupBox>
+        <controls:BusyOverlay Grid.ColumnSpan="3" Panel.ZIndex="100"
+                              Visibility="{Binding AnnotationWorkspace.IsBusy, Converter={StaticResource BoolToVisibility}}"
+                              Message="{Binding AnnotationWorkspace.BusyMessage}"
+                              Progress="{Binding AnnotationWorkspace.BusyProgressPercent}"
+                              IsIndeterminate="{Binding AnnotationWorkspace.IsBusyIndeterminate}"/>
     </Grid>
 </UserControl>

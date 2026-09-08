@@ -5,12 +5,23 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:h="http://helix-toolkit.org/wpf"
              xmlns:conv="clr-namespace:LaserCollisionIn3DObjects.Wpf.Converters"
+             xmlns:controls="clr-namespace:LaserCollisionIn3DObjects.Wpf.Controls"
              mc:Ignorable="d">
     <UserControl.Resources>
         <conv:FlexibleNumericConverter x:Key="FlexibleNumericConverter"/>
         <BooleanToVisibilityConverter x:Key="BoolToVisibility"/>
     </UserControl.Resources>
     <Grid>
+        <Grid.Style>
+            <Style TargetType="Grid">
+                <Setter Property="Cursor" Value="Arrow"/>
+                <Style.Triggers>
+                    <DataTrigger Binding="{Binding ProjectionWorkspace.IsProjectionRunning}" Value="True">
+                        <Setter Property="Cursor" Value="Wait"/>
+                    </DataTrigger>
+                </Style.Triggers>
+            </Style>
+        </Grid.Style>
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="430" />
             <ColumnDefinition Width="*" />
@@ -136,5 +147,10 @@
                 <h:GridLinesVisual3D Width="120" Length="120" MinorDistance="5" MajorDistance="10" />
             </h:HelixViewport3D>
         </Grid>
+        <controls:BusyOverlay Grid.ColumnSpan="2" Panel.ZIndex="100"
+                              Visibility="{Binding ProjectionWorkspace.IsProjectionRunning, Converter={StaticResource BoolToVisibility}}"
+                              Message="{Binding ProjectionWorkspace.ProjectionProgressMessage}"
+                              Progress="{Binding ProjectionWorkspace.ProjectionProgressPercent}"
+                              IsIndeterminate="False"/>
     </Grid>
 </UserControl>

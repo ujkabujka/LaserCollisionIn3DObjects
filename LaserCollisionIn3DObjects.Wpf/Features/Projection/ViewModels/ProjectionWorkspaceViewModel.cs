@@ -80,12 +80,12 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
         _selectedMethod = ProjectionMethods.FirstOrDefault(method => method.Id == ProjectionWorkspaceState.DefaultMethodId)
             ?? ProjectionMethods.FirstOrDefault();
 
-        RunProjectionCommand = new RelayCommand(RunProjection, CanRunProjection);
-        ImportHitPointsCsvCommand = new RelayCommand(ImportHitPointsCsv);
-        DeleteSelectedResultCommand = new RelayCommand(DeleteSelectedResult, () => SelectedResult is not null);
-        DeleteSelectedSceneCommand = new RelayCommand(DeleteSelectedScene, () => CanDeleteSelectedScene);
-        AddHybridSegmentCommand = new RelayCommand(AddHybridSegment);
-        RemoveSelectedHybridSegmentCommand = new RelayCommand(RemoveSelectedHybridSegment, () => SelectedHybridSegment is not null);
+        RunProjectionCommand = new AsyncRelayCommand(RunProjectionAsync, CanRunProjection);
+        ImportHitPointsCsvCommand = new RelayCommand(ImportHitPointsCsv, () => !IsProjectionRunning);
+        DeleteSelectedResultCommand = new RelayCommand(DeleteSelectedResult, () => !IsProjectionRunning && SelectedResult is not null);
+        DeleteSelectedSceneCommand = new RelayCommand(DeleteSelectedScene, () => !IsProjectionRunning && CanDeleteSelectedScene);
+        AddHybridSegmentCommand = new RelayCommand(AddHybridSegment, () => !IsProjectionRunning);
+        RemoveSelectedHybridSegmentCommand = new RelayCommand(RemoveSelectedHybridSegment, () => !IsProjectionRunning && SelectedHybridSegment is not null);
         AddProjectedLightSourceToCollisionSceneCommand = new RelayCommand(AddProjectedLightSourceToCollision, CanAddProjectedLightSourceToCollision);
 
         _sceneCollectionService.Scenes.CollectionChanged += OnScenesCollectionChanged;
@@ -536,7 +536,7 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
         SetStatus($"Imported {importResult.HolePoints.Count} hole points into projection scene '{sceneName}'. Skipped {importResult.SkippedRowCount} invalid rows.", ApplicationLogLevel.Success);
     }
 
-    private void RunProjection()
+    private async Task RunProjectionAsync()
     {
         var scene = SelectedScene;
         if (scene is null)
@@ -578,18 +578,14 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
             return;
         }
 
-        IsProjectionRunning = true;
-        ProjectionProgressPercent = 0;
-        ProjectionProgressMessage = "Preparing projection...";
-        _lastLoggedProgressBucket = -1;
-        _applicationLogService?.LogInfo($"Projection scene: {scene.Name}", nameof(ProjectionWorkspaceViewModel));
-        _applicationLogService?.LogInfo($"Projection method: {SelectedMethod.DisplayName} ({SelectedMethod.Id})", nameof(ProjectionWorkspaceViewModel));
-        _applicationLogService?.LogInfo($"Projection input hole points: {scene.HolePoints.Count}", nameof(ProjectionWorkspaceViewModel));
-        _applicationLogService?.LogInfo("Projection run started.", nameof(ProjectionWorkspaceViewModel));
-
-        try
+        var methodOption = SelectedMethod;
+        var method = methodOption.Method;
+        var resultName = NewResultName;
+        var request = new ProjectionRequest
         {
-            var progress = new Progress<ProjectionProgress>(report =>
+            HolePoints = scene.HolePoints.ToList(),
+            Parameters = BuildParameters(method),
+            Progress = new Progress<ProjectionProgress>(report =>
             {
                 if (report.Percent is not null)
                 {
@@ -601,22 +597,25 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
                         _applicationLogService?.LogInfo($"Projection progress {ProjectionProgressPercent:F0}% - {report.Message}", nameof(ProjectionWorkspaceViewModel));
                     }
                 }
-
                 ProjectionProgressMessage = report.Message;
-            });
+            }),
+        };
 
-            var request = new ProjectionRequest
-            {
-                HolePoints = scene.HolePoints.ToList(),
-                Parameters = BuildParameters(SelectedMethod.Method),
-                Progress = progress,
-            };
+        IsProjectionRunning = true;
+        ProjectionProgressPercent = 0;
+        ProjectionProgressMessage = "Preparing projection...";
+        _lastLoggedProgressBucket = -1;
+        _applicationLogService?.LogInfo($"Projection scene: {scene.Name}", nameof(ProjectionWorkspaceViewModel));
+        _applicationLogService?.LogInfo($"Projection method: {methodOption.DisplayName} ({methodOption.Id})", nameof(ProjectionWorkspaceViewModel));
+        _applicationLogService?.LogInfo($"Projection input hole points: {scene.HolePoints.Count}", nameof(ProjectionWorkspaceViewModel));
+        _applicationLogService?.LogInfo("Projection run started.", nameof(ProjectionWorkspaceViewModel));
 
-            var method = SelectedMethod.Method;
-            var result = method.Execute(request);
-            var namedResult = SceneProjectionStateUpdater.SaveResult(scene.ProjectionState, NewResultName, result);
+        try
+        {
+            var result = await Task.Run(() => method.Execute(request));
+            var namedResult = SceneProjectionStateUpdater.SaveResult(scene.ProjectionState, resultName, result);
             NewResultName = $"Projection Result {scene.ProjectionState.SavedResults.Count + 1}";
-            scene.ProjectionState.SelectedMethodId = SelectedMethod.Id;
+            scene.ProjectionState.SelectedMethodId = methodOption.Id;
             SelectedResult = namedResult;
 
             SetStatus(result.AxisymmetricSource is null
@@ -626,7 +625,7 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
             LogProjectionSummary(result);
             _applicationLogService?.LogSuccess("Projection run completed.", nameof(ProjectionWorkspaceViewModel));
         }
-        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
+        catch (Exception ex)
         {
             SetStatus(ex.Message, ApplicationLogLevel.Error, ex);
             _applicationLogService?.LogError("Projection run failed.", ex, nameof(ProjectionWorkspaceViewModel));
@@ -1194,7 +1193,7 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
             SetStatus("Target scene must be a collision scene, not a projection-only scene.", ApplicationLogLevel.Warning);
             return;
         }
-    
+
 
         try
         {
@@ -1218,7 +1217,8 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
     }
 
     private bool CanAddProjectedLightSourceToCollision() =>
-        SelectedResult is not null
+        !IsProjectionRunning
+        && SelectedResult is not null
         && SelectedTargetCollisionScene is not null
         && !SelectedTargetCollisionScene.IsProjectionOnly;
 
@@ -1237,10 +1237,7 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
 
     private void RaiseCanExecuteChanged()
     {
-        if (RunProjectionCommand is RelayCommand runProjectionCommand)
-        {
-            runProjectionCommand.RaiseCanExecuteChanged();
-        }
+        (RunProjectionCommand as AsyncRelayCommand)?.RaiseCanExecuteChanged();
 
         if (DeleteSelectedResultCommand is RelayCommand deleteSelectedResultCommand)
         {
@@ -1261,6 +1258,9 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
         {
             removeSelectedHybridSegmentCommand.RaiseCanExecuteChanged();
         }
+
+        (ImportHitPointsCsvCommand as RelayCommand)?.RaiseCanExecuteChanged();
+        (AddHybridSegmentCommand as RelayCommand)?.RaiseCanExecuteChanged();
     }
 
     private void OnSavedResultsCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)

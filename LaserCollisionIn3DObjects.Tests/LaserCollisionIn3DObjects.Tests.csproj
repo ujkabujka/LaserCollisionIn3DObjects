@@ -18,4 +18,8 @@
   <ItemGroup>
     <ProjectReference Include="..\LaserCollisionIn3DObjects.Domain\LaserCollisionIn3DObjects.Domain.csproj" />
   </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\LaserCollisionIn3DObjects.Wpf\Commands\AsyncRelayCommand.cs" Link="Commands\AsyncRelayCommand.cs" />
+  </ItemGroup>
 </Project>
