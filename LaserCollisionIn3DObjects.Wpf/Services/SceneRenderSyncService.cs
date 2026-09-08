@@ -48,12 +48,13 @@ public sealed class SceneRenderSyncService
         IReadOnlyList<RayItemViewModel> rayItems,
         IReadOnlyList<ProjectedLightSourceItemViewModel> projectedLightSources,
         IReadOnlyList<Point3> holePoints,
+        IReadOnlyList<Point3> naturalPoints,
         ProjectionComputationResult? projectionResult,
         string sceneName,
         bool runCollision,
         CollisionAlgorithmOption algorithm)
     {
-        var buildResult = BuildDomainScene(prismItems, lightSourceItems, rayItems, projectedLightSources, holePoints, projectionResult);
+        var buildResult = BuildDomainScene(prismItems, lightSourceItems, rayItems, projectedLightSources, holePoints, naturalPoints, projectionResult);
         var scene = buildResult.Scene;
         var stopwatch = System.Diagnostics.Stopwatch.StartNew();
         var collisionResults = runCollision ? CalculateFirstHits(scene, algorithm) : new List<(DomainRay3D Ray, RayHitResult Hit)>();
@@ -79,6 +80,7 @@ public sealed class SceneRenderSyncService
         IReadOnlyList<RayItemViewModel> rays,
         IReadOnlyList<ProjectedLightSourceItemViewModel> projectedLightSources,
         IReadOnlyList<Point3> holePoints,
+        IReadOnlyList<Point3> naturalPoints,
         ProjectionComputationResult? projectionResult)
     {
         var scene = new SceneModel();
@@ -187,6 +189,7 @@ public sealed class SceneRenderSyncService
         {
             scene.HolePoints.Add(hole);
         }
+        scene.NaturalPoints.AddRange(naturalPoints);
 
         if (projectionResult is not null && projectedLightSources.Count == 0)
         {

@@ -54,6 +54,7 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
     private bool _isApplyingWorkspaceState;
     private bool _showPanels = true;
     private bool _showMeasuredCorners = true;
+    private bool _includeNaturalPoints = true;
 
     public ProjectionWorkspaceViewModel(
         SceneCollectionService sceneCollectionService,
@@ -308,6 +309,17 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
         }
     }
 
+    public bool IncludeNaturalPoints
+    {
+        get => _includeNaturalPoints;
+        set
+        {
+            if (!SetProperty(ref _includeNaturalPoints, value)) return;
+            RefreshViewport(zoomExtents: false);
+            RaiseCanExecuteChanged();
+        }
+    }
+
     public CollisionSceneViewModel? SelectedScene
     {
         get => _selectedScene;
@@ -370,6 +382,7 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
             SelectedSceneName = SelectedScene?.Name,
             ShowPanels = ShowPanels,
             ShowMeasuredCorners = ShowMeasuredCorners,
+            IncludeNaturalPoints = IncludeNaturalPoints,
             SelectedMethodId = SelectedMethod?.Id ?? ProjectionWorkspaceState.DefaultMethodId,
             ProjectionGeometryKind = SelectedAxisymmetricSourceKind,
             GeometryRadiusStart = GeometryRadiusStart,
@@ -409,6 +422,7 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
         {
             ShowPanels = state.ShowPanels ?? true;
             ShowMeasuredCorners = state.ShowMeasuredCorners ?? true;
+            IncludeNaturalPoints = state.IncludeNaturalPoints ?? true;
             SelectedMethod = ProjectionMethods.FirstOrDefault(method => method.Id == state.SelectedMethodId)
                 ?? ProjectionMethods.FirstOrDefault(method => method.Id == ProjectionWorkspaceState.DefaultMethodId)
                 ?? ProjectionMethods.FirstOrDefault();
@@ -482,7 +496,7 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
     }
 
     private bool CanRunProjection() =>
-        !IsProjectionRunning && SelectedScene is not null && SelectedScene.HolePoints.Count > 0 && SelectedMethod is not null;
+        !IsProjectionRunning && SelectedScene is not null && GetEffectiveProjectionPoints(SelectedScene).Count > 0 && SelectedMethod is not null;
 
     private void ImportHitPointsCsv()
     {
@@ -581,9 +595,15 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
         var methodOption = SelectedMethod;
         var method = methodOption.Method;
         var resultName = NewResultName;
+        var projectionPoints = GetEffectiveProjectionPoints(scene);
+        if (projectionPoints.Count == 0)
+        {
+            SetStatus("The selected scene has no effective projection input points.", ApplicationLogLevel.Warning);
+            return;
+        }
         var request = new ProjectionRequest
         {
-            HolePoints = scene.HolePoints.ToList(),
+            HolePoints = projectionPoints,
             Parameters = BuildParameters(method),
             Progress = new Progress<ProjectionProgress>(report =>
             {
@@ -607,7 +627,10 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
         _lastLoggedProgressBucket = -1;
         _applicationLogService?.LogInfo($"Projection scene: {scene.Name}", nameof(ProjectionWorkspaceViewModel));
         _applicationLogService?.LogInfo($"Projection method: {methodOption.DisplayName} ({methodOption.Id})", nameof(ProjectionWorkspaceViewModel));
-        _applicationLogService?.LogInfo($"Projection input hole points: {scene.HolePoints.Count}", nameof(ProjectionWorkspaceViewModel));
+        _applicationLogService?.LogInfo($"Hole points: {scene.HolePoints.Count}", nameof(ProjectionWorkspaceViewModel));
+        _applicationLogService?.LogInfo($"Natural points available: {scene.NaturalPoints.Count}", nameof(ProjectionWorkspaceViewModel));
+        _applicationLogService?.LogInfo($"Include natural points: {(IncludeNaturalPoints ? "Yes" : "No")}", nameof(ProjectionWorkspaceViewModel));
+        _applicationLogService?.LogInfo($"Total projection input points: {projectionPoints.Count}", nameof(ProjectionWorkspaceViewModel));
         _applicationLogService?.LogInfo("Projection run started.", nameof(ProjectionWorkspaceViewModel));
 
         try
@@ -871,6 +894,7 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
     {
         var scene = SelectedScene;
         var holePoints = scene?.HolePoints?.ToList() ?? new List<Point3>();
+        var naturalPoints = IncludeNaturalPoints ? scene?.NaturalPoints?.ToList() ?? new List<Point3>() : new List<Point3>();
         IReadOnlyList<RectangularPrism> panels = ShowPanels && scene is not null
             ? scene.Prisms.Select(PrismGeometryConverter.CreateDomainPrism).ToList()
             : Array.Empty<RectangularPrism>();
@@ -880,6 +904,7 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
         var result = scene?.ProjectionState.SelectedResult;
         _projectionRenderSyncService.SyncProjectionScene(
             holePoints,
+            naturalPoints,
             result,
             BuildSelectedProjectionGeometryProfile(),
             BuildPreviewFrame(),
@@ -901,7 +926,7 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
         var selected = SelectedScene;
 
         AvailableScenes.Clear();
-        foreach (var scene in _sceneCollectionService.Scenes.Where(scene => scene.HolePoints.Count > 0))
+        foreach (var scene in _sceneCollectionService.Scenes.Where(scene => scene.HolePoints.Count > 0 || scene.NaturalPoints.Count > 0))
         {
             AvailableScenes.Add(scene);
         }
@@ -912,6 +937,9 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
 
         RaiseCanExecuteChanged();
     }
+
+    private IReadOnlyList<Point3> GetEffectiveProjectionPoints(CollisionSceneViewModel scene)
+        => ProjectionPointSelector.BuildEffectivePoints(scene.HolePoints, scene.NaturalPoints, IncludeNaturalPoints);
 
     private void RefreshTargetCollisionScenes()
     {

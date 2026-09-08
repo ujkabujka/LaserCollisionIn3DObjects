@@ -116,8 +116,10 @@ public sealed class HelixSceneBuilder
 
         if (scene.HolePoints.Count > 0)
         {
-            visuals.Add(_rayVisualizer.CreatePoints(scene.HolePoints, color: Colors.Blue));
+            visuals.Add(_rayVisualizer.CreatePoints(scene.HolePoints, color: Colors.DodgerBlue));
         }
+        if (scene.NaturalPoints.Count > 0)
+            visuals.Add(_rayVisualizer.CreatePoints(scene.NaturalPoints, color: Colors.Orange));
 
         return visuals;
     }
@@ -155,6 +157,7 @@ public sealed class HelixSceneBuilder
 
     public IReadOnlyList<Visual3D> BuildProjectionVisuals(
         IReadOnlyList<Point3> holePoints,
+        IReadOnlyList<Point3> naturalPoints,
         ProjectionComputationResult? projectionResult,
         IAxisymmetricSourceProfile? previewProfile = null,
         Frame3D? previewFrame = null,
@@ -164,6 +167,7 @@ public sealed class HelixSceneBuilder
         IReadOnlyList<Point3>? measuredCornerPoints = null)
     {
         ArgumentNullException.ThrowIfNull(holePoints);
+        ArgumentNullException.ThrowIfNull(naturalPoints);
 
         var visuals = new List<Visual3D>();
         if (panels is { Count: > 0 })
@@ -180,6 +184,8 @@ public sealed class HelixSceneBuilder
         {
             visuals.Add(_rayVisualizer.CreatePoints(holePoints, Colors.DodgerBlue, size: 4));
         }
+        if (naturalPoints.Count > 0)
+            visuals.Add(_rayVisualizer.CreatePoints(naturalPoints, Colors.Orange, size: 4));
 
         if (projectionResult?.SourceFrame is { } sourceFrame)
         {

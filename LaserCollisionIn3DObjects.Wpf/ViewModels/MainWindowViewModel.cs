@@ -45,6 +45,7 @@ public sealed class MainWindowViewModel : ObservableObject
     private static readonly ObservableCollection<ProjectedLightSourceItemViewModel> EmptyProjectedLightSources = new();
     private static readonly ObservableCollection<HitResultItemViewModel> EmptyHitResults = new();
     private static readonly ObservableCollection<Point3> EmptyHoles = new();
+    private static readonly ObservableCollection<Point3> EmptyNaturalPoints = new();
     private readonly SceneRenderSyncService _renderSyncService;
     private readonly CollisionHitPointCsvExportService _collisionHitPointCsvExportService = new();
     private readonly SceneCollectionService _sceneCollectionService;
@@ -1094,10 +1095,11 @@ public sealed class MainWindowViewModel : ObservableObject
             var rays = scene?.Rays ?? EmptyRays;
             var projectedLightSources = scene?.ProjectedLightSources ?? EmptyProjectedLightSources;
             var holes = scene?.HolePoints ?? EmptyHoles;
+            var naturalPoints = scene?.NaturalPoints ?? EmptyNaturalPoints;
             var projectionResult = scene?.ProjectionState.SelectedResult;
             var sceneName = scene?.Name ?? "Scene";
 
-            var sceneSyncResult = _renderSyncService.SyncScene(prisms, lightSources, rays, projectedLightSources, holes, projectionResult, sceneName, runCollision, SelectedCollisionAlgorithm);
+            var sceneSyncResult = _renderSyncService.SyncScene(prisms, lightSources, rays, projectedLightSources, holes, naturalPoints, projectionResult, sceneName, runCollision, SelectedCollisionAlgorithm);
             var rows = sceneSyncResult.HitRows;
 
             if (scene is not null)
