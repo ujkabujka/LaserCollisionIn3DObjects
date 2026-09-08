@@ -267,9 +267,18 @@ public sealed class ProjectionWorkspaceStateDto
     public bool? IncludeNaturalPoints { get; set; }
     public string SelectedMethodId { get; set; } = string.Empty;
     public AxisymmetricSourceKind ProjectionGeometryKind { get; set; } = AxisymmetricSourceKind.Cylinder;
-    public double GeometryRadiusStart { get; set; } = 1d;
-    public double GeometryRadiusEnd { get; set; } = 1d;
-    public double GeometryLength { get; set; } = 10d;
+    public double BeamOriginX { get; set; }
+    public double BeamOriginY { get; set; }
+    public double BeamOriginZ { get; set; }
+    public double SourceFrameXx { get; set; } = 1d;
+    public double SourceFrameXy { get; set; }
+    public double SourceFrameXz { get; set; }
+    public double SourceFrameYx { get; set; }
+    public double SourceFrameYy { get; set; } = 1d;
+    public double SourceFrameYz { get; set; }
+    public double GeometryRadiusStart { get; set; } = 0.15d;
+    public double GeometryRadiusEnd { get; set; } = 0.15d;
+    public double GeometryLength { get; set; } = 0.30d;
     public double GeometryArcRadius { get; set; } = 20d;
     public OgiveCurvatureDirection GeometryOgiveCurvatureDirection { get; set; } = OgiveCurvatureDirection.Outward;
     public int HybridSegmentCount { get; set; } = 1;

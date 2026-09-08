@@ -39,9 +39,9 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
     private double _sourceFrameYx;
     private double _sourceFrameYy = 1;
     private double _sourceFrameYz;
-    private double _geometryRadiusStart = 1;
-    private double _geometryRadiusEnd = 1;
-    private double _geometryLength = 10;
+    private double _geometryRadiusStart = 0.15d;
+    private double _geometryRadiusEnd = 0.15d;
+    private double _geometryLength = 0.30d;
     private double _geometryArcRadius = 20;
     private OgiveCurvatureDirection _geometryOgiveCurvatureDirection = OgiveCurvatureDirection.Outward;
     private HybridSourceSegmentItemViewModel? _selectedHybridSegment;
@@ -55,6 +55,7 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
     private bool _showPanels = true;
     private bool _showMeasuredCorners = true;
     private bool _includeNaturalPoints = true;
+    private ProjectionGeometrySnapshot _appliedGeometry = null!;
 
     public ProjectionWorkspaceViewModel(
         SceneCollectionService sceneCollectionService,
@@ -82,6 +83,7 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
             ?? ProjectionMethods.FirstOrDefault();
 
         RunProjectionCommand = new AsyncRelayCommand(RunProjectionAsync, CanRunProjection);
+        ApplyGeometryChangesCommand = new RelayCommand(ApplyGeometryChanges, CanApplyGeometryChanges);
         ImportHitPointsCsvCommand = new RelayCommand(ImportHitPointsCsv, () => !IsProjectionRunning);
         DeleteSelectedResultCommand = new RelayCommand(DeleteSelectedResult, () => !IsProjectionRunning && SelectedResult is not null);
         DeleteSelectedSceneCommand = new RelayCommand(DeleteSelectedScene, () => !IsProjectionRunning && CanDeleteSelectedScene);
@@ -91,6 +93,7 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
 
         _sceneCollectionService.Scenes.CollectionChanged += OnScenesCollectionChanged;
         AddHybridSegment();
+        _appliedGeometry = CaptureDraftGeometry();
         RefreshAvailableScenes();
         RefreshTargetCollisionScenes();
     }
@@ -101,6 +104,7 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
     public ObservableCollection<CollisionSceneViewModel> TargetCollisionScenes { get; } = new();
 
     public ICommand RunProjectionCommand { get; }
+    public ICommand ApplyGeometryChangesCommand { get; }
     public ICommand ImportHitPointsCsvCommand { get; }
     public ICommand DeleteSelectedResultCommand { get; }
     public ICommand DeleteSelectedSceneCommand { get; }
@@ -124,11 +128,9 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
     public double SourceFrameYy { get => _sourceFrameYy; set => SetGeometryProperty(ref _sourceFrameYy, value); }
     public double SourceFrameYz { get => _sourceFrameYz; set => SetGeometryProperty(ref _sourceFrameYz, value); }
 
-    public double CylindricalRadius { get; set; } = 1;
-    public double CylindricalLength { get; set; } = 10;
-    public double TiltPointX { get => _tiltPointX; set => SetGeometryProperty(ref _tiltPointX, value); }
-    public double TiltPointY { get => _tiltPointY; set => SetGeometryProperty(ref _tiltPointY, value); }
-    public double TiltPointZ { get => _tiltPointZ; set => SetGeometryProperty(ref _tiltPointZ, value); }
+    public double TiltPointX { get => _tiltPointX; set => SetPreviewProperty(ref _tiltPointX, value); }
+    public double TiltPointY { get => _tiltPointY; set => SetPreviewProperty(ref _tiltPointY, value); }
+    public double TiltPointZ { get => _tiltPointZ; set => SetPreviewProperty(ref _tiltPointZ, value); }
 
     public int LeastSquaresMaxIterations { get => _leastSquaresMaxIterations; set => SetProperty(ref _leastSquaresMaxIterations, value); }
     public double LeastSquaresConvergenceTolerance { get => _leastSquaresConvergenceTolerance; set => SetProperty(ref _leastSquaresConvergenceTolerance, value); }
@@ -154,10 +156,7 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
                 RaisePropertyChanged(nameof(IsProjectionGeometryConicalFrustum));
                 RaisePropertyChanged(nameof(IsProjectionGeometryCircularOgive));
                 RaisePropertyChanged(nameof(IsProjectionGeometryHybrid));
-                if (!_isApplyingWorkspaceState)
-                {
-                    RefreshViewport();
-                }
+                GeometryDraftChanged();
             }
         }
     }
@@ -166,6 +165,7 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
     public bool IsProjectionGeometryConicalFrustum => SelectedAxisymmetricSourceKind == AxisymmetricSourceKind.ConicalFrustum;
     public bool IsProjectionGeometryCircularOgive => SelectedAxisymmetricSourceKind == AxisymmetricSourceKind.CircularOgive;
     public bool IsProjectionGeometryHybrid => SelectedAxisymmetricSourceKind == AxisymmetricSourceKind.Hybrid;
+    public bool HasUnappliedGeometryChanges => _appliedGeometry is not null && !GeometryEquals(CaptureDraftGeometry(), _appliedGeometry);
 
     public double GeometryRadiusStart { get => _geometryRadiusStart; set => SetGeometryProperty(ref _geometryRadiusStart, value); }
     public double GeometryRadiusEnd { get => _geometryRadiusEnd; set => SetGeometryProperty(ref _geometryRadiusEnd, value); }
@@ -351,7 +351,7 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
             RaisePropertyChanged(nameof(SavedResults));
             RaisePropertyChanged(nameof(SelectedResult));
             RaisePropertyChanged(nameof(CanDeleteSelectedScene));
-            RefreshViewport();
+            if (!_isApplyingWorkspaceState) RefreshViewport();
             RaiseCanExecuteChanged();
         }
     }
@@ -384,20 +384,23 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
             ShowMeasuredCorners = ShowMeasuredCorners,
             IncludeNaturalPoints = IncludeNaturalPoints,
             SelectedMethodId = SelectedMethod?.Id ?? ProjectionWorkspaceState.DefaultMethodId,
-            ProjectionGeometryKind = SelectedAxisymmetricSourceKind,
-            GeometryRadiusStart = GeometryRadiusStart,
-            GeometryRadiusEnd = GeometryRadiusEnd,
-            GeometryLength = GeometryLength,
-            GeometryArcRadius = GeometryArcRadius,
-            GeometryOgiveCurvatureDirection = GeometryOgiveCurvatureDirection,
-            HybridSegments = HybridSegments.Select(segment => new AxisymmetricSourceSegmentStateDto
+            ProjectionGeometryKind = _appliedGeometry.Kind,
+            BeamOriginX = _appliedGeometry.BeamOriginX, BeamOriginY = _appliedGeometry.BeamOriginY, BeamOriginZ = _appliedGeometry.BeamOriginZ,
+            SourceFrameXx = _appliedGeometry.SourceFrameXx, SourceFrameXy = _appliedGeometry.SourceFrameXy, SourceFrameXz = _appliedGeometry.SourceFrameXz,
+            SourceFrameYx = _appliedGeometry.SourceFrameYx, SourceFrameYy = _appliedGeometry.SourceFrameYy, SourceFrameYz = _appliedGeometry.SourceFrameYz,
+            GeometryRadiusStart = _appliedGeometry.RadiusStart,
+            GeometryRadiusEnd = _appliedGeometry.RadiusEnd,
+            GeometryLength = _appliedGeometry.Length,
+            GeometryArcRadius = _appliedGeometry.ArcRadius,
+            GeometryOgiveCurvatureDirection = _appliedGeometry.Curvature,
+            HybridSegments = _appliedGeometry.HybridSegments.Select(segment => new AxisymmetricSourceSegmentStateDto
             {
-                SegmentKind = segment.SegmentKind,
+                SegmentKind = segment.Kind,
                 Length = segment.Length,
                 RadiusStart = segment.RadiusStart,
                 RadiusEnd = segment.RadiusEnd,
-                ArcRadius = segment.IsOgive ? segment.ArcRadius : null,
-                OgiveCurvatureDirection = segment.OgiveCurvatureDirection,
+                ArcRadius = segment.Kind == HybridAxisymmetricSourceSegmentKind.CircularOgive ? segment.ArcRadius : null,
+                OgiveCurvatureDirection = segment.Curvature,
             }).ToList(),
             TiltPointX = TiltPointX,
             TiltPointY = TiltPointY,
@@ -428,6 +431,9 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
                 ?? ProjectionMethods.FirstOrDefault();
 
             SelectedAxisymmetricSourceKind = state.ProjectionGeometryKind;
+            BeamOriginX = state.BeamOriginX; BeamOriginY = state.BeamOriginY; BeamOriginZ = state.BeamOriginZ;
+            SourceFrameXx = state.SourceFrameXx; SourceFrameXy = state.SourceFrameXy; SourceFrameXz = state.SourceFrameXz;
+            SourceFrameYx = state.SourceFrameYx; SourceFrameYy = state.SourceFrameYy; SourceFrameYz = state.SourceFrameYz;
             GeometryRadiusStart = state.GeometryRadiusStart;
             GeometryRadiusEnd = state.GeometryRadiusEnd;
             GeometryLength = state.GeometryLength;
@@ -479,6 +485,7 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
 
             SelectedScene = AvailableScenes.FirstOrDefault(scene => scene.Name == state.SelectedSceneName)
                 ?? AvailableScenes.FirstOrDefault();
+            _appliedGeometry = CaptureDraftGeometry();
         }
         finally
         {
@@ -496,7 +503,7 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
     }
 
     private bool CanRunProjection() =>
-        !IsProjectionRunning && SelectedScene is not null && GetEffectiveProjectionPoints(SelectedScene).Count > 0 && SelectedMethod is not null;
+        !IsProjectionRunning && !HasUnappliedGeometryChanges && SelectedScene is not null && GetEffectiveProjectionPoints(SelectedScene).Count > 0 && SelectedMethod is not null;
 
     private void ImportHitPointsCsv()
     {
@@ -736,9 +743,9 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
         {
             return new PointSourceProjectionParameters(
                 new Point3(PointSourceX, PointSourceY, PointSourceZ),
-                new Point3(BeamOriginX, BeamOriginY, BeamOriginZ),
-                new Vector3D(SourceFrameXx, SourceFrameXy, SourceFrameXz),
-                new Vector3D(SourceFrameYx, SourceFrameYy, SourceFrameYz));
+                new Point3(_appliedGeometry.BeamOriginX, _appliedGeometry.BeamOriginY, _appliedGeometry.BeamOriginZ),
+                new Vector3D(_appliedGeometry.SourceFrameXx, _appliedGeometry.SourceFrameXy, _appliedGeometry.SourceFrameXz),
+                new Vector3D(_appliedGeometry.SourceFrameYx, _appliedGeometry.SourceFrameYy, _appliedGeometry.SourceFrameYz));
         }
 
         var profileDefinition = BuildAxisymmetricSourceProfileDefinition(method);
@@ -746,18 +753,18 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
         if (method.Metadata.Id == ProjectionMethodIds.AxisymmetricSource)
         {
             return new AxisymmetricSourceProjectionParameters(
-                new Point3(BeamOriginX, BeamOriginY, BeamOriginZ),
-                new Vector3D(SourceFrameXx, SourceFrameXy, SourceFrameXz),
-                new Vector3D(SourceFrameYx, SourceFrameYy, SourceFrameYz),
+                new Point3(_appliedGeometry.BeamOriginX, _appliedGeometry.BeamOriginY, _appliedGeometry.BeamOriginZ),
+                new Vector3D(_appliedGeometry.SourceFrameXx, _appliedGeometry.SourceFrameXy, _appliedGeometry.SourceFrameXz),
+                new Vector3D(_appliedGeometry.SourceFrameYx, _appliedGeometry.SourceFrameYy, _appliedGeometry.SourceFrameYz),
                 profileDefinition);
         }
 
         if (method.Metadata.Id == ProjectionMethodIds.SelfCalibratingAxisymmetricSource)
         {
             return new SelfCalibratingAxisymmetricProjectionParameters(
-                new Point3(BeamOriginX, BeamOriginY, BeamOriginZ),
-                new Vector3D(SourceFrameXx, SourceFrameXy, SourceFrameXz),
-                new Vector3D(SourceFrameYx, SourceFrameYy, SourceFrameYz),
+                new Point3(_appliedGeometry.BeamOriginX, _appliedGeometry.BeamOriginY, _appliedGeometry.BeamOriginZ),
+                new Vector3D(_appliedGeometry.SourceFrameXx, _appliedGeometry.SourceFrameXy, _appliedGeometry.SourceFrameXz),
+                new Vector3D(_appliedGeometry.SourceFrameYx, _appliedGeometry.SourceFrameYy, _appliedGeometry.SourceFrameYz),
                 profileDefinition,
                 new Point3(TiltPointX, TiltPointY, TiltPointZ));
         }
@@ -779,9 +786,9 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
             };
 
             return new LeastSquaresAxisymmetricAlignmentProjectionParameters(
-                new Point3(BeamOriginX, BeamOriginY, BeamOriginZ),
-                new Vector3D(SourceFrameXx, SourceFrameXy, SourceFrameXz),
-                new Vector3D(SourceFrameYx, SourceFrameYy, SourceFrameYz),
+                new Point3(_appliedGeometry.BeamOriginX, _appliedGeometry.BeamOriginY, _appliedGeometry.BeamOriginZ),
+                new Vector3D(_appliedGeometry.SourceFrameXx, _appliedGeometry.SourceFrameXy, _appliedGeometry.SourceFrameXz),
+                new Vector3D(_appliedGeometry.SourceFrameYx, _appliedGeometry.SourceFrameYy, _appliedGeometry.SourceFrameYz),
                 profileDefinition,
                 new Point3(TiltPointX, TiltPointY, TiltPointZ),
                 leastSquaresSettings);
@@ -993,7 +1000,7 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
 
         SynchronizeHybridSegmentContinuity();
         SelectedHybridSegment = HybridSegments.LastOrDefault();
-        RefreshViewport();
+        GeometryDraftChanged();
     }
 
     private void RemoveSelectedHybridSegment()
@@ -1013,7 +1020,7 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
 
         SynchronizeHybridSegmentContinuity();
         SelectedHybridSegment = HybridSegments.LastOrDefault();
-        RefreshViewport();
+        GeometryDraftChanged();
     }
 
     private void SynchronizeHybridSegmentContinuity()
@@ -1059,22 +1066,68 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
             or nameof(HybridSourceSegmentItemViewModel.OgiveCurvatureDirection))
         {
             SynchronizeHybridSegmentContinuity();
-            if (!_isApplyingWorkspaceState)
-            {
-                RefreshViewport();
-            }
+            GeometryDraftChanged();
         }
     }
 
+    private void GeometryDraftChanged()
+    {
+        if (_isApplyingWorkspaceState) return;
+        RaisePropertyChanged(nameof(HasUnappliedGeometryChanges));
+        RaiseCanExecuteChanged();
+    }
+
+    private bool CanApplyGeometryChanges() => !IsProjectionRunning && HasUnappliedGeometryChanges;
+
+    private void ApplyGeometryChanges()
+    {
+        var candidate = CaptureDraftGeometry();
+        try
+        {
+            PointSourceFrameBuilder.Build(candidate.Origin, candidate.FrameX, candidate.FrameY);
+            BuildProfile(candidate);
+        }
+        catch (ArgumentException ex)
+        {
+            SetStatus($"Cannot apply geometry: {ex.Message}", ApplicationLogLevel.Warning);
+            RaiseCanExecuteChanged();
+            return;
+        }
+
+        _appliedGeometry = candidate;
+        RaisePropertyChanged(nameof(HasUnappliedGeometryChanges));
+        RaiseCanExecuteChanged();
+        RefreshViewport();
+        SetStatus("Projection geometry changes applied.", ApplicationLogLevel.Success);
+    }
+
+    private ProjectionGeometrySnapshot CaptureDraftGeometry() => new(
+        SelectedAxisymmetricSourceKind, BeamOriginX, BeamOriginY, BeamOriginZ,
+        SourceFrameXx, SourceFrameXy, SourceFrameXz, SourceFrameYx, SourceFrameYy, SourceFrameYz,
+        GeometryRadiusStart, GeometryRadiusEnd, GeometryLength, GeometryArcRadius, GeometryOgiveCurvatureDirection,
+        HybridSegments.Select(x => new HybridSegmentSnapshot(x.SegmentKind, x.Length, x.RadiusStart, x.RadiusEnd, x.ArcRadius, x.OgiveCurvatureDirection)).ToArray());
+
+    private static bool GeometryEquals(ProjectionGeometrySnapshot left, ProjectionGeometrySnapshot right) =>
+        left with { HybridSegments = Array.Empty<HybridSegmentSnapshot>() } == right with { HybridSegments = Array.Empty<HybridSegmentSnapshot>() }
+        && left.HybridSegments.SequenceEqual(right.HybridSegments);
+
+    private static IAxisymmetricSourceProfile BuildProfile(ProjectionGeometrySnapshot geometry) => geometry.Kind switch
+    {
+        AxisymmetricSourceKind.Cylinder => new AxisymmetricSourceProfile((float)geometry.RadiusStart, (float)geometry.Length),
+        AxisymmetricSourceKind.ConicalFrustum => new ConicalFrustumSourceProfile((float)geometry.RadiusStart, (float)geometry.RadiusEnd, (float)geometry.Length),
+        AxisymmetricSourceKind.CircularOgive => new CircularOgiveSourceProfile((float)geometry.RadiusStart, (float)geometry.RadiusEnd, (float)geometry.Length, (float)geometry.ArcRadius, geometry.Curvature),
+        AxisymmetricSourceKind.Hybrid => new HybridAxisymmetricSourceProfile(geometry.HybridSegments.Select(x => new HybridAxisymmetricSourceSegmentDefinition(x.Kind, x.Length, x.RadiusStart, x.RadiusEnd, x.Kind == HybridAxisymmetricSourceSegmentKind.CircularOgive ? x.ArcRadius : null, x.Curvature)).ToList()),
+        _ => throw new ArgumentException($"Unsupported projection geometry kind '{geometry.Kind}'."),
+    };
+
     private void SetGeometryProperty<T>(ref T field, T value)
     {
-        if (SetProperty(ref field, value))
-        {
-            if (!_isApplyingWorkspaceState)
-            {
-                RefreshViewport();
-            }
-        }
+        if (SetProperty(ref field, value)) GeometryDraftChanged();
+    }
+
+    private void SetPreviewProperty<T>(ref T field, T value)
+    {
+        if (SetProperty(ref field, value) && !_isApplyingWorkspaceState) RefreshViewport(zoomExtents: false);
     }
 
 
@@ -1090,44 +1143,44 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
             return new LaserCollisionIn3DObjects.Domain.Geometry.AxisymmetricSourceProfileDefinition();
         }
 
-        return SelectedAxisymmetricSourceKind switch
+        return _appliedGeometry.Kind switch
         {
             AxisymmetricSourceKind.Cylinder => new LaserCollisionIn3DObjects.Domain.Geometry.AxisymmetricSourceProfileDefinition
             {
                 Kind = AxisymmetricSourceKind.Cylinder,
-                Radius = (float)GeometryRadiusStart,
-                Length = (float)GeometryLength,
-                Height = (float)GeometryLength,
+                Radius = (float)_appliedGeometry.RadiusStart,
+                Length = (float)_appliedGeometry.Length,
+                Height = (float)_appliedGeometry.Length,
             },
             AxisymmetricSourceKind.ConicalFrustum => new LaserCollisionIn3DObjects.Domain.Geometry.AxisymmetricSourceProfileDefinition
             {
                 Kind = AxisymmetricSourceKind.ConicalFrustum,
-                RadiusStart = (float)GeometryRadiusStart,
-                RadiusEnd = (float)GeometryRadiusEnd,
-                Length = (float)GeometryLength,
+                RadiusStart = (float)_appliedGeometry.RadiusStart,
+                RadiusEnd = (float)_appliedGeometry.RadiusEnd,
+                Length = (float)_appliedGeometry.Length,
             },
             AxisymmetricSourceKind.CircularOgive => new LaserCollisionIn3DObjects.Domain.Geometry.AxisymmetricSourceProfileDefinition
             {
                 Kind = AxisymmetricSourceKind.CircularOgive,
-                RadiusStart = (float)GeometryRadiusStart,
-                RadiusEnd = (float)GeometryRadiusEnd,
-                Length = (float)GeometryLength,
-                ArcRadius = (float)GeometryArcRadius,
-                OgiveCurvatureDirection = GeometryOgiveCurvatureDirection,
+                RadiusStart = (float)_appliedGeometry.RadiusStart,
+                RadiusEnd = (float)_appliedGeometry.RadiusEnd,
+                Length = (float)_appliedGeometry.Length,
+                ArcRadius = (float)_appliedGeometry.ArcRadius,
+                OgiveCurvatureDirection = _appliedGeometry.Curvature,
             },
             AxisymmetricSourceKind.Hybrid => new LaserCollisionIn3DObjects.Domain.Geometry.AxisymmetricSourceProfileDefinition
             {
                 Kind = AxisymmetricSourceKind.Hybrid,
-                Length = HybridSegments.Sum(segment => segment.Length),
-                Hybrid = HybridSegments.Select(segment => new HybridAxisymmetricSourceSegmentDefinition(
-                    segment.SegmentKind,
+                Length = _appliedGeometry.HybridSegments.Sum(segment => segment.Length),
+                Hybrid = _appliedGeometry.HybridSegments.Select(segment => new HybridAxisymmetricSourceSegmentDefinition(
+                    segment.Kind,
                     segment.Length,
                     segment.RadiusStart,
                     segment.RadiusEnd,
-                    segment.IsOgive ? segment.ArcRadius : null,
-                    segment.OgiveCurvatureDirection)).ToList(),
+                    segment.Kind == HybridAxisymmetricSourceSegmentKind.CircularOgive ? segment.ArcRadius : null,
+                    segment.Curvature)).ToList(),
             },
-            _ => throw new InvalidOperationException($"Unsupported projection geometry kind '{SelectedAxisymmetricSourceKind}'.")
+            _ => throw new InvalidOperationException($"Unsupported projection geometry kind '{_appliedGeometry.Kind}'.")
         };
     }
 
@@ -1135,11 +1188,11 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
     {
         try
         {
-            return SelectedAxisymmetricSourceKind switch
+            return _appliedGeometry.Kind switch
             {
-                AxisymmetricSourceKind.Cylinder => new AxisymmetricSourceProfile((float)GeometryRadiusStart, (float)GeometryLength),
-                AxisymmetricSourceKind.ConicalFrustum => new ConicalFrustumSourceProfile((float)GeometryRadiusStart, (float)GeometryRadiusEnd, (float)GeometryLength),
-                AxisymmetricSourceKind.CircularOgive => new CircularOgiveSourceProfile((float)GeometryRadiusStart, (float)GeometryRadiusEnd, (float)GeometryLength, (float)GeometryArcRadius, GeometryOgiveCurvatureDirection),
+                AxisymmetricSourceKind.Cylinder => new AxisymmetricSourceProfile((float)_appliedGeometry.RadiusStart, (float)_appliedGeometry.Length),
+                AxisymmetricSourceKind.ConicalFrustum => new ConicalFrustumSourceProfile((float)_appliedGeometry.RadiusStart, (float)_appliedGeometry.RadiusEnd, (float)_appliedGeometry.Length),
+                AxisymmetricSourceKind.CircularOgive => new CircularOgiveSourceProfile((float)_appliedGeometry.RadiusStart, (float)_appliedGeometry.RadiusEnd, (float)_appliedGeometry.Length, (float)_appliedGeometry.ArcRadius, _appliedGeometry.Curvature),
                 AxisymmetricSourceKind.Hybrid => BuildHybridPreviewProfile(),
                 _ => null,
             };
@@ -1152,21 +1205,20 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
 
     private IAxisymmetricSourceProfile? BuildHybridPreviewProfile()
     {
-        if (HybridSegments.Count == 0)
+        if (_appliedGeometry.HybridSegments.Length == 0)
         {
             return null;
         }
 
         try
         {
-            SynchronizeHybridSegmentContinuity();
-            return new HybridAxisymmetricSourceProfile(HybridSegments.Select(segment => new HybridAxisymmetricSourceSegmentDefinition(
-                segment.SegmentKind,
+            return new HybridAxisymmetricSourceProfile(_appliedGeometry.HybridSegments.Select(segment => new HybridAxisymmetricSourceSegmentDefinition(
+                segment.Kind,
                 segment.Length,
                 segment.RadiusStart,
                 segment.RadiusEnd,
-                segment.IsOgive ? segment.ArcRadius : null,
-                segment.OgiveCurvatureDirection)).ToList());
+                segment.Kind == HybridAxisymmetricSourceSegmentKind.CircularOgive ? segment.ArcRadius : null,
+                segment.Curvature)).ToList());
         }
         catch
         {
@@ -1178,9 +1230,9 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
     private Frame3D BuildPreviewFrame()
     {
         var sourceFrame = PointSourceFrameBuilder.Build(
-            new Point3(BeamOriginX, BeamOriginY, BeamOriginZ),
-            new Vector3D(SourceFrameXx, SourceFrameXy, SourceFrameXz),
-            new Vector3D(SourceFrameYx, SourceFrameYy, SourceFrameYz));
+            _appliedGeometry.Origin,
+            _appliedGeometry.FrameX,
+            _appliedGeometry.FrameY);
 
         var x = new System.Numerics.Vector3((float)sourceFrame.AxisX.X, (float)sourceFrame.AxisX.Y, (float)sourceFrame.AxisX.Z);
         var y = new System.Numerics.Vector3((float)sourceFrame.AxisY.X, (float)sourceFrame.AxisY.Y, (float)sourceFrame.AxisY.Z);
@@ -1266,6 +1318,7 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
     private void RaiseCanExecuteChanged()
     {
         (RunProjectionCommand as AsyncRelayCommand)?.RaiseCanExecuteChanged();
+        (ApplyGeometryChangesCommand as RelayCommand)?.RaiseCanExecuteChanged();
 
         if (DeleteSelectedResultCommand is RelayCommand deleteSelectedResultCommand)
         {
@@ -1296,6 +1349,20 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
         RaisePropertyChanged(nameof(SavedResults));
         RaisePropertyChanged(nameof(SelectedResult));
         RaiseCanExecuteChanged();
+    }
+
+    private sealed record HybridSegmentSnapshot(HybridAxisymmetricSourceSegmentKind Kind, float Length, float RadiusStart, float RadiusEnd, float ArcRadius, OgiveCurvatureDirection Curvature);
+
+    private sealed record ProjectionGeometrySnapshot(
+        AxisymmetricSourceKind Kind, double BeamOriginX, double BeamOriginY, double BeamOriginZ,
+        double SourceFrameXx, double SourceFrameXy, double SourceFrameXz,
+        double SourceFrameYx, double SourceFrameYy, double SourceFrameYz,
+        double RadiusStart, double RadiusEnd, double Length, double ArcRadius, OgiveCurvatureDirection Curvature,
+        HybridSegmentSnapshot[] HybridSegments)
+    {
+        public Point3 Origin => new(BeamOriginX, BeamOriginY, BeamOriginZ);
+        public Vector3D FrameX => new(SourceFrameXx, SourceFrameXy, SourceFrameXz);
+        public Vector3D FrameY => new(SourceFrameYx, SourceFrameYy, SourceFrameYz);
     }
 
 }
