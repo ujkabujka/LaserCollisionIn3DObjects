@@ -70,9 +70,11 @@ public sealed class ViaAnnotationLoader
         else if (panelRegions.Count == 0) record.Diagnostics.Add("No panel region found (type must be panel, plane, or 3).");
         else record.Diagnostics.Add("No valid panel boundary was found.");
 
+        var duplicateDetector = new AnnotationDuplicateDetector();
         foreach (var collisionPoint in regions.Where(static r => !AnnotationTypeClassifier.IsPanel(r.Type)))
         {
-            var category = AnnotationTypeClassifier.Classify(collisionPoint.Type) switch
+            var semanticType = AnnotationTypeClassifier.Classify(collisionPoint.Type);
+            var category = semanticType switch
             {
                 AnnotationSemanticType.Hole => AnnotationPointCategory.Hole,
                 AnnotationSemanticType.Natural => AnnotationPointCategory.Natural,
@@ -83,14 +85,27 @@ public sealed class ViaAnnotationLoader
                 record.Diagnostics.Add($"Skipped region with unknown annotation type '{collisionPoint.Type}'. Expected 1 (Hole), 2 (Natural), or 3 (Panel).");
                 continue;
             }
-            switch (collisionPoint.Shape)
+            AnnotatedPointAnnotation? candidate = collisionPoint.Shape switch
             {
-                case PolygonShapeData polygon: AddPoint(record, category.Value, AnnotationShapeType.Polygon, polygon, GeometryUtilities.PolygonCentroid(polygon.Points), GeometryUtilities.PolygonArea(polygon.Points)); break;
-                case CircleShapeData circle: AddPoint(record, category.Value, AnnotationShapeType.Circle, circle, circle.Center, GeometryUtilities.CircleArea(circle.Radius)); break;
-                case EllipseShapeData ellipse: AddPoint(record, category.Value, AnnotationShapeType.Ellipse, ellipse, ellipse.Center, GeometryUtilities.EllipseArea(ellipse.RadiusX, ellipse.RadiusY)); break;
-                default: record.Diagnostics.Add($"Skipped collision-point region of unsupported shape '{collisionPoint.ShapeName}' (type '{collisionPoint.Type}')."); break;
+                PolygonShapeData polygon => CreatePoint(category.Value, AnnotationShapeType.Polygon, polygon, GeometryUtilities.PolygonCentroid(polygon.Points), GeometryUtilities.PolygonArea(polygon.Points)),
+                CircleShapeData circle => CreatePoint(category.Value, AnnotationShapeType.Circle, circle, circle.Center, GeometryUtilities.CircleArea(circle.Radius)),
+                EllipseShapeData ellipse => CreatePoint(category.Value, AnnotationShapeType.Ellipse, ellipse, ellipse.Center, GeometryUtilities.EllipseArea(ellipse.RadiusX, ellipse.RadiusY)),
+                _ => null,
+            };
+            if (candidate is null)
+            {
+                record.Diagnostics.Add($"Skipped collision-point region of unsupported shape '{collisionPoint.ShapeName}' (type '{collisionPoint.Type}').");
+                continue;
             }
+
+            if (!duplicateDetector.TryAccept(CreateGeometryKey(semanticType, candidate))) continue;
+            record.Points.Add(candidate);
         }
+        record.RawHoleCount = duplicateDetector.RawHoleCount;
+        record.RawNaturalCount = duplicateDetector.RawNaturalCount;
+        record.RemovedDuplicateHoleCount = duplicateDetector.RemovedHoleCount;
+        record.RemovedDuplicateNaturalCount = duplicateDetector.RemovedNaturalCount;
+        record.Diagnostics.AddRange(duplicateDetector.CreateDiagnostics());
         return record;
     }
 
@@ -158,7 +173,16 @@ public sealed class ViaAnnotationLoader
         return Math.Sqrt(dx * dx + dy * dy);
     }
 
-    private static void AddPoint(AnnotatedImageRecord record, AnnotationPointCategory category, AnnotationShapeType shapeType, IAnnotationShape shape, Point center, double area) => record.Points.Add(new AnnotatedPointAnnotation { Category = category, ShapeType = shapeType, OriginalShape = shape, CenterPoint = center, PixelArea = area });
+    private static AnnotatedPointAnnotation CreatePoint(AnnotationPointCategory category, AnnotationShapeType shapeType, IAnnotationShape shape, Point center, double area)
+        => new() { Category = category, ShapeType = shapeType, OriginalShape = shape, CenterPoint = center, PixelArea = area };
+
+    private static AnnotationGeometryKey CreateGeometryKey(AnnotationSemanticType category, AnnotatedPointAnnotation annotation) => annotation.OriginalShape switch
+    {
+        CircleShapeData circle => AnnotationGeometryKey.Circle(category, circle.Center.X, circle.Center.Y, circle.Radius),
+        EllipseShapeData ellipse => AnnotationGeometryKey.Ellipse(category, ellipse.Center.X, ellipse.Center.Y, ellipse.RadiusX, ellipse.RadiusY),
+        PolygonShapeData polygon => AnnotationGeometryKey.Polygon(category, polygon.Points.Select(static point => new AnnotationVertex(point.X, point.Y))),
+        _ => throw new InvalidOperationException($"Unsupported annotation shape '{annotation.OriginalShape.GetType().Name}'."),
+    };
 
     private static List<RegionRecord> ReadRegions(JsonElement regions, ICollection<string> diagnostics)
     {
