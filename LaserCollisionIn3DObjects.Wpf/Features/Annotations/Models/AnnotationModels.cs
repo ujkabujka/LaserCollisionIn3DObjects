@@ -38,6 +38,11 @@ public sealed class AnnotatedImageRecord
     public PanelAnnotation? Panel { get; set; }
 
     public List<AnnotatedPointAnnotation> Points { get; } = new();
+    public int RawHoleCount { get; set; }
+    public int RawNaturalCount { get; set; }
+    public int RemovedDuplicateHoleCount { get; set; }
+    public int RemovedDuplicateNaturalCount { get; set; }
+    public int RemovedDuplicateAnnotationCount => RemovedDuplicateHoleCount + RemovedDuplicateNaturalCount;
     public IEnumerable<AnnotatedPointAnnotation> Holes => Points.Where(p => p.Category == AnnotationPointCategory.Hole);
     public IEnumerable<AnnotatedPointAnnotation> NaturalPoints => Points.Where(p => p.Category == AnnotationPointCategory.Natural);
 

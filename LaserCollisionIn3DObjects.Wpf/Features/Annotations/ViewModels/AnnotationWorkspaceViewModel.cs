@@ -41,13 +41,13 @@ public sealed class AnnotationWorkspaceViewModel : ObservableObject
     public AnnotationWorkspaceViewModel(SceneCollectionService? sceneCollectionService = null)
     {
         _sceneCollectionService = sceneCollectionService;
-        SelectFolderCommand = new RelayCommand(SelectFolder, () => !IsBusy);
+        SelectFolderCommand = new AsyncRelayCommand(SelectFolderAsync, () => !IsBusy);
         ImportPanelMeasurementsCsvCommand = new AsyncRelayCommand(ImportPanelMeasurementsCsvAsync, () => !IsBusy && Images.Count > 0);
         SelectPreviousImageCommand = new RelayCommand(SelectPreviousImage, () => !IsBusy && SelectedImageIndex > 0);
         SelectNextImageCommand = new RelayCommand(SelectNextImage, () => !IsBusy && SelectedImageIndex >= 0 && SelectedImageIndex < Images.Count - 1);
         ApplyGlobalPanelDimensionsCommand = new RelayCommand(ApplyGlobalPanelDimensions, () => !IsBusy && Images.Count > 0);
         GenerateSceneCommand = new AsyncRelayCommand(GenerateSceneAsync, () => !IsBusy && Images.Count > 0);
-        RelinkMissingFolderCommand = new RelayCommand(RestoreMissingFolder, () => !IsBusy && !string.IsNullOrWhiteSpace(MissingFolderPath));
+        RelinkMissingFolderCommand = new AsyncRelayCommand(RestoreMissingFolderAsync, () => !IsBusy && !string.IsNullOrWhiteSpace(MissingFolderPath));
     }
 
     public ICommand SelectFolderCommand { get; }
@@ -116,7 +116,7 @@ public sealed class AnnotationWorkspaceViewModel : ObservableObject
             RaiseCanExecuteChanges();
             if (value is not null)
             {
-                ProcessSelectedImage(value);
+                _ = ProcessSelectedImageAsync(value, updateStatus: true);
             }
         }
     }
@@ -163,12 +163,12 @@ public sealed class AnnotationWorkspaceViewModel : ObservableObject
         {
             if (SetProperty(ref _missingFolderPath, value))
             {
-                (RelinkMissingFolderCommand as RelayCommand)?.RaiseCanExecuteChanged();
+                (RelinkMissingFolderCommand as AsyncRelayCommand)?.RaiseCanExecuteChanged();
             }
         }
     }
 
-    private void SelectFolder()
+    private async Task SelectFolderAsync()
     {
         var dialog = new OpenFolderDialog
         {
@@ -181,10 +181,7 @@ public sealed class AnnotationWorkspaceViewModel : ObservableObject
             return;
         }
 
-        SelectedFolderPath = dialog.FolderName;
-        LoadProject(dialog.FolderName);
-        IsFolderResolved = true;
-        MissingFolderPath = null;
+        await LoadProjectAsync(dialog.FolderName);
     }
 
     private async Task ImportPanelMeasurementsCsvAsync()
@@ -338,15 +335,83 @@ public sealed class AnnotationWorkspaceViewModel : ObservableObject
         }
     }
 
-    private void ProcessSelectedImage(AnnotatedImageViewModel selected)
+    private async Task LoadProjectAsync(string folderPath)
     {
-        var rectified = EnsureImageRectification(selected, updatePreview: true);
+        BeginBusy("Loading annotation file...");
+        try
+        {
+            var project = await Task.Run(() => _workspaceService.LoadProject(folderPath));
+            BusyMessage = "Checking annotations...";
+            for (var i = 0; i < project.Images.Count; i++)
+            {
+                var record = project.Images[i];
+                ReportBusyProgress("Fitting panels", i + 1, project.Images.Count);
+                if (record.Panel is null) continue;
+                try { await Task.Run(() => _workspaceService.FitPanel(record)); }
+                catch (Exception ex) { record.Diagnostics.Add($"Panel fitting failed: {ex.Message}"); }
+            }
+
+            Images.Clear();
+            _rectificationByImage.Clear();
+            foreach (var record in project.Images)
+            {
+                var viewModel = new AnnotatedImageViewModel
+                {
+                    Record = record,
+                    PanelWidthMm = record.Calibration.PhysicalWidthMm,
+                    PanelHeightMm = record.Calibration.PhysicalHeightMm,
+                    PanelThicknessMm = GlobalPanelThicknessMm,
+                };
+                viewModel.PropertyChanged += OnImageCalibrationChanged;
+                Images.Add(viewModel);
+            }
+
+            SelectedFolderPath = folderPath;
+            IsFolderResolved = true;
+            MissingFolderPath = null;
+            var firstImage = Images.FirstOrDefault();
+            if (firstImage is not null)
+            {
+                BusyMessage = "Preparing first image...";
+                SetSelectedImageWithoutProcessing(firstImage);
+                await ProcessSelectedImageAsync(firstImage, updateStatus: false);
+            }
+
+            var duplicateCount = project.Images.Sum(static image => image.RemovedDuplicateAnnotationCount);
+            var affectedImages = project.Images.Count(static image => image.RemovedDuplicateAnnotationCount > 0);
+            StatusMessage = $"Loaded {Images.Count} image annotations from {Path.GetFileName(project.JsonFilePath)}."
+                + (duplicateCount > 0 ? $" Removed {duplicateCount} duplicate annotations from {affectedImages} images." : string.Empty);
+            RaiseCanExecuteChanges();
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = ex.Message;
+            IsFolderResolved = false;
+            MissingFolderPath = folderPath;
+        }
+        finally { EndBusy(); }
+    }
+
+    private void SetSelectedImageWithoutProcessing(AnnotatedImageViewModel? value)
+    {
+        if (!SetProperty(ref _selectedImage, value)) return;
+        RaisePropertyChanged(nameof(SelectedImageIndex));
+        RaisePropertyChanged(nameof(SelectedImageSummary));
+        RaiseCanExecuteChanges();
+    }
+
+    private async Task ProcessSelectedImageAsync(AnnotatedImageViewModel selected, bool updateStatus)
+    {
+        var rectified = await EnsureImageRectificationAsync(selected, updatePreview: true);
         selected.PanelCornersText = selected.Record.Panel is null
             ? "No panel"
             : string.Join("; ", selected.Record.Panel.FittedQuadrilateralCorners.Select(static p => $"({p.X:F1}, {p.Y:F1})"));
-        StatusMessage = string.IsNullOrWhiteSpace(selected.DiagnosticsText)
-            ? rectified ? $"Loaded {selected.Record.FileName}: {selected.HoleCount} holes, {selected.NaturalCount} natural points." : $"Unable to rectify {selected.Record.FileName}."
-            : $"Loaded with diagnostics: {selected.DiagnosticsText}";
+        if (updateStatus && ReferenceEquals(SelectedImage, selected))
+        {
+            StatusMessage = string.IsNullOrWhiteSpace(selected.DiagnosticsText)
+                ? rectified ? $"Loaded {selected.Record.FileName}: {selected.HoleCount} holes, {selected.NaturalCount} natural points." : $"Unable to rectify {selected.Record.FileName}."
+                : $"Loaded with diagnostics: {selected.DiagnosticsText}";
+        }
         RaisePropertyChanged(nameof(SelectedImage));
         RaisePropertyChanged(nameof(SelectedImageSummary));
     }
@@ -516,11 +581,11 @@ public sealed class AnnotationWorkspaceViewModel : ObservableObject
 
     private void RaiseCanExecuteChanges()
     {
-        (SelectFolderCommand as RelayCommand)?.RaiseCanExecuteChanged();
+        (SelectFolderCommand as AsyncRelayCommand)?.RaiseCanExecuteChanged();
         (SelectPreviousImageCommand as RelayCommand)?.RaiseCanExecuteChanged();
         (SelectNextImageCommand as RelayCommand)?.RaiseCanExecuteChanged();
         (ApplyGlobalPanelDimensionsCommand as RelayCommand)?.RaiseCanExecuteChanged();
-        (RelinkMissingFolderCommand as RelayCommand)?.RaiseCanExecuteChanged();
+        (RelinkMissingFolderCommand as AsyncRelayCommand)?.RaiseCanExecuteChanged();
         (ImportPanelMeasurementsCsvCommand as AsyncRelayCommand)?.RaiseCanExecuteChanged();
         (GenerateSceneCommand as AsyncRelayCommand)?.RaiseCanExecuteChanged();
     }
@@ -881,7 +946,7 @@ public sealed class AnnotationWorkspaceViewModel : ObservableObject
         _pendingWorkspaceState = null;
     }
 
-    private void RestoreMissingFolder()
+    private async Task RestoreMissingFolderAsync()
     {
         var dialog = new OpenFolderDialog
         {
@@ -894,8 +959,7 @@ public sealed class AnnotationWorkspaceViewModel : ObservableObject
             return;
         }
 
-        SelectedFolderPath = dialog.FolderName;
-        LoadProject(dialog.FolderName);
+        await LoadProjectAsync(dialog.FolderName);
 
         if (_pendingWorkspaceState is not null)
         {
