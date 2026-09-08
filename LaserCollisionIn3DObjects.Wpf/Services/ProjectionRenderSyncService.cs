@@ -21,6 +21,7 @@ public sealed class ProjectionRenderSyncService
 
     public void SyncProjectionScene(
         IReadOnlyList<Point3> holePoints,
+        IReadOnlyList<Point3> naturalPoints,
         ProjectionComputationResult? projectionResult,
         IAxisymmetricSourceProfile? previewProfile = null,
         Frame3D? previewFrame = null,
@@ -30,7 +31,7 @@ public sealed class ProjectionRenderSyncService
         IReadOnlyList<Point3>? measuredCornerPoints = null,
         bool zoomExtents = true)
     {
-        var visuals = _sceneBuilder.BuildProjectionVisuals(holePoints, projectionResult, previewProfile, previewFrame, previewAsGhost, previewTiltPointLocal, panels, measuredCornerPoints);
+        var visuals = _sceneBuilder.BuildProjectionVisuals(holePoints, naturalPoints, projectionResult, previewProfile, previewFrame, previewAsGhost, previewTiltPointLocal, panels, measuredCornerPoints);
         _dynamicVisualRoot.Children.Clear();
         foreach (var visual in visuals)
         {

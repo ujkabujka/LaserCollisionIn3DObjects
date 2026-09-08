@@ -159,9 +159,10 @@
                     <ListBox ItemsSource="{Binding AnnotationWorkspace.Images}" SelectedItem="{Binding AnnotationWorkspace.SelectedImage}" Height="220" DisplayMemberPath="DisplayName" Margin="0,4,0,8" />
                     <TextBlock Text="Fitted Panel Corners" FontWeight="SemiBold" />
                     <TextBlock Text="{Binding AnnotationWorkspace.SelectedImage.PanelCornersText, TargetNullValue=N/A}" TextWrapping="Wrap" Margin="0,4,0,8" />
-                    <DataGrid ItemsSource="{Binding AnnotationWorkspace.SelectedImage.Holes}" AutoGenerateColumns="False" CanUserAddRows="False" Height="250" HeadersVisibility="Column">
+                    <DataGrid ItemsSource="{Binding AnnotationWorkspace.SelectedImage.AnnotationPoints}" AutoGenerateColumns="False" CanUserAddRows="False" Height="250" HeadersVisibility="Column">
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="#" Binding="{Binding Index}" Width="35"/>
+                            <DataGridTextColumn Header="Category" Binding="{Binding Category}" Width="70"/>
                             <DataGridTextColumn Header="Source Shape" Binding="{Binding ShapeType}" Width="90"/>
                             <DataGridTextColumn Header="Original Center" Binding="{Binding OriginalCenter}" Width="110"/>
                             <DataGridTextColumn Header="Warped Center" Binding="{Binding WarpedCenter}" Width="110"/>

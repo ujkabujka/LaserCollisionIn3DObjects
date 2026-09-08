@@ -45,4 +45,6 @@ public sealed class SceneModel
     /// Gets the hole centers from prisms .
     /// </summary>
     public List<Point3> HolePoints { get; } = new();
+    /// <summary>Gets naturally occurring annotated measurement points.</summary>
+    public List<Point3> NaturalPoints { get; } = new();
 }

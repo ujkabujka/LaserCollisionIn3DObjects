@@ -125,7 +125,7 @@ public sealed class AnnotationWorkspaceViewModel : ObservableObject
 
     public string SelectedImageSummary => SelectedImage is null
         ? "No image selected."
-        : $"File: {SelectedImage.FileName} | Panel: {(SelectedImage.HasPanel ? "Yes" : "No")} | Holes: {SelectedImage.HoleCount}";
+        : $"File: {SelectedImage.FileName} | Panel: {(SelectedImage.HasPanel ? "Yes" : "No")} | Holes: {SelectedImage.HoleCount} | Natural: {SelectedImage.NaturalCount}";
 
     public IReadOnlyDictionary<string, IReadOnlyList<Point>> WarpedHoleCentersMmByImage
         => Images.ToDictionary(
@@ -345,7 +345,7 @@ public sealed class AnnotationWorkspaceViewModel : ObservableObject
             ? "No panel"
             : string.Join("; ", selected.Record.Panel.FittedQuadrilateralCorners.Select(static p => $"({p.X:F1}, {p.Y:F1})"));
         StatusMessage = string.IsNullOrWhiteSpace(selected.DiagnosticsText)
-            ? rectified ? $"Loaded {selected.Record.FileName}: {selected.Record.Holes.Count} holes." : $"Unable to rectify {selected.Record.FileName}."
+            ? rectified ? $"Loaded {selected.Record.FileName}: {selected.HoleCount} holes, {selected.NaturalCount} natural points." : $"Unable to rectify {selected.Record.FileName}."
             : $"Loaded with diagnostics: {selected.DiagnosticsText}";
         RaisePropertyChanged(nameof(SelectedImage));
         RaisePropertyChanged(nameof(SelectedImageSummary));
@@ -353,7 +353,7 @@ public sealed class AnnotationWorkspaceViewModel : ObservableObject
 
     private bool EnsureImageRectification(AnnotatedImageViewModel image, bool updatePreview)
     {
-        image.Holes.Clear();
+        image.AnnotationPoints.Clear();
         if (image.Record.IsImageMissing)
         {
             _rectificationByImage[image] = null;
@@ -431,7 +431,7 @@ public sealed class AnnotationWorkspaceViewModel : ObservableObject
 
     private async Task<bool> EnsureImageRectificationAsync(AnnotatedImageViewModel image, bool updatePreview)
     {
-        image.Holes.Clear();
+        image.AnnotationPoints.Clear();
         if (image.Record.IsImageMissing)
         {
             _rectificationByImage[image] = null;
@@ -502,8 +502,8 @@ public sealed class AnnotationWorkspaceViewModel : ObservableObject
 
     private static void AddCoordinateSystemDiagnostic(AnnotatedImageViewModel image, int rawWidth, int rawHeight, int normalizedWidth, int normalizedHeight)
     {
-        var annotationPoints = image.Record.Panel?.OriginalPolygonPoints.Concat(image.Record.Holes.Select(static hole => hole.CenterPoint)).ToArray()
-            ?? image.Record.Holes.Select(static hole => hole.CenterPoint).ToArray();
+        var annotationPoints = image.Record.Panel?.OriginalPolygonPoints.Concat(image.Record.Points.Select(static point => point.CenterPoint)).ToArray()
+            ?? image.Record.Points.Select(static point => point.CenterPoint).ToArray();
         if (annotationPoints.Length == 0) return;
 
         static bool IsWithinBounds(Point point, int width, int height) => point.X >= 0 && point.X < width && point.Y >= 0 && point.Y < height;
@@ -619,6 +619,7 @@ public sealed class AnnotationWorkspaceViewModel : ObservableObject
                     var frame = MeasuredPanelFrameBuilder.Create(measuredCorners[0], measuredCorners[1], measuredCorners[2], measuredCorners[3], width, height, methodology);
                     sceneModel.Prisms.Add(CreatePrism(item, measuredCorners[0], frame));
                     foreach (var hole in CreateHolePoints(item, measuredCorners[0], frame)) sceneModel.HolePoints.Add(hole);
+                    foreach (var point in CreateNaturalPoints(item, measuredCorners[0], frame)) sceneModel.NaturalPoints.Add(point);
                     foreach (var corner in measuredCorners) sceneModel.MeasuredCornerPoints.Add(new Point3(corner.X, corner.Y, corner.Z));
                     if (frame.Residuals is { } residuals) AddProcessingDiagnostic(item, $"4-point fit RMSE: {residuals.Rmse * 1000:F2} mm.");
                 }
@@ -668,10 +669,12 @@ public sealed class AnnotationWorkspaceViewModel : ObservableObject
             {
                 errors.Add($"{image.FileName}: rectification is unavailable.");
             }
-            if (includeRectification && rectification is not null && image.WarpedHoleCentersMm.Count != image.Record.Holes.Count)
+            if (includeRectification && rectification is not null && image.WarpedHoleCentersMm.Count != image.Record.Holes.Count())
             {
                 errors.Add($"{image.FileName}: transformed hole coordinates could not be calculated.");
             }
+            if (includeRectification && rectification is not null && image.WarpedNaturalCentersMm.Count != image.Record.NaturalPoints.Count())
+                errors.Add($"{image.FileName}: transformed natural coordinates could not be calculated.");
 
             if (image.PanelWidthMm is null or <= 0)
             {
@@ -784,7 +787,7 @@ public sealed class AnnotationWorkspaceViewModel : ObservableObject
         {
             throw new InvalidOperationException($"No valid rectification is available for '{cornerMeasurement.FileName}'.");
         }
-        if (cornerMeasurement.WarpedHoleCentersMm.Count != cornerMeasurement.Record.Holes.Count)
+        if (cornerMeasurement.WarpedHoleCentersMm.Count != cornerMeasurement.Record.Holes.Count())
         {
             throw new InvalidOperationException($"Transformed hole coordinates are unavailable for '{cornerMeasurement.FileName}'.");
         }
@@ -801,6 +804,16 @@ public sealed class AnnotationWorkspaceViewModel : ObservableObject
         }
         return point3s;
     }
+
+    private List<Point3> CreateNaturalPoints(AnnotatedImageViewModel image, Vector3 leftTop, MeasuredPanelFrame panelFrame)
+        => CreateWorldPoints(image.WarpedNaturalCentersMm, leftTop, panelFrame);
+
+    private static List<Point3> CreateWorldPoints(IEnumerable<Point> points, Vector3 leftTop, MeasuredPanelFrame panelFrame)
+        => points.Select(item =>
+        {
+            var transformed = leftTop + panelFrame.Width * (float)(item.X * 0.001) + panelFrame.Down * (float)(item.Y * 0.001);
+            return new Point3(transformed.X, transformed.Y, transformed.Z);
+        }).ToList();
 
     public AnnotationWorkspaceState ExportWorkspaceState()
     {
@@ -932,8 +945,9 @@ public sealed class AnnotationWorkspaceViewModel : ObservableObject
 
     private void RebuildHoleRows(AnnotatedImageViewModel image)
     {
-        image.Holes.Clear();
+        image.AnnotationPoints.Clear();
         image.WarpedHoleCentersMm.Clear();
+        image.WarpedNaturalCentersMm.Clear();
         _rectificationByImage.TryGetValue(image, out var rectification);
         var canConvertToMm = rectification is not null
             && image.Record.Calibration.IsConfigured
@@ -942,9 +956,9 @@ public sealed class AnnotationWorkspaceViewModel : ObservableObject
         var mmScaleX = canConvertToMm ? image.Record.Calibration.PhysicalWidthMm!.Value / rectification!.DestinationSizePixels.Width : 0d;
         var mmScaleY = canConvertToMm ? image.Record.Calibration.PhysicalHeightMm!.Value / rectification!.DestinationSizePixels.Height : 0d;
 
-        foreach (var row in AnnotationWorkspaceService.BuildHoleRows(image.Record, rectification, image.Record.Calibration))
+        foreach (var row in AnnotationWorkspaceService.BuildAnnotationPointRows(image.Record, rectification, image.Record.Calibration))
         {
-            image.Holes.Add(row);
+            image.AnnotationPoints.Add(row);
         }
 
         if (canConvertToMm)
@@ -953,6 +967,8 @@ public sealed class AnnotationWorkspaceViewModel : ObservableObject
             {
                 image.WarpedHoleCentersMm.Add(new Point(point.X * mmScaleX, point.Y * mmScaleY));
             }
+            foreach (var point in rectification.TransformedNaturalCenters)
+                image.WarpedNaturalCentersMm.Add(new Point(point.X * mmScaleX, point.Y * mmScaleY));
         }
 
         RaisePropertyChanged(nameof(WarpedHoleCentersMmByImage));

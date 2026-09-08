@@ -72,11 +72,22 @@ public sealed class ViaAnnotationLoader
 
         foreach (var collisionPoint in regions.Where(static r => !AnnotationTypeClassifier.IsPanel(r.Type)))
         {
+            var category = AnnotationTypeClassifier.Classify(collisionPoint.Type) switch
+            {
+                AnnotationSemanticType.Hole => AnnotationPointCategory.Hole,
+                AnnotationSemanticType.Natural => AnnotationPointCategory.Natural,
+                _ => (AnnotationPointCategory?)null,
+            };
+            if (category is null)
+            {
+                record.Diagnostics.Add($"Skipped region with unknown annotation type '{collisionPoint.Type}'. Expected 1 (Hole), 2 (Natural), or 3 (Panel).");
+                continue;
+            }
             switch (collisionPoint.Shape)
             {
-                case PolygonShapeData polygon: AddHole(record, AnnotationShapeType.Polygon, polygon, GeometryUtilities.PolygonCentroid(polygon.Points), GeometryUtilities.PolygonArea(polygon.Points)); break;
-                case CircleShapeData circle: AddHole(record, AnnotationShapeType.Circle, circle, circle.Center, GeometryUtilities.CircleArea(circle.Radius)); break;
-                case EllipseShapeData ellipse: AddHole(record, AnnotationShapeType.Ellipse, ellipse, ellipse.Center, GeometryUtilities.EllipseArea(ellipse.RadiusX, ellipse.RadiusY)); break;
+                case PolygonShapeData polygon: AddPoint(record, category.Value, AnnotationShapeType.Polygon, polygon, GeometryUtilities.PolygonCentroid(polygon.Points), GeometryUtilities.PolygonArea(polygon.Points)); break;
+                case CircleShapeData circle: AddPoint(record, category.Value, AnnotationShapeType.Circle, circle, circle.Center, GeometryUtilities.CircleArea(circle.Radius)); break;
+                case EllipseShapeData ellipse: AddPoint(record, category.Value, AnnotationShapeType.Ellipse, ellipse, ellipse.Center, GeometryUtilities.EllipseArea(ellipse.RadiusX, ellipse.RadiusY)); break;
                 default: record.Diagnostics.Add($"Skipped collision-point region of unsupported shape '{collisionPoint.ShapeName}' (type '{collisionPoint.Type}')."); break;
             }
         }
@@ -147,7 +158,7 @@ public sealed class ViaAnnotationLoader
         return Math.Sqrt(dx * dx + dy * dy);
     }
 
-    private static void AddHole(AnnotatedImageRecord record, AnnotationShapeType shapeType, IAnnotationShape shape, Point center, double area) => record.Holes.Add(new HoleAnnotation { ShapeType = shapeType, OriginalShape = shape, CenterPoint = center, PixelArea = area });
+    private static void AddPoint(AnnotatedImageRecord record, AnnotationPointCategory category, AnnotationShapeType shapeType, IAnnotationShape shape, Point center, double area) => record.Points.Add(new AnnotatedPointAnnotation { Category = category, ShapeType = shapeType, OriginalShape = shape, CenterPoint = center, PixelArea = area });
 
     private static List<RegionRecord> ReadRegions(JsonElement regions, ICollection<string> diagnostics)
     {

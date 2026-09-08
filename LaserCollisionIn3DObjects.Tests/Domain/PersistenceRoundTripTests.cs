@@ -60,6 +60,7 @@ public class PersistenceRoundTripTests
                             },
                         ],
                         HolePoints = [new Point3(1, 2, 3)],
+                        NaturalPoints = [new Point3(4, 5, 6)],
                         Projection = new SceneProjectionStateDto
                         {
                             SelectedMethodId = "point-source",
@@ -102,6 +103,7 @@ public class PersistenceRoundTripTests
                 },
                 ProjectionWorkspace = new ProjectionWorkspaceStateDto
                 {
+                    IncludeNaturalPoints = false,
                     SelectedSceneName = "Scene A",
                     SelectedMethodId = "point-source",
                     TiltPointX = 12.5,
@@ -119,6 +121,8 @@ public class PersistenceRoundTripTests
             Assert.Equal(1, roundTrip.SchemaVersion);
             Assert.Single(roundTrip.Scenes);
             Assert.Equal("Scene A", roundTrip.Scenes[0].Name);
+            Assert.Equal(new Point3(4, 5, 6), Assert.Single(roundTrip.Scenes[0].NaturalPoints));
+            Assert.False(roundTrip.ProjectionWorkspace.IncludeNaturalPoints);
             Assert.Single(roundTrip.Scenes[0].Projection.Results);
             Assert.Equal("Result 1", roundTrip.Scenes[0].Projection.Results[0].Name);
             Assert.Equal(new Point3(1, 1, 1), roundTrip.Scenes[0].Projection.Results[0].PointSourceOrigin);

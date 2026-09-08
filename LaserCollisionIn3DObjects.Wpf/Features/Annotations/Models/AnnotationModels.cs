@@ -37,7 +37,9 @@ public sealed class AnnotatedImageRecord
 
     public PanelAnnotation? Panel { get; set; }
 
-    public List<HoleAnnotation> Holes { get; } = new();
+    public List<AnnotatedPointAnnotation> Points { get; } = new();
+    public IEnumerable<AnnotatedPointAnnotation> Holes => Points.Where(p => p.Category == AnnotationPointCategory.Hole);
+    public IEnumerable<AnnotatedPointAnnotation> NaturalPoints => Points.Where(p => p.Category == AnnotationPointCategory.Natural);
 
     public List<string> Diagnostics { get; } = new();
 
@@ -55,8 +57,11 @@ public sealed class PanelAnnotation
     public IReadOnlyList<Point> FittedQuadrilateralCorners { get; set; } = Array.Empty<Point>();
 }
 
-public sealed class HoleAnnotation
+public enum AnnotationPointCategory { Hole, Natural }
+
+public sealed class AnnotatedPointAnnotation
 {
+    public required AnnotationPointCategory Category { get; init; }
     public required AnnotationShapeType ShapeType { get; init; }
 
     public required IAnnotationShape OriginalShape { get; init; }
@@ -113,4 +118,5 @@ public sealed class RectificationResult
     public required BitmapSource WarpedImage { get; init; }
 
     public required IReadOnlyList<Point> TransformedHoleCenters { get; init; }
+    public required IReadOnlyList<Point> TransformedNaturalCenters { get; init; }
 }

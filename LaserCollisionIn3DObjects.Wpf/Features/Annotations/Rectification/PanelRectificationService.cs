@@ -11,7 +11,7 @@ namespace LaserCollisionIn3DObjects.Wpf.Features.Annotations.Rectification;
 /// </summary>
 public sealed class PanelRectificationService
 {
-    public RectificationResult Rectify(BitmapSource sourceImage, IReadOnlyList<Point> sourceCorners, IReadOnlyList<Point> holeCenters)
+    public RectificationResult Rectify(BitmapSource sourceImage, IReadOnlyList<Point> sourceCorners, IReadOnlyList<Point> holeCenters, IReadOnlyList<Point> naturalCenters)
     {
         var orderedSource = PrepareSourceCorners(sourceCorners);
         var destinationCorners = BuildDestinationCorners(orderedSource, out var width, out var height);
@@ -30,6 +30,7 @@ public sealed class PanelRectificationService
             SourceToDestinationHomography = srcToDst,
             WarpedImage = warped,
             TransformedHoleCenters = transformedHoleCenters,
+            TransformedNaturalCenters = naturalCenters.Select(p => Homography.Transform(p, srcToDst)).ToArray(),
         };
     }
 
