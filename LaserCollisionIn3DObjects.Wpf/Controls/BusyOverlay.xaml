@@ -1,0 +1,29 @@
+<UserControl x:Class="LaserCollisionIn3DObjects.Wpf.Controls.BusyOverlay"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             IsHitTestVisible="True">
+    <Grid Background="#48000000">
+        <Border Background="#FFFDFDFD" CornerRadius="7" Padding="22" MinWidth="310"
+                HorizontalAlignment="Center" VerticalAlignment="Center">
+            <StackPanel>
+                <TextBlock Text="{Binding Message, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                           FontSize="15" FontWeight="SemiBold" TextAlignment="Center" TextWrapping="Wrap"/>
+                <ProgressBar Margin="0,14,0,0" Height="18" Minimum="0" Maximum="100"
+                             Value="{Binding Progress, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                             IsIndeterminate="{Binding IsIndeterminate, RelativeSource={RelativeSource AncestorType=UserControl}}"/>
+                <TextBlock Margin="0,7,0,0" HorizontalAlignment="Center" Foreground="#555">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="Text" Value="{Binding Progress, RelativeSource={RelativeSource AncestorType=UserControl}, StringFormat={}{0:F0}%}"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsIndeterminate, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="True">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
+            </StackPanel>
+        </Border>
+    </Grid>
+</UserControl>
