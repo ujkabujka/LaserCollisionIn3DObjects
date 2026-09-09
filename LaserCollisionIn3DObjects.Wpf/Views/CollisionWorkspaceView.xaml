@@ -216,7 +216,12 @@
             <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Width="420">
                 <TextBlock Text="Running collision" FontSize="22" FontWeight="SemiBold" HorizontalAlignment="Center"/>
                 <TextBlock Text="{Binding CollisionProgressMessage}" Margin="0,12" TextAlignment="Center"/>
-                <ProgressBar Height="18" Minimum="0" Maximum="100" Value="{Binding CollisionProgressPercent}" IsIndeterminate="{Binding CollisionProgressIsIndeterminate}"/>
+                <ProgressBar x:Name="CollisionProgressBar"
+                             Height="18"
+                             Minimum="0"
+                             Maximum="100"
+                             Value="{Binding CollisionProgressPercent, Mode=OneWay}"
+                             IsIndeterminate="{Binding CollisionProgressIsIndeterminate, Mode=OneWay}"/>
             </StackPanel>
         </Border>
     </Grid>
