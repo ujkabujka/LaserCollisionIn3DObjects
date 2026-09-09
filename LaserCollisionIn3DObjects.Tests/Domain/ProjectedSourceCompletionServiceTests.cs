@@ -15,6 +15,25 @@ public sealed class ProjectedSourceCompletionServiceTests
     };
 
     [Fact]
+    public void ProjectedSourceIdentity_IsStableAcrossRecreatedInputs()
+    {
+        var beforeRefresh = new ProjectedSourceIdentity("Projection Scene", "result-b");
+        var afterRefresh = new ProjectedSourceIdentity("Projection Scene", "result-b");
+
+        Assert.Equal(beforeRefresh, afterRefresh);
+        Assert.Equal(beforeRefresh.ToString(), afterRefresh.ToString());
+    }
+
+    [Fact]
+    public void ProjectedSourceIdentity_DistinguishesResultKeysAndOwningScenes()
+    {
+        var selected = new ProjectedSourceIdentity("Scene A", "result-b");
+
+        Assert.NotEqual(selected, new ProjectedSourceIdentity("Scene A", "result-a"));
+        Assert.NotEqual(selected, new ProjectedSourceIdentity("Scene B", "result-b"));
+    }
+
+    [Fact]
     public void DetectsTwoCoverageIntervalsAndExpectedGaps()
     {
         var request = BuildRequest("Coverage", CreateRaysAtAngles(new[] { 60d, 70d, 80d, 90d, 210d, 220d, 230d, 240d }));

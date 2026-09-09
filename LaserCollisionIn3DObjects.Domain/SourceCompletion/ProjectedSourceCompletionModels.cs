@@ -9,6 +9,12 @@ public enum SourceCompletionMethod
     Mirror,
 }
 
+/// <summary>Stable ownership identity for a saved projection result used by source completion.</summary>
+public readonly record struct ProjectedSourceIdentity(string SceneName, string ProjectionResultKey)
+{
+    public override string ToString() => $"{SceneName}\u001f{ProjectionResultKey}";
+}
+
 public sealed record ProjectedSourceCompletionRequest(
     string Name,
     AxisymmetricSourceProfileDefinition ProfileDefinition,

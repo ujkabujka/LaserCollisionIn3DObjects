@@ -6,6 +6,9 @@
              xmlns:helix="http://helix-toolkit.org/wpf"
              xmlns:sourceCompletionDomain="clr-namespace:LaserCollisionIn3DObjects.Domain.SourceCompletion;assembly=LaserCollisionIn3DObjects.Domain"
              mc:Ignorable="d">
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVisibility"/>
+    </UserControl.Resources>
     <Grid Margin="12">
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="500"/>
@@ -14,6 +17,12 @@
         </Grid.ColumnDefinitions>
 
         <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto">
+            <ScrollViewer.Style>
+                <Style TargetType="ScrollViewer">
+                    <Setter Property="IsEnabled" Value="True"/>
+                    <Style.Triggers><DataTrigger Binding="{Binding SourceCompletionWorkspace.IsBusy}" Value="True"><Setter Property="IsEnabled" Value="False"/></DataTrigger></Style.Triggers>
+                </Style>
+            </ScrollViewer.Style>
             <StackPanel>
                 <TextBlock Text="Source Completion" FontSize="20" FontWeight="SemiBold" Margin="0,0,0,10"/>
 
@@ -120,5 +129,14 @@
                 <TextBlock Text="Preview shows source initial points only. Ray lines are not rendered here." Foreground="#555" TextWrapping="Wrap"/>
             </StackPanel>
         </Grid>
+
+        <Border Grid.ColumnSpan="3" Background="#99000000" Panel.ZIndex="10"
+                Visibility="{Binding SourceCompletionWorkspace.IsProgressVisible, Converter={StaticResource BoolToVisibility}}">
+            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Width="360">
+                <ProgressBar Height="8" IsIndeterminate="True"/>
+                <TextBlock Text="{Binding SourceCompletionWorkspace.ProgressMessage}" Foreground="White"
+                           FontSize="16" FontWeight="SemiBold" TextAlignment="Center" Margin="0,14,0,0"/>
+            </StackPanel>
+        </Border>
     </Grid>
 </UserControl>

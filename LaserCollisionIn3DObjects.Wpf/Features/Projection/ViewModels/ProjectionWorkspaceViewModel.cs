@@ -26,6 +26,7 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
     private string _statusMessage = "Select a scene with holes to begin projection.";
     private string _newResultName = "Projection Result 1";
     private bool _isProjectionRunning;
+    private bool _isBridgeBusy;
     private double _projectionProgressPercent;
     private string _projectionProgressMessage = string.Empty;
     private int _lastLoggedProgressBucket = -1;
@@ -89,7 +90,7 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
         DeleteSelectedSceneCommand = new RelayCommand(DeleteSelectedScene, () => !IsProjectionRunning && CanDeleteSelectedScene);
         AddHybridSegmentCommand = new RelayCommand(AddHybridSegment, () => !IsProjectionRunning);
         RemoveSelectedHybridSegmentCommand = new RelayCommand(RemoveSelectedHybridSegment, () => !IsProjectionRunning && SelectedHybridSegment is not null);
-        AddProjectedLightSourceToCollisionSceneCommand = new RelayCommand(AddProjectedLightSourceToCollision, CanAddProjectedLightSourceToCollision);
+        AddProjectedLightSourceToCollisionSceneCommand = new AsyncRelayCommand(AddProjectedLightSourceToCollisionAsync, CanAddProjectedLightSourceToCollision);
 
         _sceneCollectionService.Scenes.CollectionChanged += OnScenesCollectionChanged;
         AddHybridSegment();
@@ -206,12 +207,14 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
             if (SetProperty(ref _isProjectionRunning, value))
             {
                 RaisePropertyChanged(nameof(IsProgressVisible));
+                RaisePropertyChanged(nameof(IsProjectionBusy));
                 RaiseCanExecuteChanged();
             }
         }
     }
 
-    public bool IsProgressVisible => IsProjectionRunning;
+    public bool IsProjectionBusy => IsProjectionRunning || _isBridgeBusy;
+    public bool IsProgressVisible => IsProjectionBusy;
 
     public double ProjectionProgressPercent
     {
@@ -1246,7 +1249,7 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
         return new Frame3D(new System.Numerics.Vector3((float)sourceFrame.Origin.X, (float)sourceFrame.Origin.Y, (float)sourceFrame.Origin.Z), orientation);
     }
 
-    private void AddProjectedLightSourceToCollision()
+    private async Task AddProjectedLightSourceToCollisionAsync()
     {
         if (SelectedScene is null)
         {
@@ -1275,13 +1278,19 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
         }
 
 
+        _isBridgeBusy = true;
+        RaisePropertyChanged(nameof(IsProjectionBusy));
+        RaisePropertyChanged(nameof(IsProgressVisible));
+        ProjectionProgressMessage = "Preparing exact projected rays...";
+        RaiseCanExecuteChanged();
         try
         {
-            var projectedSource = _projectionResultToCollisionSourceService.CreateProjectedLightSource(selectedResult);
-
+            var projectedSource = await Task.Run(() => _projectionResultToCollisionSourceService.CreateProjectedLightSource(selectedResult));
+            ProjectionProgressMessage = "Adding source to collision scene...";
+            targetScene.HitResults.Clear();
             targetScene.ProjectedLightSources.Add(projectedSource);
             targetScene.SelectedProjectedLightSource = projectedSource;
-            _sceneCollectionService.SelectedScene = targetScene;
+            if (!ReferenceEquals(_sceneCollectionService.SelectedScene, targetScene)) _sceneCollectionService.SelectedScene = targetScene;
             _sceneCollectionService.NotifySceneContentChanged();
             SetStatus(
                 $"Added projected light source '{projectedSource.Name}' to collision scene '{targetScene.Name}' with {projectedSource.Rays.Count} exact ray(s).",
@@ -1294,10 +1303,18 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
             SetStatus(ex.Message, ApplicationLogLevel.Warning, ex);
             _applicationLogService?.LogWarning(ex.Message, nameof(ProjectionWorkspaceViewModel));
         }
+        finally
+        {
+            _isBridgeBusy = false;
+            ProjectionProgressMessage = string.Empty;
+            RaisePropertyChanged(nameof(IsProjectionBusy));
+            RaisePropertyChanged(nameof(IsProgressVisible));
+            RaiseCanExecuteChanged();
+        }
     }
 
     private bool CanAddProjectedLightSourceToCollision() =>
-        !IsProjectionRunning
+        !IsProjectionBusy
         && SelectedResult is not null
         && SelectedTargetCollisionScene is not null
         && !SelectedTargetCollisionScene.IsProjectionOnly;
@@ -1330,7 +1347,7 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
             deleteSelectedSceneCommand.RaiseCanExecuteChanged();
         }
 
-        if (AddProjectedLightSourceToCollisionSceneCommand is RelayCommand addProjectedLightSourceToCollisionSceneCommand)
+        if (AddProjectedLightSourceToCollisionSceneCommand is AsyncRelayCommand addProjectedLightSourceToCollisionSceneCommand)
         {
             addProjectedLightSourceToCollisionSceneCommand.RaiseCanExecuteChanged();
         }
