@@ -50,4 +50,17 @@ public sealed class SourceCompletionPreviewRenderSyncService
 
         return result.Rays.TakeLast(result.SyntheticRayCount).ToList();
     }
+
+    public void SyncCompletedSourcePreview(CompletedSourceItem completedSource)
+    {
+        ArgumentNullException.ThrowIfNull(completedSource);
+        var visuals = _sceneBuilder.BuildSourceCompletionPreviewVisuals(
+            completedSource.SourceFrame,
+            completedSource.ProfileDefinition.BuildProfile(),
+            completedSource.OriginalRays.Select(ray => ray.Ray).ToList(),
+            completedSource.SyntheticRays.Select(ray => ray.Ray).ToList());
+        _dynamicVisualRoot.Children.Clear();
+        foreach (var visual in visuals) _dynamicVisualRoot.Children.Add(visual);
+        _viewport.ZoomExtents();
+    }
 }
