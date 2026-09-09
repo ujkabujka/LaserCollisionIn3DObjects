@@ -549,6 +549,14 @@ public sealed class ProjectPersistenceCoordinator
             restored.ExactRays.Add(new DomainRay3D(new Vector3(ray.OriginX, ray.OriginY, ray.OriginZ), new Vector3(ray.DirectionX, ray.DirectionY, ray.DirectionZ)));
         }
 
+        // Part 1 persisted completed physical rays in the projection metadata collection.
+        // Normalize those files in memory so the next save uses the canonical exact-ray form.
+        if (restored.OriginKind == ProjectedLightSourceOriginKind.CompletedProjectionResult && restored.ExactRays.Count == 0 && restored.Rays.Count > 0)
+        {
+            foreach (var ray in restored.Rays) restored.ExactRays.Add(ray.Ray);
+            restored.Rays.Clear();
+        }
+
         return restored;
     }
 

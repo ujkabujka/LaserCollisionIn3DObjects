@@ -38,6 +38,24 @@ public sealed class ProjectedLightSourceItemViewModel : ObservableObject
     /// <summary>Exact rays for non-projection sources. They intentionally carry no target-hole metadata.</summary>
     public ObservableCollection<Ray3D> ExactRays { get; } = new();
 
+    public int EffectiveRayCount => ExactRays.Count > 0 ? ExactRays.Count : Rays.Count;
+
+    public IEnumerable<Ray3D> GetEffectiveCollisionRays() =>
+        ExactRays.Count > 0 ? ExactRays : Rays.Select(ray => ray.Ray);
+
+    public string SourceTypeLabel => OriginKind switch
+    {
+        ProjectedLightSourceOriginKind.CompletedProjectionResult => "Completed",
+        ProjectedLightSourceOriginKind.ImportedTextFile => "Imported",
+        _ => "Projected",
+    };
+
+    public ProjectedLightSourceItemViewModel()
+    {
+        Rays.CollectionChanged += (_, _) => RaisePropertyChanged(nameof(EffectiveRayCount));
+        ExactRays.CollectionChanged += (_, _) => RaisePropertyChanged(nameof(EffectiveRayCount));
+    }
+
     public NumericsQuaternion BaseOrientation { get; set; } = NumericsQuaternion.Identity;
     public ProjectedLightSourceOriginKind OriginKind { get; set; } = ProjectedLightSourceOriginKind.ProjectionResult;
 }

@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using LaserCollisionIn3DObjects.Domain.Projection;
 using LaserCollisionIn3DObjects.Domain.Geometry;
 using LaserCollisionIn3DObjects.Domain.Scene;
+using LaserCollisionIn3DObjects.Domain.Export;
 using LaserCollisionIn3DObjects.Wpf.Infrastructure;
 
 namespace LaserCollisionIn3DObjects.Wpf.ViewModels;
@@ -20,6 +21,10 @@ public sealed class CollisionSceneViewModel : ObservableObject
     public CollisionSceneViewModel(string name)
     {
         _name = name;
+        Prisms.CollectionChanged += (_, _) => InvalidateCollisionResults();
+        Rays.CollectionChanged += (_, _) => InvalidateCollisionResults();
+        LightSources.CollectionChanged += (_, _) => InvalidateCollisionResults();
+        ProjectedLightSources.CollectionChanged += (_, _) => InvalidateCollisionResults();
     }
 
     public string Name
@@ -33,6 +38,27 @@ public sealed class CollisionSceneViewModel : ObservableObject
     public ObservableCollection<CylindricalLightSourceItemViewModel> LightSources { get; } = new();
     public ObservableCollection<ProjectedLightSourceItemViewModel> ProjectedLightSources { get; } = new();
     public ObservableCollection<HitResultItemViewModel> HitResults { get; } = new();
+    public IReadOnlyList<CollisionHitPointRecord> HitPointRecords { get; private set; } = Array.Empty<CollisionHitPointRecord>();
+    public bool HasValidCollisionRun { get; private set; }
+
+    public void PublishCollisionResults(IEnumerable<HitResultItemViewModel> rows, IReadOnlyList<CollisionHitPointRecord> records)
+    {
+        HitResults.Clear();
+        foreach (var row in rows) HitResults.Add(row);
+        HitPointRecords = records;
+        HasValidCollisionRun = true;
+        RaisePropertyChanged(nameof(HitPointRecords));
+        RaisePropertyChanged(nameof(HasValidCollisionRun));
+    }
+
+    public void InvalidateCollisionResults()
+    {
+        HitResults.Clear();
+        HitPointRecords = Array.Empty<CollisionHitPointRecord>();
+        HasValidCollisionRun = false;
+        RaisePropertyChanged(nameof(HitPointRecords));
+        RaisePropertyChanged(nameof(HasValidCollisionRun));
+    }
     public ObservableCollection<Point3> HolePoints { get; } = new();
     public ObservableCollection<Point3> NaturalPoints { get; } = new();
     public ObservableCollection<Point3> MeasuredCornerPoints { get; } = new();

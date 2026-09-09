@@ -20,7 +20,7 @@ public sealed class CollisionHitPointExportTests
         {
             exportService.Export(path, records);
             var lines = File.ReadAllLines(path);
-            Assert.Equal("SceneName,SourceType,HitX,HitY,HitZ", lines[0]);
+            Assert.Equal("SceneName,SourceType,SourceName,HitX,HitY,HitZ", lines[0]);
         }
         finally
         {
@@ -40,6 +40,8 @@ public sealed class CollisionHitPointExportTests
             new CollisionHitPointRecord("Scene A", new Vector3(4f, 5f, 6f), CollisionRaySourceType.HybridAxisymmetricGenerated),
             new CollisionHitPointRecord("Scene A", new Vector3(5f, 6f, 7f), CollisionRaySourceType.ProjectionResult),
             new CollisionHitPointRecord("Scene A", new Vector3(6f, 7f, 8f), CollisionRaySourceType.Manual),
+            new CollisionHitPointRecord("Scene A", new Vector3(7f, 8f, 9f), CollisionRaySourceType.CompletedProjectionResult),
+            new CollisionHitPointRecord("Scene A", new Vector3(8f, 9f, 10f), CollisionRaySourceType.ImportedLightSource),
         };
         var path = Path.Combine(Path.GetTempPath(), $"hit-export-{Guid.NewGuid():N}.csv");
 
@@ -66,8 +68,8 @@ public sealed class CollisionHitPointExportTests
         var exportService = new CollisionHitPointCsvExportService();
         var records = new[]
         {
-            new CollisionHitPointRecord("Scene A", new Vector3(1.5f, 2.25f, -3.75f), CollisionRaySourceType.CylindricalGenerated),
-            new CollisionHitPointRecord("Scene B", new Vector3(0f, -1f, 99.125f), CollisionRaySourceType.CylindricalGenerated),
+            new CollisionHitPointRecord("Scene A", new Vector3(1.5f, 2.25f, -3.75f), CollisionRaySourceType.CylindricalGenerated, "Source, \"A\""),
+            new CollisionHitPointRecord("Scene B", new Vector3(0f, -1f, 99.125f), CollisionRaySourceType.CylindricalGenerated, "Source B"),
         };
 
         var path = Path.Combine(Path.GetTempPath(), $"hit-export-{Guid.NewGuid():N}.csv");
@@ -77,12 +79,12 @@ public sealed class CollisionHitPointExportTests
             exportService.Export(path, records);
             var lines = File.ReadAllLines(path);
 
-            Assert.Equal("SceneName,SourceType,HitX,HitY,HitZ", lines[0]);
+            Assert.Equal("SceneName,SourceType,SourceName,HitX,HitY,HitZ", lines[0]);
             Assert.Equal(
-                string.Create(CultureInfo.InvariantCulture, $"Scene A,CylindricalGenerated,{records[0].HitPoint.X},{records[0].HitPoint.Y},{records[0].HitPoint.Z}"),
+                string.Create(CultureInfo.InvariantCulture, $"Scene A,CylindricalGenerated,\"Source, \"\"A\"\"\",{records[0].HitPoint.X},{records[0].HitPoint.Y},{records[0].HitPoint.Z}"),
                 lines[1]);
             Assert.Equal(
-                string.Create(CultureInfo.InvariantCulture, $"Scene B,CylindricalGenerated,{records[1].HitPoint.X},{records[1].HitPoint.Y},{records[1].HitPoint.Z}"),
+                string.Create(CultureInfo.InvariantCulture, $"Scene B,CylindricalGenerated,Source B,{records[1].HitPoint.X},{records[1].HitPoint.Y},{records[1].HitPoint.Z}"),
                 lines[2]);
         }
         finally
