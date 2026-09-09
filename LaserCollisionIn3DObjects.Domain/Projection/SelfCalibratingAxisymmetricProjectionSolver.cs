@@ -48,8 +48,8 @@ public sealed class SelfCalibratingAxisymmetricProjectionSolver
                 var solved = SolveSingleHole(localHolePoints[i], lambda, profile, localTiltPoint);
                 fitErrorSum += solved.FitError;
 
-                var sourceWorld = ToWorld(solved.SourceLocal, frame);
-                var modeledWorld = LocalDirectionToWorld(solved.ModeledLocalDirection, frame);
+                var sourceWorld = PointSourceFrameTransforms.LocalToWorld(solved.SourceLocal, frame);
+                var modeledWorld = PointSourceFrameTransforms.LocalDirectionToWorld(solved.ModeledLocalDirection, frame);
                 var actualWorld = BuildNormalizedDirection(sourceWorld, worldHolePoints[i], $"Hole point at index {i} coincides with reconstructed source point.");
 
                 points.Add(new AxisymmetricProjectionPoint(
@@ -224,24 +224,6 @@ public sealed class SelfCalibratingAxisymmetricProjectionSolver
         var mean = nearest.Average();
         var variance = nearest.Select(v => (v - mean) * (v - mean)).Average();
         return variance;
-    }
-
-    private static Point3 ToWorld(Point3 localPoint, PointSourceFrameState frame)
-    {
-        return new Point3(
-            frame.Origin.X + (localPoint.X * frame.AxisX.X) + (localPoint.Y * frame.AxisY.X) + (localPoint.Z * frame.AxisZ.X),
-            frame.Origin.Y + (localPoint.X * frame.AxisX.Y) + (localPoint.Y * frame.AxisY.Y) + (localPoint.Z * frame.AxisZ.Y),
-            frame.Origin.Z + (localPoint.X * frame.AxisX.Z) + (localPoint.Y * frame.AxisY.Z) + (localPoint.Z * frame.AxisZ.Z));
-    }
-
-    private static Vector3D LocalDirectionToWorld(Vector3D localDirection, PointSourceFrameState frame)
-    {
-        var worldX = (localDirection.X * frame.AxisX.X) + (localDirection.Y * frame.AxisY.X) + (localDirection.Z * frame.AxisZ.X);
-        var worldY = (localDirection.X * frame.AxisX.Y) + (localDirection.Y * frame.AxisY.Y) + (localDirection.Z * frame.AxisZ.Y);
-        var worldZ = (localDirection.X * frame.AxisX.Z) + (localDirection.Y * frame.AxisY.Z) + (localDirection.Z * frame.AxisZ.Z);
-
-        var v = Vector3.Normalize(new Vector3((float)worldX, (float)worldY, (float)worldZ));
-        return new Vector3D(v.X, v.Y, v.Z);
     }
 
     private static Vector3D BuildNormalizedDirection(Point3 origin, Point3 target, string errorMessage)
