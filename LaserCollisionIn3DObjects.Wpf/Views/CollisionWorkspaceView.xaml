@@ -4,6 +4,7 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:h="http://helix-toolkit.org/wpf"
+             xmlns:views="clr-namespace:LaserCollisionIn3DObjects.Wpf.Views"
              mc:Ignorable="d">
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
@@ -40,20 +41,25 @@
                                 <Button Content="Delete All Prisms" Command="{Binding RemoveAllPrismsCommand}" Width="125"/>
                             </StackPanel>  
 
-                            <StackPanel Orientation="Horizontal" Margin="0,0,8,0" VerticalAlignment="Center">
-                                <UniformGrid Columns="3" Margin="0,0,0,6">
-                                    <Button Content="Add Array" Command="{Binding AddPrismArrayCommand}" Width="95" Margin="0,0,8,0"/>
-                                    <TextBlock Text="Array Radius:" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                                    <TextBox Width="70" Text="{Binding NewPrismArrayRadius}"/>
-                                </UniformGrid>
-                            </StackPanel>
-
-                            <StackPanel Orientation="Horizontal" Margin="0,0,8,0" VerticalAlignment="Center">
-                                <UniformGrid Columns="2" Margin="0,0,0,6">
-                                    <TextBlock Text="Prism Count:" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                                    <TextBox Width="70" Text="{Binding NewPrismArrayCount}"/>
-                                </UniformGrid>
-                            </StackPanel>
+                            <GroupBox Header="Panel Array" Padding="6" Margin="0,2,0,8">
+                              <StackPanel>
+                                <Grid Margin="0,0,0,5"><Grid.ColumnDefinitions><ColumnDefinition Width="120"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><TextBlock Text="Placement"/><ComboBox Grid.Column="1" ItemsSource="{Binding PrismArrayPlacementModes}" SelectedItem="{Binding SelectedPrismArrayPlacementMode}"/></Grid>
+                                <StackPanel Visibility="{Binding IsPrismArrayPolar, Converter={StaticResource BoolToVisibility}}">
+                                  <UniformGrid Columns="2"><StackPanel Margin="2"><TextBlock Text="Radius"/><TextBox Text="{Binding NewPrismArrayRadius, UpdateSourceTrigger=PropertyChanged}"/></StackPanel><StackPanel Margin="2"><TextBlock Text="Z Position"/><TextBox Text="{Binding NewPrismArrayZ}"/></StackPanel></UniformGrid>
+                                </StackPanel>
+                                <StackPanel Visibility="{Binding IsPrismArrayAngularRange, Converter={StaticResource BoolToVisibility}}">
+                                  <UniformGrid Columns="2"><StackPanel Margin="2"><TextBlock Text="Start Angle"/><TextBox Text="{Binding NewPrismArrayStartAngle, UpdateSourceTrigger=PropertyChanged}"/></StackPanel><StackPanel Margin="2"><TextBlock Text="End Angle"/><TextBox Text="{Binding NewPrismArrayEndAngle, UpdateSourceTrigger=PropertyChanged}"/></StackPanel></UniformGrid>
+                                  <TextBlock Text="{Binding NewPrismSizeY, StringFormat=Panel Width (SizeY): {0:F3}, Mode=OneWay}"/>
+                                  <TextBlock Text="{Binding CalculatedPrismArrayCount, StringFormat=Calculated Panel Count: {0}, Mode=OneWay}"/>
+                                  <TextBlock Text="{Binding PanelAngularFootprintDegrees, StringFormat=Panel Angular Footprint: {0:F3}°, Mode=OneWay}"/>
+                                </StackPanel>
+                                <StackPanel Visibility="{Binding IsPrismArrayAngularStep, Converter={StaticResource BoolToVisibility}}">
+                                  <UniformGrid Columns="2"><StackPanel Margin="2"><TextBlock Text="Start Angle"/><TextBox Text="{Binding NewPrismArrayStartAngle}"/></StackPanel><StackPanel Margin="2"><TextBlock Text="Angle Between Panels"/><TextBox Text="{Binding NewPrismArrayStepAngle}"/></StackPanel></UniformGrid>
+                                </StackPanel>
+                                <StackPanel Visibility="{Binding IsPrismArrayCartesian, Converter={StaticResource BoolToVisibility}}"><TextBlock Text="Side Length"/><TextBox Text="{Binding NewPrismArrayLength}"/><TextBlock Text="Z Position"/><TextBox Text="{Binding NewPrismArrayZ}"/></StackPanel>
+                                <Grid Margin="0,5,0,0"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><StackPanel Grid.Column="0" Orientation="Horizontal" Visibility="{Binding IsPrismArrayCountVisible, Converter={StaticResource BoolToVisibility}}"><TextBlock Text="Panel Count" VerticalAlignment="Center" Margin="0,0,5,0"/><TextBox Width="65" Text="{Binding NewPrismArrayCount}"/></StackPanel><Button Grid.Column="1" Content="Add Panel Array" Command="{Binding AddPrismArrayCommand}" Padding="10,4"/></Grid>
+                              </StackPanel>
+                            </GroupBox>
 
                            
                             <DataGrid ItemsSource="{Binding Prisms}" SelectedItem="{Binding SelectedPrism}" AutoGenerateColumns="False" CanUserAddRows="False" Height="130">
@@ -192,18 +198,14 @@
                     </GroupBox>
 
                     <GroupBox Header="Results" Padding="8">
-                        <StackPanel>
-                            <DataGrid ItemsSource="{Binding HitResults}" AutoGenerateColumns="False" CanUserAddRows="False" Height="140">
-                                <DataGrid.Columns><DataGridTextColumn Header="Ray" Binding="{Binding RayLabel}" Width="70"/><DataGridTextColumn Header="Source" Binding="{Binding SourceName}" Width="*"/><DataGridTextColumn Header="Type" Binding="{Binding SourceType}" Width="140"/><DataGridCheckBoxColumn Header="Hit" Binding="{Binding HasHit}" Width="45"/><DataGridTextColumn Header="Distance" Binding="{Binding Distance, StringFormat=F3}" Width="85"/><DataGridTextColumn Header="Prism" Binding="{Binding PrismName}" Width="*"/></DataGrid.Columns>
-                            </DataGrid>
-                            <TextBlock Text="{Binding StatusMessage}" TextWrapping="Wrap" Foreground="#444" Margin="0,6,0,0"/>
-                        </StackPanel>
+                        <TextBlock Text="{Binding StatusMessage}" TextWrapping="Wrap" Foreground="#444"/>
                     </GroupBox>
                 </StackPanel>
             </ScrollViewer>
         </Border>
 
-        <Grid Grid.Column="1">
+        <TabControl Grid.Column="1">
+          <TabItem Header="Scene View">
             <h:HelixViewport3D x:Name="Viewport" ShowCoordinateSystem="True" ShowViewCube="True" ZoomExtentsWhenLoaded="True">
                 <h:HelixViewport3D.Camera>
                     <PerspectiveCamera Position="0,-30,30" LookDirection="0,30,-30" UpDirection="0,0,1" FieldOfView="45" />
@@ -211,7 +213,9 @@
                 <h:SunLight />
                 <h:GridLinesVisual3D Width="120" Length="120" MinorDistance="5" MajorDistance="10" />
             </h:HelixViewport3D>
-        </Grid>
+          </TabItem>
+          <TabItem Header="Collision Results"><views:CollisionResultsView/></TabItem>
+        </TabControl>
         <Border Grid.ColumnSpan="2" Background="#AAFFFFFF" Visibility="{Binding IsCollisionProgressVisible, Converter={StaticResource BoolToVisibility}}">
             <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Width="420">
                 <TextBlock Text="Running collision" FontSize="22" FontWeight="SemiBold" HorizontalAlignment="Center"/>

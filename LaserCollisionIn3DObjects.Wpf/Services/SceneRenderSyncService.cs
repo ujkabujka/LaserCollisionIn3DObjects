@@ -25,10 +25,12 @@ public sealed class SceneRenderSyncService
         IReadOnlyList<(DomainRay3D Ray, RayHitResult Hit)> Hits,
         string SceneName,
         TimeSpan Duration,
-        CollisionAlgorithmOption Algorithm);
+        CollisionAlgorithmOption Algorithm,
+        PanelCollisionAnalysis PanelAnalysis);
     public sealed record SceneSyncResult(
         IReadOnlyList<HitResultItemViewModel> HitRows,
         IReadOnlyList<CollisionHitPointRecord> HitPointRecords,
+        PanelCollisionAnalysis? PanelAnalysis,
         TimeSpan CollisionDuration,
         CollisionAlgorithmOption? CollisionAlgorithm);
 
@@ -81,6 +83,7 @@ public sealed class SceneRenderSyncService
         return new SceneSyncResult(
             BuildHitRows(scene, collisionResults),
             runCollision ? BuildHitPointRecords(sceneName, collisionResults, scene.CollisionRayInputs) : Array.Empty<CollisionHitPointRecord>(),
+            runCollision ? BuildPanelAnalysis(sceneName, scene, collisionResults) : null,
             runCollision ? stopwatch.Elapsed : TimeSpan.Zero,
             runCollision ? algorithm : null);
     }
@@ -101,7 +104,7 @@ public sealed class SceneRenderSyncService
         var stopwatch = System.Diagnostics.Stopwatch.StartNew();
         var hits = CalculateFirstHits(scene, algorithm, progress);
         stopwatch.Stop();
-        return new CollisionComputation(scene, hits, sceneName, stopwatch.Elapsed, algorithm);
+        return new CollisionComputation(scene, hits, sceneName, stopwatch.Elapsed, algorithm, BuildPanelAnalysis(sceneName, scene, hits));
     }
 
     /// <summary>Publishes a completed computation to Helix on the UI thread.</summary>
@@ -112,6 +115,7 @@ public sealed class SceneRenderSyncService
         return new SceneSyncResult(
             BuildHitRows(computation.Scene, computation.Hits),
             BuildHitPointRecords(computation.SceneName, computation.Hits, computation.Scene.CollisionRayInputs),
+            computation.PanelAnalysis,
             computation.Duration,
             computation.Algorithm);
     }
@@ -394,6 +398,20 @@ public sealed class SceneRenderSyncService
         }
 
         return records;
+    }
+
+    private static PanelCollisionAnalysis BuildPanelAnalysis(
+        string sceneName, SceneModel scene, IReadOnlyList<(DomainRay3D Ray, RayHitResult Hit)> hitResults)
+    {
+        var inputs = new List<PanelCollisionInputHit>();
+        for (var i = 0; i < hitResults.Count; i++)
+        {
+            var provenance = i < scene.CollisionRayInputs.Count
+                ? scene.CollisionRayInputs[i]
+                : new SceneModel.CollisionRayInput(hitResults[i].Ray, CollisionRaySourceType.Manual, string.Empty);
+            inputs.Add(new PanelCollisionInputHit(i, hitResults[i].Hit, provenance.SourceType, provenance.SourceName));
+        }
+        return new PanelCollisionAnalysisService().Build(sceneName, scene.RectangularPrisms, inputs, scene.Rays.Count);
     }
 
     private void UpdateViewport(IReadOnlyList<Visual3D> visuals)

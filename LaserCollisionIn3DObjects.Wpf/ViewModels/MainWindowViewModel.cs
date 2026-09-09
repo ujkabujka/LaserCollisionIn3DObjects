@@ -21,6 +21,7 @@ using LaserCollisionIn3DObjects.Wpf.Services;
 using LaserCollisionIn3DObjects.Domain.Projection;
 using LaserCollisionIn3DObjects.Domain.Scene;
 using System.Diagnostics;
+using OxyPlot.Wpf;
 
 namespace LaserCollisionIn3DObjects.Wpf.ViewModels;
 
@@ -49,7 +50,7 @@ public sealed class MainWindowViewModel : ObservableObject
     private static readonly ObservableCollection<Point3> EmptyHoles = new();
     private static readonly ObservableCollection<Point3> EmptyNaturalPoints = new();
     private readonly SceneRenderSyncService _renderSyncService;
-    private readonly CollisionHitPointCsvExportService _collisionHitPointCsvExportService = new();
+    private readonly PanelCollisionCsvExportService _panelCollisionCsvExportService = new();
     private readonly SceneCollectionService _sceneCollectionService;
     private readonly CompletedSourceStore _completedSourceStore = new();
     private readonly ProjectPersistenceCoordinator _projectPersistenceCoordinator = new();
@@ -69,7 +70,11 @@ public sealed class MainWindowViewModel : ObservableObject
     private int _newPrismArrayCount = 8;
     private float _newPrismArrayRadius = 10f;
     private float _newPrismArrayLength = 20f;
-    private PrismArrayPlacementMode _selectedPrismArrayPlacementMode = PrismArrayPlacementMode.Cylindrical;
+    private float _newPrismArrayZ;
+    private float _newPrismArrayStartAngle;
+    private float _newPrismArrayEndAngle = 120f;
+    private float _newPrismArrayStepAngle = 15f;
+    private PrismArrayPlacementMode _selectedPrismArrayPlacementMode = PrismArrayPlacementMode.FullCircle;
     private float _newRayDirectionX = 1f;
     private string _newLightSourceName = "Light Source 1";
     private AxisymmetricSourceKind _newLightSourceKind = AxisymmetricSourceKind.Cylinder;
@@ -144,6 +149,7 @@ public sealed class MainWindowViewModel : ObservableObject
         RemoveSelectedProjectedLightSourceCommand = new RelayCommand(RemoveSelectedProjectedLightSource, () => SelectedProjectedLightSource is not null);
         RunCollisionCommand = new AsyncRelayCommand(RunCollisionAsync, () => SelectedScene is not null && !IsCollisionBusy);
         ExportHitPointsCsvCommand = new RelayCommand(ExportHitPointsCsv, () => SelectedScene?.HasValidCollisionRun == true && SelectedScene.HitPointRecords.Count > 0);
+        SaveSelectedPanelImageCommand = new RelayCommand(SaveSelectedPanelImage, () => SelectedScene?.HasValidCollisionRun == true && SelectedScene.SelectedPanelResult is not null);
         RegenerateLightSourceRaysCommand = new RelayCommand(RegenerateLightSourceRays, () => SelectedScene is not null);
         ResetDemoSceneCommand = new RelayCommand(ResetDemoScene, () => SelectedScene is not null);
         SaveProjectCommand = new RelayCommand(SaveProject);
@@ -272,6 +278,7 @@ public sealed class MainWindowViewModel : ObservableObject
     public ICommand RemoveSelectedProjectedLightSourceCommand { get; }
     public ICommand RunCollisionCommand { get; }
     public ICommand ExportHitPointsCsvCommand { get; }
+    public ICommand SaveSelectedPanelImageCommand { get; }
     public ICommand RegenerateLightSourceRaysCommand { get; }
     public ICommand ResetDemoSceneCommand { get; }
     public ICommand SaveProjectCommand { get; }
@@ -480,7 +487,7 @@ public sealed class MainWindowViewModel : ObservableObject
     public float NewPrismRotY { get; set; }
     public float NewPrismRotZ { get; set; }
     public float NewPrismSizeX { get => _newPrismSizeX; set => SetProperty(ref _newPrismSizeX, value); }
-    public float NewPrismSizeY { get => _newPrismSizeY; set => SetProperty(ref _newPrismSizeY, value); }
+    public float NewPrismSizeY { get => _newPrismSizeY; set { if (SetProperty(ref _newPrismSizeY, value)) RaiseArrayDerivedProperties(); } }
     public float NewPrismSizeZ { get => _newPrismSizeZ; set => SetProperty(ref _newPrismSizeZ, value); }
     public float SelectedEditPositionX { get => _selectedEditPositionX; set => SetProperty(ref _selectedEditPositionX, value); }
     public float SelectedEditPositionY { get => _selectedEditPositionY; set => SetProperty(ref _selectedEditPositionY, value); }
@@ -509,10 +516,22 @@ public sealed class MainWindowViewModel : ObservableObject
     public int NewPrismArrayCount { get => _newPrismArrayCount; set => SetProperty(ref _newPrismArrayCount, value); }
     public float NewPrismArrayRadius { get => _newPrismArrayRadius; set => SetProperty(ref _newPrismArrayRadius, value); }
     public float NewPrismArrayLength { get => _newPrismArrayLength; set => SetProperty(ref _newPrismArrayLength, value); }
+    public float NewPrismArrayZ { get => _newPrismArrayZ; set => SetProperty(ref _newPrismArrayZ, value); }
+    public float NewPrismArrayStartAngle { get => _newPrismArrayStartAngle; set { if (SetProperty(ref _newPrismArrayStartAngle, value)) RaiseArrayDerivedProperties(); } }
+    public float NewPrismArrayEndAngle { get => _newPrismArrayEndAngle; set { if (SetProperty(ref _newPrismArrayEndAngle, value)) RaiseArrayDerivedProperties(); } }
+    public float NewPrismArrayStepAngle { get => _newPrismArrayStepAngle; set => SetProperty(ref _newPrismArrayStepAngle, value); }
+    public bool IsPrismArrayPolar => SelectedPrismArrayPlacementMode != PrismArrayPlacementMode.Cartesian;
+    public bool IsPrismArrayFullCircle => SelectedPrismArrayPlacementMode == PrismArrayPlacementMode.FullCircle;
+    public bool IsPrismArrayAngularRange => SelectedPrismArrayPlacementMode == PrismArrayPlacementMode.AngularRange;
+    public bool IsPrismArrayAngularStep => SelectedPrismArrayPlacementMode == PrismArrayPlacementMode.AngularStep;
+    public bool IsPrismArrayCartesian => SelectedPrismArrayPlacementMode == PrismArrayPlacementMode.Cartesian;
+    public bool IsPrismArrayCountVisible => SelectedPrismArrayPlacementMode != PrismArrayPlacementMode.AngularRange;
+    public int CalculatedPrismArrayCount { get { try { return PrismPlacementGenerator.CreateAngularRangePlacements(NewPrismArrayRadius, NewPrismSizeY, NewPrismArrayStartAngle, NewPrismArrayEndAngle, NewPrismArrayZ).PanelCount; } catch { return 0; } } }
+    public float PanelAngularFootprintDegrees => NewPrismArrayRadius > 0 && NewPrismSizeY > 0 ? FrameOrientationBuilder.RadiansToDegrees(2 * MathF.Atan(NewPrismSizeY / (2 * NewPrismArrayRadius))) : 0;
     public PrismArrayPlacementMode SelectedPrismArrayPlacementMode
     {
         get => _selectedPrismArrayPlacementMode;
-        set => SetProperty(ref _selectedPrismArrayPlacementMode, value);
+        set { if (SetProperty(ref _selectedPrismArrayPlacementMode, value)) RaiseArrayDerivedProperties(); }
     }
 
     public float NewRayOriginX { get; set; }
@@ -643,18 +662,19 @@ public sealed class MainWindowViewModel : ObservableObject
             return;
         }
 
-        if (!ValidatePrismArrayInputs(SelectedPrismArrayPlacementMode, NewPrismArrayCount, NewPrismArrayRadius, NewPrismArrayLength, out error))
+        IReadOnlyList<FramePlacement> placements;
+        try
         {
-            SetStatus(error, ApplicationLogLevel.Warning);
-            return;
+            placements = SelectedPrismArrayPlacementMode switch
+            {
+                PrismArrayPlacementMode.FullCircle => PrismPlacementGenerator.CreateCylindricalPlacements(NewPrismArrayRadius, NewPrismArrayCount, NewPrismArrayZ),
+                PrismArrayPlacementMode.AngularStep => PrismPlacementGenerator.CreateAngularStepPlacements(NewPrismArrayRadius, NewPrismArrayStartAngle, NewPrismArrayStepAngle, NewPrismArrayCount, NewPrismArrayZ),
+                PrismArrayPlacementMode.AngularRange => PrismPlacementGenerator.CreateAngularRangePlacements(NewPrismArrayRadius, NewPrismSizeY, NewPrismArrayStartAngle, NewPrismArrayEndAngle, NewPrismArrayZ).Placements,
+                PrismArrayPlacementMode.Cartesian => PrismPlacementGenerator.CreateCartesianPlacements(NewPrismArrayLength, NewPrismArrayCount, NewPrismArrayZ),
+                _ => throw new InvalidOperationException("Unsupported prism array placement mode."),
+            };
         }
-
-        var placements = SelectedPrismArrayPlacementMode switch
-        {
-            PrismArrayPlacementMode.Cylindrical => PrismPlacementGenerator.CreateCylindricalPlacements(NewPrismArrayRadius, NewPrismArrayCount, NewPrismPosY),
-            PrismArrayPlacementMode.Cartesian => PrismPlacementGenerator.CreateCartesianPlacements(NewPrismArrayLength, NewPrismArrayCount, NewPrismPosY),
-            _ => throw new InvalidOperationException("Unsupported prism array placement mode."),
-        };
+        catch (ArgumentException exception) { SetStatus(exception.Message, ApplicationLogLevel.Warning); return; }
 
         var baseName = string.IsNullOrWhiteSpace(NewPrismName) ? "Prism" : NewPrismName;
         var created = new List<PrismItemViewModel>(placements.Count);
@@ -662,7 +682,12 @@ public sealed class MainWindowViewModel : ObservableObject
         for (var i = 0; i < placements.Count; i++)
         {
             var placement = placements[i];
-            created.Add(CreatePrismViewModel($"{baseName} {i + 1}", placement.Position, placement.Orientation));
+            var candidate = $"{baseName} {i + 1}";
+            var suffix = 2;
+            while (scene.Prisms.Any(prism => string.Equals(prism.Name, candidate, StringComparison.OrdinalIgnoreCase)) ||
+                   created.Any(prism => string.Equals(prism.Name, candidate, StringComparison.OrdinalIgnoreCase)))
+                candidate = $"{baseName} {i + 1} ({suffix++})";
+            created.Add(CreatePrismViewModel(candidate, placement.Position, placement.Orientation));
         }
 
         foreach (var prism in created)
@@ -674,7 +699,7 @@ public sealed class MainWindowViewModel : ObservableObject
         NewPrismName = $"Prism {scene.Prisms.Count + 1}";
         RaiseCanExecuteChanges();
         RefreshViewport(false);
-        SetStatus($"Added {created.Count} prisms in a {SelectedPrismArrayPlacementMode} array around the world origin with global-axis-aligned default frames.", ApplicationLogLevel.Success);
+        SetStatus($"Added {created.Count} inward-facing prisms in a {SelectedPrismArrayPlacementMode} array.", ApplicationLogLevel.Success);
     }
 
     private void AddRay()
@@ -1030,7 +1055,7 @@ public sealed class MainWindowViewModel : ObservableObject
             var computation = await Task.Run(() => _renderSyncService.ComputeCollision(prisms, sources, rays, transferred, holes, natural, sceneName, algorithm, progress));
             CollisionProgressMessage = "Preparing collision results and updating 3D scene...";
             var result = _renderSyncService.RenderCollision(computation);
-            scene.PublishCollisionResults(result.HitRows, result.HitPointRecords);
+            scene.PublishCollisionResults(result.HitRows, result.HitPointRecords, result.PanelAnalysis);
             RaisePropertyChanged(nameof(HitResults));
             LastCollisionDurationMs = $"{result.CollisionDuration.TotalMilliseconds:F3}";
             if (algorithm == CollisionAlgorithmOption.ClosestHitSequential) LastSequentialCollisionDurationMs = LastCollisionDurationMs;
@@ -1183,7 +1208,7 @@ public sealed class MainWindowViewModel : ObservableObject
             if (runCollision)
             {
                 var projectedRaysTested = projectedLightSources.Sum(source => source.EffectiveRayCount);
-                scene?.PublishCollisionResults(rows, sceneSyncResult.HitPointRecords);
+                scene?.PublishCollisionResults(rows, sceneSyncResult.HitPointRecords, sceneSyncResult.PanelAnalysis);
                 var elapsedMs = sceneSyncResult.CollisionDuration.TotalMilliseconds;
                 LastCollisionDurationMs = $"{elapsedMs:F3}";
                 var projectedHits = sceneSyncResult.HitPointRecords.Count(record => record.SourceType is CollisionRaySourceType.ProjectionResult or CollisionRaySourceType.CompletedProjectionResult or CollisionRaySourceType.ImportedLightSource);
@@ -1217,8 +1242,8 @@ public sealed class MainWindowViewModel : ObservableObject
 
     private void ExportHitPointsCsv()
     {
-        var records = SelectedScene?.HitPointRecords ?? Array.Empty<CollisionHitPointRecord>();
-        if (SelectedScene?.HasValidCollisionRun != true || records.Count == 0)
+        var analysis = SelectedScene?.PanelAnalysis;
+        if (SelectedScene?.HasValidCollisionRun != true || analysis is null || analysis.TotalHits == 0)
         {
             SetStatus("Run collision first to export hit points.", ApplicationLogLevel.Warning);
             return;
@@ -1237,8 +1262,29 @@ public sealed class MainWindowViewModel : ObservableObject
             return;
         }
 
-        _collisionHitPointCsvExportService.Export(dialog.FileName, records);
-        SetStatus($"Exported {records.Count} collision hit points to '{dialog.FileName}'.", ApplicationLogLevel.Success);
+        _panelCollisionCsvExportService.Export(dialog.FileName, analysis);
+        SetStatus($"Exported {analysis.TotalHits} collision hits to '{dialog.FileName}'.", ApplicationLogLevel.Success);
+    }
+
+    private void SaveSelectedPanelImage()
+    {
+        var plot = SelectedScene?.PanelPlotModel;
+        if (plot is null) return;
+        var dialog = new SaveFileDialog { Filter = "PNG image (*.png)|*.png", DefaultExt = ".png", AddExtension = true, FileName = "panel-collision-results.png" };
+        if (dialog.ShowDialog() != true) return;
+        plot.Background = OxyPlot.OxyColors.White;
+        var exporter = new PngExporter { Width = 1400, Height = 1000 };
+        exporter.ExportToFile(plot, dialog.FileName);
+        SetStatus($"Saved selected panel image to '{dialog.FileName}'.", ApplicationLogLevel.Success);
+    }
+
+    private void RaiseArrayDerivedProperties()
+    {
+        RaisePropertyChanged(nameof(IsPrismArrayPolar)); RaisePropertyChanged(nameof(IsPrismArrayFullCircle));
+        RaisePropertyChanged(nameof(IsPrismArrayAngularRange)); RaisePropertyChanged(nameof(IsPrismArrayAngularStep));
+        RaisePropertyChanged(nameof(IsPrismArrayCartesian)); RaisePropertyChanged(nameof(CalculatedPrismArrayCount));
+        RaisePropertyChanged(nameof(IsPrismArrayCountVisible));
+        RaisePropertyChanged(nameof(PanelAngularFootprintDegrees));
     }
 
     private bool ValidateAllSceneItems(out string error)
@@ -1323,7 +1369,7 @@ public sealed class MainWindowViewModel : ObservableObject
             return false;
         }
 
-        if (mode == PrismArrayPlacementMode.Cylindrical && radius <= 0f)
+        if (mode != PrismArrayPlacementMode.Cartesian && radius <= 0f)
         {
             error = "Cylindrical prism arrays require a positive radius.";
             return false;
@@ -1988,6 +2034,8 @@ public sealed class MainWindowViewModel : ObservableObject
             runCollisionCommand.RaiseCanExecuteChanged();
         }
         if (ExportLightSourceCommand is RelayCommand exportLightSourceCommand) exportLightSourceCommand.RaiseCanExecuteChanged();
+        if (ExportHitPointsCsvCommand is RelayCommand exportResultsCommand) exportResultsCommand.RaiseCanExecuteChanged();
+        if (SaveSelectedPanelImageCommand is RelayCommand savePanelImageCommand) savePanelImageCommand.RaiseCanExecuteChanged();
         if (ImportLightSourceCommand is RelayCommand importLightSourceCommand) importLightSourceCommand.RaiseCanExecuteChanged();
 
         if (RegenerateLightSourceRaysCommand is RelayCommand regenerateCommand)

@@ -2,6 +2,8 @@ namespace LaserCollisionIn3DObjects.Wpf.ViewModels;
 
 public enum PrismArrayPlacementMode
 {
-    Cylindrical,
+    FullCircle,
+    AngularRange,
+    AngularStep,
     Cartesian,
 }
