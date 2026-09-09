@@ -1287,7 +1287,7 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
         {
             var projectedSource = await Task.Run(() => _projectionResultToCollisionSourceService.CreateProjectedLightSource(selectedResult));
             ProjectionProgressMessage = "Adding source to collision scene...";
-            targetScene.HitResults.Clear();
+            targetScene.InvalidateCollisionResults();
             targetScene.ProjectedLightSources.Add(projectedSource);
             targetScene.SelectedProjectedLightSource = projectedSource;
             if (!ReferenceEquals(_sceneCollectionService.SelectedScene, targetScene)) _sceneCollectionService.SelectedScene = targetScene;

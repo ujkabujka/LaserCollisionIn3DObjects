@@ -8,6 +8,11 @@ public sealed class HitResultItemViewModel : ObservableObject
     private bool _hasHit;
     private float _distance;
     private string _prismName = "-";
+    private string _sourceType = string.Empty;
+    private string _sourceName = string.Empty;
+
+    public string SourceType { get => _sourceType; set => SetProperty(ref _sourceType, value); }
+    public string SourceName { get => _sourceName; set => SetProperty(ref _sourceName, value); }
 
     public string RayLabel
     {
