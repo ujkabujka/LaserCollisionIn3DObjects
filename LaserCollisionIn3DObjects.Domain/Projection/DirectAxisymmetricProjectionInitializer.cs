@@ -18,7 +18,7 @@ internal static class DirectAxisymmetricProjectionInitializer
             return [];
         }
 
-        var holesLocal = worldHolePoints.Select(hole => ToLocal(hole, frame)).ToList();
+        var holesLocal = worldHolePoints.Select(hole => PointSourceFrameTransforms.WorldToLocal(hole, frame)).ToList();
         var xMin = holesLocal.Min(point => point.X);
         var xMax = holesLocal.Max(point => point.X);
         var xRange = xMax - xMin;
@@ -37,13 +37,13 @@ internal static class DirectAxisymmetricProjectionInitializer
 
             var theta = Math.Atan2(holeLocal.Z, holeLocal.Y);
             var surfaceLocal = profile.EvaluateSurfacePoint((float)u, (float)theta);
-            var sourceWorld = ToWorld(surfaceLocal, frame);
+            var sourceWorld = PointSourceFrameTransforms.LocalToWorld(surfaceLocal, frame);
 
             var directionVector = new Vector3((float)(holeWorld.X - sourceWorld.X), (float)(holeWorld.Y - sourceWorld.Y), (float)(holeWorld.Z - sourceWorld.Z));
             Vector3D rayDirection;
             if (directionVector.LengthSquared() <= DirectionLengthTolerance)
             {
-                rayDirection = ToWorldDirection(profile.EvaluateBaseDirection((float)u, (float)theta), frame);
+                rayDirection = NormalizeWorldDirection(PointSourceFrameTransforms.LocalDirectionToWorld(profile.EvaluateBaseDirection((float)u, (float)theta), frame));
             }
             else
             {
@@ -63,32 +63,9 @@ internal static class DirectAxisymmetricProjectionInitializer
         return points;
     }
 
-    private static Point3 ToLocal(Point3 world, PointSourceFrameState frame)
+    private static Vector3D NormalizeWorldDirection(Vector3D worldDirection)
     {
-        var dx = world.X - frame.Origin.X;
-        var dy = world.Y - frame.Origin.Y;
-        var dz = world.Z - frame.Origin.Z;
-
-        var localX = (dx * frame.AxisX.X) + (dy * frame.AxisX.Y) + (dz * frame.AxisX.Z);
-        var localY = (dx * frame.AxisY.X) + (dy * frame.AxisY.Y) + (dz * frame.AxisY.Z);
-        var localZ = (dx * frame.AxisZ.X) + (dy * frame.AxisZ.Y) + (dz * frame.AxisZ.Z);
-        return new Point3(localX, localY, localZ);
-    }
-
-    private static Point3 ToWorld(Vector3 local, PointSourceFrameState frame)
-    {
-        return new Point3(
-            frame.Origin.X + (local.X * frame.AxisX.X) + (local.Y * frame.AxisY.X) + (local.Z * frame.AxisZ.X),
-            frame.Origin.Y + (local.X * frame.AxisX.Y) + (local.Y * frame.AxisY.Y) + (local.Z * frame.AxisZ.Y),
-            frame.Origin.Z + (local.X * frame.AxisX.Z) + (local.Y * frame.AxisY.Z) + (local.Z * frame.AxisZ.Z));
-    }
-
-    private static Vector3D ToWorldDirection(Vector3 localDirection, PointSourceFrameState frame)
-    {
-        var world = new Vector3(
-            (float)((localDirection.X * frame.AxisX.X) + (localDirection.Y * frame.AxisY.X) + (localDirection.Z * frame.AxisZ.X)),
-            (float)((localDirection.X * frame.AxisX.Y) + (localDirection.Y * frame.AxisY.Y) + (localDirection.Z * frame.AxisZ.Y)),
-            (float)((localDirection.X * frame.AxisX.Z) + (localDirection.Y * frame.AxisY.Z) + (localDirection.Z * frame.AxisZ.Z)));
+        var world = new Vector3((float)worldDirection.X, (float)worldDirection.Y, (float)worldDirection.Z);
 
         if (world.LengthSquared() <= DirectionLengthTolerance)
         {

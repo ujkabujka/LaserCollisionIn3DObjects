@@ -52,10 +52,10 @@ public sealed class LeastSquaresAxisymmetricAlignmentSolver
         for (var iteration = 1; iteration <= Settings.MaxIterations; iteration++)
         {
             iterationsDone = iteration;
+            var previousObjective = current.Objective;
             var epsU = Math.Max(length, MinLength) * Settings.FiniteDifferenceRelativeStep;
             var epsTheta = Settings.FiniteDifferenceRelativeStep;
-            // var epsLambda = Math.Max(lambda, MinLength) * Settings.FiniteDifferenceRelativeStep;
-             var epsLambda = Settings.FiniteDifferenceRelativeStep;
+            var epsLambda = Settings.FiniteDifferenceRelativeStep;
 
             var gradU = new double[n];
             var gradTheta = new double[n];
@@ -79,7 +79,10 @@ public sealed class LeastSquaresAxisymmetricAlignmentSolver
             var pointStep = Settings.PointStepScale * length;
             var thetaStep = Settings.ThetaStepScale;
             var lambdaStep = Settings.LambdaStepScale * Math.Max(lambda, MinLength);
-            EvaluationResult candidate = current;
+            EvaluationResult? acceptedCandidate = null;
+            double[]? acceptedU = null;
+            double[]? acceptedTheta = null;
+            var acceptedLambda = lambda;
 
             for (var bt = 0; bt < Settings.MaxBacktrackingAttempts; bt++)
             {
@@ -92,31 +95,42 @@ public sealed class LeastSquaresAxisymmetricAlignmentSolver
                 }
 
                 var nextLambda = Math.Max(0d, lambda - (lambdaStep * gradLambda));
-                candidate = Evaluate(localHolePoints, worldHolePoints, frame, profile, localTiltPoint, nextU, nextTheta, nextLambda);
-                if (candidate.Objective + Settings.ConvergenceTolerance < current.Objective)
+                var candidate = Evaluate(localHolePoints, worldHolePoints, frame, profile, localTiltPoint, nextU, nextTheta, nextLambda);
+                if (double.IsFinite(candidate.Objective) && candidate.Objective < current.Objective)
                 {
-                    u = nextU; theta = nextTheta; lambda = nextLambda; current = candidate; improved = true; break;
+                    acceptedU = nextU;
+                    acceptedTheta = nextTheta;
+                    acceptedLambda = nextLambda;
+                    acceptedCandidate = candidate;
+                    improved = true;
+                    break;
                 }
 
                 pointStep *= Settings.BacktrackingFactor;
                 thetaStep *= Settings.BacktrackingFactor;
                 lambdaStep *= Settings.BacktrackingFactor;
 
-                if(bt == Settings.MaxBacktrackingAttempts - 1)
-                {
-                    u = nextU; theta = nextTheta; lambda = nextLambda; current = candidate; improved = true;
-                }
+            }
+
+            if (improved)
+            {
+                u = acceptedU!;
+                theta = acceptedTheta!;
+                lambda = acceptedLambda;
+                current = acceptedCandidate!;
             }
 
             history.Add(new LeastSquaresAxisymmetricAlignmentIterationDiagnostics(iteration, current.Objective, lambda, current.MeanAlignment, current.RmsAlignment, current.MeanAngular, current.MaxAngular, improved));
             progress?.Report(new ProjectionProgress((int)Math.Round(100d * iteration / Math.Max(Settings.MaxIterations, 1)), $"Least-squares iteration {iteration}/{Settings.MaxIterations}: objective={current.Objective:F6}, mean angular error={current.MeanAngular:F3} deg, lambda={lambda:F6}"));
 
-            // if (!improved || Math.Abs(current.Objective - candidate.Objective) <= Settings.ConvergenceTolerance)
-            // {
-            //     converged = true;
-            //     progress?.Report(new ProjectionProgress((int)Math.Round(100d * iteration / Math.Max(Settings.MaxIterations, 1)), $"Least-squares converged at iteration {iteration} with error {current.Objective:F6}."));
-            //     break;
-            // }
+            var improvement = previousObjective - current.Objective;
+            if (!improved || improvement <= Settings.ConvergenceTolerance)
+            {
+                // A failed monotonic line search is treated as convergence at a stationary/stalled point.
+                converged = true;
+                progress?.Report(new ProjectionProgress(100d, $"Least-squares converged at iteration {iteration} with objective {current.Objective:F6}."));
+                break;
+            }
         }
 
         var diagnostics = new LeastSquaresAxisymmetricAlignmentDiagnostics
@@ -190,12 +204,12 @@ public sealed class LeastSquaresAxisymmetricAlignmentSolver
             var uu = Math.Clamp(u[i], 0d, profile.Length);
             var tt = WrapAngle(theta[i]);
             var sourceLocal = ParameterizeSurface(profile, uu, tt);
-            var sourceWorld = ToWorld(sourceLocal, frame);
+            var sourceWorld = PointSourceFrameTransforms.LocalToWorld(sourceLocal, frame);
             var sourceToHoleLocal = new Vector3D(localHolePoints[i].X - sourceLocal.X, localHolePoints[i].Y - sourceLocal.Y, localHolePoints[i].Z - sourceLocal.Z);
             var actualLocal = Normalize(sourceToHoleLocal);
             var modeledLocal = Normalize(BuildModeledDirection(profile, uu, tt, lambda, localTiltPoint));
             var actualWorld = Normalize(new Vector3D(worldHolePoints[i].X - sourceWorld.X, worldHolePoints[i].Y - sourceWorld.Y, worldHolePoints[i].Z - sourceWorld.Z));
-            var modeledWorld = Normalize(ToWorldDirection(modeledLocal, frame));
+            var modeledWorld = Normalize(PointSourceFrameTransforms.LocalDirectionToWorld(modeledLocal, frame));
             var alignment = AlignmentError(actualLocal, modeledLocal);
             var angular = AngularErrorDegrees(actualLocal, modeledLocal);
             var angleTerm = AngleAlignmentResidualSquared(localHolePoints[i], sourceLocal, modeledLocal);
@@ -225,18 +239,6 @@ public sealed class LeastSquaresAxisymmetricAlignmentSolver
         var maxIndex = ang.Count == 0 ? (int?)null : ang.IndexOf(maxAng);
         return new EvaluationResult(objective, meanAlign, rmsAlign, meanAng, maxAng, maxIndex, points);
     }
-
-    private static Vector3D ToWorldDirection(Vector3D localDirection, PointSourceFrameState frame)
-        => new(
-            (localDirection.X * frame.AxisX.X) + (localDirection.Y * frame.AxisY.X) + (localDirection.Z * frame.AxisZ.X),
-            (localDirection.X * frame.AxisX.Y) + (localDirection.Y * frame.AxisY.Y) + (localDirection.Z * frame.AxisZ.Y),
-            (localDirection.X * frame.AxisX.Z) + (localDirection.Y * frame.AxisY.Z) + (localDirection.Z * frame.AxisZ.Z));
-
-    private static Point3 ToWorld(Point3 local, PointSourceFrameState frame)
-        => new(
-            frame.Origin.X + (local.X * frame.AxisX.X) + (local.Y * frame.AxisY.X) + (local.Z * frame.AxisZ.X),
-            frame.Origin.Y + (local.X * frame.AxisX.Y) + (local.Y * frame.AxisY.Y) + (local.Z * frame.AxisZ.Y),
-            frame.Origin.Z + (local.X * frame.AxisX.Z) + (local.Y * frame.AxisY.Z) + (local.Z * frame.AxisZ.Z));
 
     private static double Dot(Vector3D a, Vector3D b) => (a.X * b.X) + (a.Y * b.Y) + (a.Z * b.Z);
     private static Vector3D Normalize(Vector3D value) { var m = Math.Sqrt(value.X * value.X + value.Y * value.Y + value.Z * value.Z); return m > 0d ? new Vector3D(value.X / m, value.Y / m, value.Z / m) : new Vector3D(0, 0, 0); }
