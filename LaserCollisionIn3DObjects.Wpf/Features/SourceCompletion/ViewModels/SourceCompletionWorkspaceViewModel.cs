@@ -301,18 +301,15 @@ public sealed class SourceCompletionWorkspaceViewModel : ObservableObject
             OriginKind = ProjectedLightSourceOriginKind.CompletedProjectionResult,
         };
 
-        foreach (var ray in rays)
-        {
-            completedSource.Rays.Add(ray);
-        }
+        foreach (var ray in rays) completedSource.ExactRays.Add(ray.Ray);
 
-        target.HitResults.Clear();
+        target.InvalidateCollisionResults();
         target.ProjectedLightSources.Add(completedSource);
         target.SelectedProjectedLightSource = completedSource;
         if (!ReferenceEquals(_sceneCollectionService.SelectedScene, target)) _sceneCollectionService.SelectedScene = target;
         _sceneCollectionService.NotifySceneContentChanged();
 
-        StatusMessage = $"Added completed source '{completedSource.Name}' to collision scene '{target.Name}' with {completedSource.Rays.Count} rays.";
+        StatusMessage = $"Added completed source '{completedSource.Name}' to collision scene '{target.Name}' with {completedSource.EffectiveRayCount} rays.";
         _applicationLogService?.LogSuccess(StatusMessage, nameof(SourceCompletionWorkspaceViewModel));
         }
         catch (Exception ex) { StatusMessage = $"Could not add completed source: {ex.Message}"; _applicationLogService?.LogError(StatusMessage, ex, nameof(SourceCompletionWorkspaceViewModel)); }

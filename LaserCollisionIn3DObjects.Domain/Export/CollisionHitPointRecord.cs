@@ -10,9 +10,12 @@ public enum CollisionRaySourceType
     HybridAxisymmetricGenerated,
     Manual,
     ProjectionResult,
+    CompletedProjectionResult,
+    ImportedLightSource,
 }
 
 public sealed record CollisionHitPointRecord(
     string SceneName,
     Vector3 HitPoint,
-    CollisionRaySourceType SourceType);
+    CollisionRaySourceType SourceType,
+    string SourceName = "");
