@@ -19,6 +19,8 @@ using LaserCollisionIn3DObjects.Wpf.Features.SourceCompletion.ViewModels;
 using LaserCollisionIn3DObjects.Wpf.Infrastructure;
 using LaserCollisionIn3DObjects.Wpf.Services;
 using LaserCollisionIn3DObjects.Domain.Projection;
+using LaserCollisionIn3DObjects.Domain.Scene;
+using System.Diagnostics;
 
 namespace LaserCollisionIn3DObjects.Wpf.ViewModels;
 
@@ -53,6 +55,7 @@ public sealed class MainWindowViewModel : ObservableObject
     private readonly ProjectPersistenceCoordinator _projectPersistenceCoordinator = new();
     private readonly LightSourceTransferService _lightSourceTransferService = new();
     private readonly LightSourceFileService _lightSourceFileService = new();
+    private readonly CollisionViewportRefreshCoordinator _viewportRefreshCoordinator;
     private bool _isCollisionBusy;
     private bool _isCollisionProgressVisible;
     private double _collisionProgressPercent;
@@ -104,7 +107,9 @@ public sealed class MainWindowViewModel : ObservableObject
 
     public MainWindowViewModel(SceneRenderSyncService renderSyncService, ProjectionRenderSyncService projectionRenderSyncService)
     {
+        Trace.WriteLine("[Startup] MainWindowViewModel constructor entered.");
         _renderSyncService = renderSyncService ?? throw new ArgumentNullException(nameof(renderSyncService));
+        _viewportRefreshCoordinator = new CollisionViewportRefreshCoordinator(RefreshViewportCore);
         ArgumentNullException.ThrowIfNull(projectionRenderSyncService);
         AppLog = (Application.Current as App)?.AppLog ?? new ApplicationLogService();
         _sceneCollectionService = new SceneCollectionService();
@@ -166,9 +171,28 @@ public sealed class MainWindowViewModel : ObservableObject
         {
             AddHybridSegment();
         }
-        CreateScene();
+        CreateInitialScene();
         AppLog.LogInfo("Application started.", nameof(MainWindowViewModel));
-        RefreshViewport(false);
+        Trace.WriteLine("[Startup] MainWindowViewModel constructor completed.");
+    }
+
+    public void InitializeViewport()
+    {
+        if (_viewportRefreshCoordinator.IsInitialized) return;
+        var stopwatch = Stopwatch.StartNew();
+        Trace.WriteLine("[Startup] Initial Collision viewport refresh started.");
+        RefreshSceneBindings();
+        _viewportRefreshCoordinator.Initialize();
+        stopwatch.Stop();
+        Trace.WriteLine($"[Startup] Initial Collision viewport refresh completed in {stopwatch.ElapsedMilliseconds} ms.");
+        Trace.WriteLine("[Startup] READY");
+        AppLog.LogSuccess($"Application ready. Initial viewport initialized in {stopwatch.ElapsedMilliseconds} ms.", nameof(MainWindowViewModel));
+    }
+
+    private void CreateInitialScene()
+    {
+        _sceneCollectionService.CreateScene(NewSceneName);
+        NewSceneName = $"Scene {Scenes.Count + 1}";
     }
 
     public string Title => "Laser Collision in 3D Objects";
@@ -561,7 +585,6 @@ public sealed class MainWindowViewModel : ObservableObject
         NewSceneName = $"Scene {Scenes.Count + 1}";
         SetStatus($"Created scene '{scene.Name}'.", ApplicationLogLevel.Success);
         RaiseCanExecuteChanges();
-        RefreshViewport(false);
     }
 
     private void DeleteSelectedScene()
@@ -579,7 +602,6 @@ public sealed class MainWindowViewModel : ObservableObject
             : $"Deleted '{deletedName}'.",
             ApplicationLogLevel.Success);
 
-        RefreshSceneBindingsAndViewport();
     }
 
     private void AddPrism()
@@ -1129,7 +1151,9 @@ public sealed class MainWindowViewModel : ObservableObject
         };
     }
 
-    private void RefreshViewport(bool runCollision)
+    private void RefreshViewport(bool runCollision) => _viewportRefreshCoordinator.Request(runCollision);
+
+    private void RefreshViewportCore(bool runCollision)
     {
         try
         {
@@ -1469,13 +1493,15 @@ public sealed class MainWindowViewModel : ObservableObject
     {
         if (e.PropertyName == nameof(SceneCollectionService.SelectedScene))
         {
-            RefreshSceneBindingsAndViewport();
+            RefreshSceneBindings();
+            RefreshViewport(false);
         }
     }
 
     private void OnSceneContentChanged(object? sender, EventArgs e)
     {
-        RefreshSceneBindingsAndViewport();
+        RefreshSceneBindings();
+        RefreshViewport(false);
     }
 
 
@@ -1546,7 +1572,6 @@ public sealed class MainWindowViewModel : ObservableObject
         {
             SetStatus($"Loading project from '{dialog.FileName}'...");
             _projectPersistenceCoordinator.LoadProject(dialog.FileName, _sceneCollectionService, AnnotationWorkspace, ProjectionWorkspace);
-            RefreshSceneBindingsAndViewport();
             SetStatus($"Project loaded from '{dialog.FileName}'.", ApplicationLogLevel.Success);
         }
         catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or IOException)
@@ -1596,7 +1621,6 @@ public sealed class MainWindowViewModel : ObservableObject
         {
             SetStatus($"Loading collision tab state from '{dialog.FileName}'...");
             _projectPersistenceCoordinator.LoadCollisionTab(dialog.FileName, _sceneCollectionService);
-            RefreshSceneBindingsAndViewport();
             SetStatus($"Collision tab state loaded from '{dialog.FileName}'.", ApplicationLogLevel.Success);
         }
         catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or IOException)
@@ -1646,7 +1670,6 @@ public sealed class MainWindowViewModel : ObservableObject
         {
             SetStatus($"Loading projection tab state from '{dialog.FileName}'...");
             _projectPersistenceCoordinator.LoadProjectionTab(dialog.FileName, _sceneCollectionService, ProjectionWorkspace);
-            RefreshSceneBindingsAndViewport();
             SetStatus($"Projection tab state loaded from '{dialog.FileName}'.", ApplicationLogLevel.Success);
         }
         catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or IOException)
@@ -1717,7 +1740,7 @@ public sealed class MainWindowViewModel : ObservableObject
         }
     }
 
-    private void RefreshSceneBindingsAndViewport()
+    private void RefreshSceneBindings()
     {
         CollisionScenes.Refresh();
         UpdateSceneCollectionSubscriptions(SelectedScene);
@@ -1747,7 +1770,6 @@ public sealed class MainWindowViewModel : ObservableObject
         RaisePropertyChanged(nameof(HasNoEditableSelection));
         RaisePropertyChanged(nameof(SelectedObjectEditorType));
         RaiseCanExecuteChanges();
-        RefreshViewport(false);
     }
 
     private void LoadPrismIntoEditor(PrismItemViewModel prism)
@@ -1859,7 +1881,6 @@ public sealed class MainWindowViewModel : ObservableObject
         ClearCollisionResults(scene);
         SetStatus("Selected object changes applied.", ApplicationLogLevel.Success);
         _sceneCollectionService.NotifySceneContentChanged();
-        RefreshViewport(false);
     }
 
     private void ApplySelectedPrismChanges() => ApplySelectedObjectChanges();

@@ -11,6 +11,7 @@ using LaserCollisionIn3DObjects.Domain.Projection;
 using LaserCollisionIn3DObjects.Rendering.Helix;
 using LaserCollisionIn3DObjects.Wpf.ViewModels;
 using DomainRay3D = LaserCollisionIn3DObjects.Domain.Geometry.Ray3D;
+using System.Diagnostics;
 
 namespace LaserCollisionIn3DObjects.Wpf.Services;
 
@@ -59,7 +60,10 @@ public sealed class SceneRenderSyncService
         bool runCollision,
         CollisionAlgorithmOption algorithm)
     {
+        var renderStopwatch = Stopwatch.StartNew();
+        Trace.WriteLine($"[CollisionRender] SyncScene started: prisms={prismItems.Count}, generatedSources={lightSourceItems.Count}, transferredSources={projectedLightSources.Count}, manualRays={rayItems.Count}, runCollision={runCollision}.");
         var buildResult = BuildDomainScene(prismItems, lightSourceItems, rayItems, projectedLightSources, holePoints, naturalPoints);
+        Trace.WriteLine($"[CollisionRender] BuildDomainScene completed in {renderStopwatch.ElapsedMilliseconds} ms.");
         var scene = buildResult.Scene;
         var stopwatch = System.Diagnostics.Stopwatch.StartNew();
         var collisionResults = runCollision ? CalculateFirstHits(scene, algorithm) : new List<(DomainRay3D Ray, RayHitResult Hit)>();
@@ -70,7 +74,9 @@ public sealed class SceneRenderSyncService
             .ToDictionary(result => result.Ray, result => result.Hit);
 
         var visuals = _sceneBuilder.BuildVisuals(scene, hitLookup);
+        Trace.WriteLine($"[CollisionRender] BuildVisuals completed in {renderStopwatch.ElapsedMilliseconds} ms; visuals={visuals.Count}.");
         UpdateViewport(visuals);
+        Trace.WriteLine($"[CollisionRender] UpdateViewport completed in {renderStopwatch.ElapsedMilliseconds} ms.");
 
         return new SceneSyncResult(
             BuildHitRows(scene, collisionResults),
