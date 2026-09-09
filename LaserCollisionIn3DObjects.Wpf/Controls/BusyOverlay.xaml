@@ -6,17 +6,17 @@
         <Border Background="#FFFDFDFD" CornerRadius="7" Padding="22" MinWidth="310"
                 HorizontalAlignment="Center" VerticalAlignment="Center">
             <StackPanel>
-                <TextBlock Text="{Binding Message, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                <TextBlock Text="{Binding Message, RelativeSource={RelativeSource AncestorType=UserControl}, Mode=OneWay}"
                            FontSize="15" FontWeight="SemiBold" TextAlignment="Center" TextWrapping="Wrap"/>
                 <ProgressBar Margin="0,14,0,0" Height="18" Minimum="0" Maximum="100"
-                             Value="{Binding Progress, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                             IsIndeterminate="{Binding IsIndeterminate, RelativeSource={RelativeSource AncestorType=UserControl}}"/>
+                             Value="{Binding Progress, RelativeSource={RelativeSource AncestorType=UserControl}, Mode=OneWay}"
+                             IsIndeterminate="{Binding IsIndeterminate, RelativeSource={RelativeSource AncestorType=UserControl}, Mode=OneWay}"/>
                 <TextBlock Margin="0,7,0,0" HorizontalAlignment="Center" Foreground="#555">
                     <TextBlock.Style>
                         <Style TargetType="TextBlock">
-                            <Setter Property="Text" Value="{Binding Progress, RelativeSource={RelativeSource AncestorType=UserControl}, StringFormat={}{0:F0}%}"/>
+                            <Setter Property="Text" Value="{Binding Progress, RelativeSource={RelativeSource AncestorType=UserControl}, Mode=OneWay, StringFormat={}{0:F0}%}"/>
                             <Style.Triggers>
-                                <DataTrigger Binding="{Binding IsIndeterminate, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="True">
+                                <DataTrigger Binding="{Binding IsIndeterminate, RelativeSource={RelativeSource AncestorType=UserControl}, Mode=OneWay}" Value="True">
                                     <Setter Property="Visibility" Value="Collapsed"/>
                                 </DataTrigger>
                             </Style.Triggers>

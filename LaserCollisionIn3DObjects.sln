@@ -10,6 +10,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LaserCollisionIn3DObjects.R
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LaserCollisionIn3DObjects.Tests", "LaserCollisionIn3DObjects.Tests\LaserCollisionIn3DObjects.Tests.csproj", "{C95F1E3A-4A95-4700-9931-65320F9E5365}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LaserCollisionIn3DObjects.Wpf.Tests", "LaserCollisionIn3DObjects.Wpf.Tests\LaserCollisionIn3DObjects.Wpf.Tests.csproj", "{783D04B3-0AE0-45DE-8A57-A69911C67B39}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -32,6 +34,10 @@ Global
 		{C95F1E3A-4A95-4700-9931-65320F9E5365}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{C95F1E3A-4A95-4700-9931-65320F9E5365}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{C95F1E3A-4A95-4700-9931-65320F9E5365}.Release|Any CPU.Build.0 = Release|Any CPU
+		{783D04B3-0AE0-45DE-8A57-A69911C67B39}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{783D04B3-0AE0-45DE-8A57-A69911C67B39}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{783D04B3-0AE0-45DE-8A57-A69911C67B39}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{783D04B3-0AE0-45DE-8A57-A69911C67B39}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
