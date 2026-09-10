@@ -6,10 +6,6 @@
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <AssemblyName>UJKColision</AssemblyName>
-    <Product>UJK Colision</Product>
-    <Title>UJK Colision</Title>
-    <Description>Scientific 3D laser collision, projection, and source analysis.</Description>
   </PropertyGroup>
 
   <ItemGroup>
