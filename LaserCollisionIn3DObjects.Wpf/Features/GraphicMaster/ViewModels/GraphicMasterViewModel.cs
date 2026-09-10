@@ -1,6 +1,8 @@
 using LaserCollisionIn3DObjects.Domain.Generation;
 using LaserCollisionIn3DObjects.Domain.Geometry;
 using LaserCollisionIn3DObjects.Domain.Graphing;
+using LaserCollisionIn3DObjects.Domain.Export;
+using LaserCollisionIn3DObjects.Domain.Persistence;
 using LaserCollisionIn3DObjects.Wpf.Commands;
 using LaserCollisionIn3DObjects.Wpf.Features.GraphicMaster.Services;
 using LaserCollisionIn3DObjects.Wpf.Infrastructure;
@@ -14,6 +16,8 @@ using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.Numerics;
 using System.Windows.Input;
+using Microsoft.Win32;
+using System.IO;
 
 namespace LaserCollisionIn3DObjects.Wpf.Features.GraphicMaster.ViewModels;
 
@@ -32,6 +36,9 @@ public sealed class GraphicMasterViewModel : ObservableObject
     });
     private readonly IGraphicMasterSaveFileDialogService _saveFileDialogService;
     private readonly IGraphicMasterPngExportService _pngExportService;
+    private readonly LightSourceFileService _lightSourceFileService;
+    private readonly ImportedGraphSourceConverter _importedSourceConverter = new();
+    private readonly List<ImportedGraphSourceState> _importedSources = new();
 
     private GraphTypeOptionViewModel? _selectedGraphType;
     private StoredGraphChartViewModel? _selectedStoredChart;
@@ -43,17 +50,20 @@ public sealed class GraphicMasterViewModel : ObservableObject
     private string _chartName = "Chart 1";
     private PlotView? _chartPlotView;
     private GraphResult? _lastResult;
+    private GraphableSourceItemViewModel? _selectedSource;
 
     public GraphicMasterViewModel(
         SceneCollectionService sceneCollectionService,
         CompletedSourceStore completedSourceStore,
         IGraphicMasterSaveFileDialogService? saveFileDialogService = null,
-        IGraphicMasterPngExportService? pngExportService = null)
+        IGraphicMasterPngExportService? pngExportService = null,
+        LightSourceFileService? lightSourceFileService = null)
     {
         _sceneCollectionService = sceneCollectionService ?? throw new ArgumentNullException(nameof(sceneCollectionService));
         _completedSourceStore = completedSourceStore ?? throw new ArgumentNullException(nameof(completedSourceStore));
         _saveFileDialogService = saveFileDialogService ?? new GraphicMasterSaveFileDialogService();
         _pngExportService = pngExportService ?? new GraphicMasterPngExportService();
+        _lightSourceFileService = lightSourceFileService ?? new LightSourceFileService();
 
         foreach (var graphType in _graphTypeRegistry.GraphTypes)
         {
@@ -66,6 +76,8 @@ public sealed class GraphicMasterViewModel : ObservableObject
         DeleteStoredChartCommand = new RelayCommand(DeleteStoredChart, () => SelectedStoredChart is not null);
         SaveChartAsPngCommand = new RelayCommand(SaveChartAsPng);
         FocusYCommand = new RelayCommand(FocusYAxis, () => CanFocusY);
+        ImportSourceCommand = new AsyncRelayCommand(ImportSourceAsync);
+        RemoveImportedSourceCommand = new RelayCommand(RemoveImportedSource, CanRemoveImportedSource);
 
         _sceneCollectionService.Scenes.CollectionChanged += OnScenesCollectionChanged;
         foreach (var scene in _sceneCollectionService.Scenes)
@@ -84,6 +96,75 @@ public sealed class GraphicMasterViewModel : ObservableObject
     public ICommand DeleteStoredChartCommand { get; }
     public ICommand SaveChartAsPngCommand { get; }
     public ICommand FocusYCommand { get; }
+    public ICommand ImportSourceCommand { get; }
+    public ICommand RemoveImportedSourceCommand { get; }
+
+    public GraphableSourceItemViewModel? SelectedSource
+    {
+        get => _selectedSource;
+        set
+        {
+            if (SetProperty(ref _selectedSource, value) && RemoveImportedSourceCommand is RelayCommand command)
+                command.RaiseCanExecuteChanged();
+        }
+    }
+
+    public GraphicMasterState ExportState() => new()
+    {
+        ImportedSources = _importedSources.Select(item => new ImportedGraphSourceState { Id = item.Id, OriginalFileName = item.OriginalFileName, Source = item.Source }).ToList(),
+        StoredCharts = StoredCharts.Select(chart => new StoredGraphChartState
+        {
+            Id = chart.Id, DisplayName = chart.DisplayName, GraphTypeId = chart.GraphTypeId,
+            AngleBinSizeDeg = chart.AngleBinSizeDeg, AzimuthBinSizeDeg = chart.AzimuthBinSizeDeg,
+            PolarBinSizeDeg = chart.PolarBinSizeDeg, SelectedSourceIds = chart.SelectedSourceIds.ToList(),
+        }).ToList(),
+        SelectedChartId = SelectedStoredChart?.Id,
+    };
+
+    public void ApplyState(GraphicMasterState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        _importedSources.Clear();
+        _importedSources.AddRange(state.ImportedSources.Where(item => !string.IsNullOrWhiteSpace(item.Id) && item.Source is not null));
+        StoredCharts.Clear();
+        foreach (var chart in state.StoredCharts.Where(chart => !string.IsNullOrWhiteSpace(chart.Id)))
+            StoredCharts.Add(new StoredGraphChartViewModel { Id = chart.Id, DisplayName = chart.DisplayName, GraphTypeId = chart.GraphTypeId, AngleBinSizeDeg = chart.AngleBinSizeDeg, AzimuthBinSizeDeg = chart.AzimuthBinSizeDeg, PolarBinSizeDeg = chart.PolarBinSizeDeg, SelectedSourceIds = chart.SelectedSourceIds });
+        RefreshSources();
+        SelectedStoredChart = StoredCharts.FirstOrDefault(chart => chart.Id == state.SelectedChartId);
+        if (state.SelectedChartId is not null && SelectedStoredChart is null)
+            StatusMessage = "The previously selected stored chart is unavailable, but its remaining project data was restored.";
+    }
+
+    private async Task ImportSourceAsync()
+    {
+        var dialog = new OpenFileDialog { Filter = _lightSourceFileService.BuildImportFilter(), FilterIndex = 1 };
+        if (dialog.ShowDialog() != true) return;
+        try
+        {
+            StatusMessage = "Importing graph source...";
+            var result = await Task.Run(() => _lightSourceFileService.Read(dialog.FileName));
+            var id = $"imported::{Guid.NewGuid():N}";
+            _importedSources.Add(new ImportedGraphSourceState { Id = id, OriginalFileName = Path.GetFileName(dialog.FileName), Source = result.Data });
+            RefreshSources();
+            SelectedSource = Sources.First(source => source.SourceData.Id == id);
+            StatusMessage = $"Imported '{result.Data.Name}' with {result.Data.Rays.Count} rays using '{result.Format.DisplayName}'.";
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or FormatException or ArgumentException)
+        {
+            StatusMessage = $"Could not import graph source: {ex.Message}";
+        }
+    }
+
+    private bool CanRemoveImportedSource() => SelectedSource is not null && _importedSources.Any(item => item.Id == SelectedSource.SourceData.Id);
+
+    private void RemoveImportedSource()
+    {
+        if (SelectedSource is null) return;
+        _importedSources.RemoveAll(item => item.Id == SelectedSource.SourceData.Id);
+        SelectedSource = null;
+        RefreshSources();
+        StatusMessage = "Removed imported graph source. Stored chart definitions were retained.";
+    }
 
     public GraphTypeOptionViewModel? SelectedGraphType
     {
@@ -596,7 +677,9 @@ public sealed class GraphicMasterViewModel : ObservableObject
             });
 
         Sources.Clear();
-        foreach (var source in extracted.Concat(completed))
+        var imported = _importedSources.Where(item => item.Source is not null)
+            .Select(item => _importedSourceConverter.Convert(item.Id, item.Source!));
+        foreach (var source in extracted.Concat(completed).Concat(imported))
         {
             Sources.Add(new GraphableSourceItemViewModel
             {
