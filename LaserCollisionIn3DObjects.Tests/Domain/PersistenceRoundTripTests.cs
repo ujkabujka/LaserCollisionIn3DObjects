@@ -118,7 +118,7 @@ public class PersistenceRoundTripTests
             service.SaveProject(filePath, state);
             var roundTrip = service.LoadProject(filePath);
 
-            Assert.Equal(1, roundTrip.SchemaVersion);
+            Assert.Equal(ProjectState.CurrentSchemaVersion, roundTrip.SchemaVersion);
             Assert.Single(roundTrip.Scenes);
             Assert.Equal("Scene A", roundTrip.Scenes[0].Name);
             Assert.Equal(new Point3(4, 5, 6), Assert.Single(roundTrip.Scenes[0].NaturalPoints));
@@ -166,7 +166,7 @@ public class PersistenceRoundTripTests
             service.SaveProject(filePath, state);
             var loaded = service.LoadProject(filePath);
 
-            Assert.Equal(1, loaded.SchemaVersion);
+            Assert.Equal(ProjectState.CurrentSchemaVersion, loaded.SchemaVersion);
             Assert.NotNull(loaded.AnnotationWorkspace);
             Assert.Empty(loaded.Scenes);
         }
@@ -191,13 +191,13 @@ public class PersistenceRoundTripTests
     }
 
     [Fact]
-    public void ProjectState_DoesNotContainGraphicMasterStoredCharts()
+    public void ProjectState_ContainsDomainGraphicMasterState()
     {
         var state = new ProjectState();
         var json = JsonSerializer.Serialize(state);
 
-        Assert.DoesNotContain("storedCharts", json, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("graphicMaster", json, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("storedCharts", json, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("graphicMaster", json, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

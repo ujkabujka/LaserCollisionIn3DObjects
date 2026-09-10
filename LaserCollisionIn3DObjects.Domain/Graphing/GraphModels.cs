@@ -8,6 +8,7 @@ public enum GraphableSourceKind
 {
     CylindricalLightSource,
     ProjectionResult,
+    ImportedLightSource,
 }
 
 public sealed class GraphSceneData

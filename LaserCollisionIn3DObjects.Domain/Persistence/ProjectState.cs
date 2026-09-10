@@ -1,6 +1,7 @@
 using System.Text.Json.Serialization;
 using LaserCollisionIn3DObjects.Domain.Geometry;
 using LaserCollisionIn3DObjects.Domain.Projection;
+using LaserCollisionIn3DObjects.Domain.Export;
 
 namespace LaserCollisionIn3DObjects.Domain.Persistence;
 
@@ -15,8 +16,10 @@ public static class PersistenceKeys
 
 public sealed class ProjectState
 {
+    public const int CurrentSchemaVersion = 2;
+
     [JsonPropertyName(PersistenceKeys.SchemaVersion)]
-    public int SchemaVersion { get; set; } = 1;
+    public int SchemaVersion { get; set; } = CurrentSchemaVersion;
 
     [JsonPropertyName(PersistenceKeys.Scenes)]
     public List<SceneState> Scenes { get; set; } = new();
@@ -30,6 +33,32 @@ public sealed class ProjectState
     [JsonPropertyName(PersistenceKeys.Annotation)]
     public AnnotationWorkspaceState AnnotationWorkspace { get; set; } = new();
     public List<CollisionSourceState> AvailableSources { get; set; } = new();
+    public GraphicMasterState GraphicMaster { get; set; } = new();
+}
+
+public sealed class GraphicMasterState
+{
+    public List<ImportedGraphSourceState> ImportedSources { get; set; } = new();
+    public List<StoredGraphChartState> StoredCharts { get; set; } = new();
+    public string? SelectedChartId { get; set; }
+}
+
+public sealed class ImportedGraphSourceState
+{
+    public string Id { get; set; } = string.Empty;
+    public string? OriginalFileName { get; set; }
+    public LightSourceTransferData? Source { get; set; }
+}
+
+public sealed class StoredGraphChartState
+{
+    public string Id { get; set; } = string.Empty;
+    public string DisplayName { get; set; } = string.Empty;
+    public string GraphTypeId { get; set; } = string.Empty;
+    public double AngleBinSizeDeg { get; set; }
+    public double AzimuthBinSizeDeg { get; set; }
+    public double PolarBinSizeDeg { get; set; }
+    public List<string> SelectedSourceIds { get; set; } = new();
 }
 
 public sealed class CollisionSourceState
