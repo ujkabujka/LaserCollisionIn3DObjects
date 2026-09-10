@@ -22,6 +22,7 @@ using LaserCollisionIn3DObjects.Domain.Projection;
 using LaserCollisionIn3DObjects.Domain.Scene;
 using System.Diagnostics;
 using OxyPlot.Wpf;
+using LaserCollisionIn3DObjects.Rendering.Helix;
 
 namespace LaserCollisionIn3DObjects.Wpf.ViewModels;
 
@@ -62,6 +63,8 @@ public sealed class MainWindowViewModel : ObservableObject
     private double _collisionProgressPercent;
     private string _collisionProgressMessage = string.Empty;
     private bool _collisionProgressIsIndeterminate;
+    private bool _isIoBusy;
+    private string _ioBusyMessage = string.Empty;
     private string _newSceneName = "Scene 1";
     private string _newPrismName = "Prism 1";
     private float _newPrismSizeX = 0.002f;
@@ -149,8 +152,8 @@ public sealed class MainWindowViewModel : ObservableObject
         SaveSelectedPanelImageCommand = new RelayCommand(SaveSelectedPanelImage, () => SelectedScene?.HasValidCollisionRun == true && SelectedScene.SelectedPanelResult is not null);
         RegenerateLightSourceRaysCommand = new RelayCommand(RegenerateLightSourceRays, () => SelectedScene is not null);
         ResetDemoSceneCommand = new RelayCommand(ResetDemoScene, () => SelectedScene is not null);
-        SaveProjectCommand = new RelayCommand(SaveProject);
-        LoadProjectCommand = new RelayCommand(LoadProject);
+        SaveProjectCommand = new AsyncRelayCommand(SaveProjectAsync, () => !IsIoBusy);
+        LoadProjectCommand = new AsyncRelayCommand(LoadProjectAsync, () => !IsIoBusy);
         ExportLightSourceCommand = new RelayCommand(ExportLightSource, () => SelectedLightSource is not null || SelectedProjectedLightSource is not null);
         ImportLightSourceCommand = new RelayCommand(ImportLightSource, () => SelectedScene is not null && !SelectedScene.IsProjectionOnly);
         SaveCollisionTabCommand = new RelayCommand(SaveCollisionTabState);
@@ -310,6 +313,18 @@ public sealed class MainWindowViewModel : ObservableObject
     public ICommand ShowConsoleCommand { get; }
     public ICommand HideConsoleCommand { get; }
     public ICommand ToggleConsoleCommand { get; }
+
+    public bool IsIoBusy
+    {
+        get => _isIoBusy;
+        private set => SetProperty(ref _isIoBusy, value);
+    }
+
+    public string IoBusyMessage
+    {
+        get => _ioBusyMessage;
+        private set => SetProperty(ref _ioBusyMessage, value);
+    }
 
     public bool IsConsoleVisible
     {
@@ -1009,7 +1024,8 @@ public sealed class MainWindowViewModel : ObservableObject
             var computation = await Task.Run(() => _renderSyncService.ComputeCollision(prisms, assignedSource, holes, natural, sceneName, algorithm, progress, cancellationToken), cancellationToken);
             cancellationToken.ThrowIfCancellationRequested();
             CollisionProgressMessage = "Preparing collision results and updating 3D scene...";
-            var result = _renderSyncService.RenderCollision(computation);
+            scene.LastCollisionComputation = computation;
+            var result = _renderSyncService.RenderCollision(computation, new CollisionSceneVisualOptions(scene.ShowCollisionRays, scene.ShowCollisionHitPoints));
             scene.PublishCollisionResults(result.HitRows, result.HitPointRecords, result.PanelAnalysis);
             RaisePropertyChanged(nameof(HitResults));
             LastCollisionDurationMs = $"{result.CollisionDuration.TotalMilliseconds:F3}";
@@ -1465,6 +1481,7 @@ public sealed class MainWindowViewModel : ObservableObject
 
         if (_subscribedScene is not null)
         {
+            _subscribedScene.PropertyChanged -= OnSelectedScenePropertyChanged;
             _subscribedScene.LightSources.CollectionChanged -= OnSceneLightSourcesCollectionChanged;
             _subscribedScene.ProjectedLightSources.CollectionChanged -= OnSceneProjectedLightSourcesCollectionChanged;
         }
@@ -1473,9 +1490,21 @@ public sealed class MainWindowViewModel : ObservableObject
 
         if (_subscribedScene is not null)
         {
+            _subscribedScene.PropertyChanged += OnSelectedScenePropertyChanged;
             _subscribedScene.LightSources.CollectionChanged += OnSceneLightSourcesCollectionChanged;
             _subscribedScene.ProjectedLightSources.CollectionChanged += OnSceneProjectedLightSourcesCollectionChanged;
         }
+    }
+
+    private void OnSelectedScenePropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (sender is not CollisionSceneViewModel scene ||
+            e.PropertyName is not (nameof(CollisionSceneViewModel.ShowCollisionRays) or nameof(CollisionSceneViewModel.ShowCollisionHitPoints))) return;
+
+        if (scene.LastCollisionComputation is { } computation)
+            _renderSyncService.RenderCollision(computation, new CollisionSceneVisualOptions(scene.ShowCollisionRays, scene.ShowCollisionHitPoints));
+        else
+            RefreshViewport(false);
     }
 
     private void OnSceneLightSourcesCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
@@ -1493,7 +1522,10 @@ public sealed class MainWindowViewModel : ObservableObject
         if (e.PropertyName == nameof(SceneCollectionService.SelectedScene))
         {
             RefreshSceneBindings();
-            RefreshViewport(false);
+            if (SelectedScene?.LastCollisionComputation is { } computation)
+                _renderSyncService.RenderCollision(computation, new CollisionSceneVisualOptions(SelectedScene.ShowCollisionRays, SelectedScene.ShowCollisionHitPoints));
+            else
+                RefreshViewport(false);
         }
     }
 
@@ -1530,7 +1562,7 @@ public sealed class MainWindowViewModel : ObservableObject
         catch (Exception ex) { SetStatus($"Could not import light source '{dialog.FileName}': {ex.Message}"); AppLog.LogError(StatusMessage, ex, nameof(MainWindowViewModel)); }
     }
 
-    private void SaveProject()
+    private async Task SaveProjectAsync()
     {
         var dialog = new SaveFileDialog
         {
@@ -1545,17 +1577,30 @@ public sealed class MainWindowViewModel : ObservableObject
 
         try
         {
+            IsIoBusy = true;
+            IoBusyMessage = "Saving project...";
             SetStatus($"Saving project to '{dialog.FileName}'...");
-            _projectPersistenceCoordinator.SaveProject(dialog.FileName, _sceneCollectionService, SelectedScene, AnnotationWorkspace, ProjectionWorkspace);
+            // Snapshot UI-owned collections before moving serialization and disk I/O off the UI thread.
+            var snapshot = new LaserCollisionIn3DObjects.Domain.Persistence.ProjectState
+            {
+                Scenes = _sceneCollectionService.Scenes.Select(scene => ProjectPersistenceCoordinator.MapSceneForSnapshot(scene)).ToList(),
+                CollisionWorkspace = new() { SelectedSceneName = SelectedScene?.Name },
+                ProjectionWorkspace = ProjectionWorkspace.ExportWorkspaceState(),
+                AnnotationWorkspace = AnnotationWorkspace.ExportWorkspaceState(),
+                AvailableSources = _sceneCollectionService.AvailableSources.Select(ProjectPersistenceCoordinator.MapSourceForSnapshot).ToList(),
+                GraphicMaster = GraphicMasterWorkspace.ExportState(),
+            };
+            await new LaserCollisionIn3DObjects.Domain.Persistence.JsonStateFileService().SaveProjectAsync(dialog.FileName, snapshot);
             SetStatus($"Project saved to '{dialog.FileName}'.", ApplicationLogLevel.Success);
         }
         catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or IOException)
         {
             SetStatus($"Failed to save project: {ex.Message}", ApplicationLogLevel.Error, ex);
         }
+        finally { IsIoBusy = false; }
     }
 
-    private void LoadProject()
+    private async Task LoadProjectAsync()
     {
         var dialog = new OpenFileDialog
         {
@@ -1569,14 +1614,19 @@ public sealed class MainWindowViewModel : ObservableObject
 
         try
         {
+            IsIoBusy = true;
+            IoBusyMessage = "Reading and validating project...";
             SetStatus($"Loading project from '{dialog.FileName}'...");
-            _projectPersistenceCoordinator.LoadProject(dialog.FileName, _sceneCollectionService, AnnotationWorkspace, ProjectionWorkspace);
+            var state = await _projectPersistenceCoordinator.ReadStateAsync(dialog.FileName);
+            IoBusyMessage = "Restoring project workspaces...";
+            _projectPersistenceCoordinator.ApplyProject(state, _sceneCollectionService, AnnotationWorkspace, ProjectionWorkspace, GraphicMasterWorkspace);
             SetStatus($"Project loaded from '{dialog.FileName}'.", ApplicationLogLevel.Success);
         }
-        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or IOException)
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or NotSupportedException or IOException or UnauthorizedAccessException or System.Text.Json.JsonException)
         {
             SetStatus($"Failed to load project: {ex.Message}", ApplicationLogLevel.Error, ex);
         }
+        finally { IsIoBusy = false; }
     }
 
     private void SaveCollisionTabState()

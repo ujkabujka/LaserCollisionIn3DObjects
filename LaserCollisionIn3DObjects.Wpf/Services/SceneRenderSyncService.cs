@@ -139,10 +139,10 @@ public sealed class SceneRenderSyncService
             holes, naturalPoints, sceneName, algorithm, progress, cancellationToken);
 
     /// <summary>Publishes a completed computation to Helix on the UI thread.</summary>
-    public SceneSyncResult RenderCollision(CollisionComputation computation)
+    public SceneSyncResult RenderCollision(CollisionComputation computation, CollisionSceneVisualOptions? options = null)
     {
         var hitLookup = computation.Hits.Where(x => x.Hit.HasHit).ToDictionary(x => x.Ray, x => x.Hit);
-        UpdateViewport(_sceneBuilder.BuildVisuals(computation.Scene, hitLookup));
+        UpdateViewport(_sceneBuilder.BuildVisuals(computation.Scene, hitLookup, options: options));
         return new SceneSyncResult(
             BuildHitRows(computation.Scene, computation.Hits),
             BuildHitPointRecords(computation.SceneName, computation.Hits, computation.Scene.CollisionRayInputs),

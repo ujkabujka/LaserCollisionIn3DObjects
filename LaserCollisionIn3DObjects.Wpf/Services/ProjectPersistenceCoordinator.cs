@@ -5,6 +5,7 @@ using LaserCollisionIn3DObjects.Domain.Projection;
 using LaserCollisionIn3DObjects.Domain.Scene;
 using LaserCollisionIn3DObjects.Wpf.Features.Annotations.ViewModels;
 using LaserCollisionIn3DObjects.Wpf.Features.Projection.ViewModels;
+using LaserCollisionIn3DObjects.Wpf.Features.GraphicMaster.ViewModels;
 using LaserCollisionIn3DObjects.Wpf.ViewModels;
 using DomainRay3D = LaserCollisionIn3DObjects.Domain.Geometry.Ray3D;
 
@@ -14,12 +15,16 @@ public sealed class ProjectPersistenceCoordinator
 {
     private readonly JsonStateFileService _jsonService = new();
 
+    public static SceneState MapSceneForSnapshot(CollisionSceneViewModel scene) => MapScene(scene);
+    public static CollisionSourceState MapSourceForSnapshot(CollisionSourceLibraryItemViewModel source) => MapCollisionSource(source);
+
     public void SaveProject(
         string filePath,
         SceneCollectionService sceneCollectionService,
         CollisionSceneViewModel? selectedCollisionScene,
         AnnotationWorkspaceViewModel annotationWorkspace,
-        ProjectionWorkspaceViewModel projectionWorkspace)
+        ProjectionWorkspaceViewModel projectionWorkspace,
+        GraphicMasterViewModel graphicMaster)
     {
         var state = new ProjectState
         {
@@ -28,6 +33,7 @@ public sealed class ProjectPersistenceCoordinator
             ProjectionWorkspace = projectionWorkspace.ExportWorkspaceState(),
             AnnotationWorkspace = annotationWorkspace.ExportWorkspaceState(),
             AvailableSources = sceneCollectionService.AvailableSources.Select(MapCollisionSource).ToList(),
+            GraphicMaster = graphicMaster.ExportState(),
         };
 
         _jsonService.SaveProject(filePath, state);
@@ -37,9 +43,20 @@ public sealed class ProjectPersistenceCoordinator
         string filePath,
         SceneCollectionService sceneCollectionService,
         AnnotationWorkspaceViewModel annotationWorkspace,
-        ProjectionWorkspaceViewModel projectionWorkspace)
+        ProjectionWorkspaceViewModel projectionWorkspace,
+        GraphicMasterViewModel graphicMaster)
     {
         var state = _jsonService.LoadProject(filePath);
+        ApplyProject(state, sceneCollectionService, annotationWorkspace, projectionWorkspace, graphicMaster);
+    }
+
+    public Task<ProjectState> ReadStateAsync(string filePath) => _jsonService.LoadProjectAsync(filePath);
+
+    public void ApplyProject(ProjectState state, SceneCollectionService sceneCollectionService,
+        AnnotationWorkspaceViewModel annotationWorkspace, ProjectionWorkspaceViewModel projectionWorkspace,
+        GraphicMasterViewModel graphicMaster)
+    {
+        ArgumentNullException.ThrowIfNull(state);
 
         sceneCollectionService.Scenes.Clear();
         RestoreLibrary(state, sceneCollectionService);
@@ -54,6 +71,7 @@ public sealed class ProjectPersistenceCoordinator
 
         annotationWorkspace.ApplyWorkspaceState(state.AnnotationWorkspace);
         projectionWorkspace.ApplyWorkspaceState(state.ProjectionWorkspace);
+        graphicMaster.ApplyState(state.GraphicMaster);
     }
 
     public void SaveCollisionTab(string filePath, SceneCollectionService sceneCollectionService, CollisionSceneViewModel? selectedScene)
@@ -89,6 +107,7 @@ public sealed class ProjectPersistenceCoordinator
         {
             Scenes = sceneCollectionService.Scenes.Select(MapScene).ToList(),
             ProjectionWorkspace = projectionWorkspace.ExportWorkspaceState(),
+            AvailableSources = sceneCollectionService.AvailableSources.Select(MapCollisionSource).ToList(),
         };
 
         _jsonService.SaveProject(filePath, state);
@@ -98,6 +117,7 @@ public sealed class ProjectPersistenceCoordinator
     {
         var state = _jsonService.LoadProject(filePath);
         sceneCollectionService.Scenes.Clear();
+        RestoreLibrary(state, sceneCollectionService);
         foreach (var sceneState in state.Scenes)
         {
             sceneCollectionService.AddScene(MapScene(sceneState, sceneCollectionService), selectScene: false);
@@ -128,6 +148,8 @@ public sealed class ProjectPersistenceCoordinator
         {
             Name = scene.Name,
             IsProjectionOnly = scene.IsProjectionOnly,
+            ShowCollisionRays = scene.ShowCollisionRays,
+            ShowCollisionHitPoints = scene.ShowCollisionHitPoints,
             Prisms = scene.Prisms.Select(prism => new PrismState
             {
                 Name = prism.Name,
@@ -353,6 +375,8 @@ public sealed class ProjectPersistenceCoordinator
     {
         var scene = new CollisionSceneViewModel(sceneState.Name);
         scene.IsProjectionOnly = sceneState.IsProjectionOnly;
+        scene.ShowCollisionRays = sceneState.ShowCollisionRays;
+        scene.ShowCollisionHitPoints = sceneState.ShowCollisionHitPoints;
 
         foreach (var prism in sceneState.Prisms)
         {

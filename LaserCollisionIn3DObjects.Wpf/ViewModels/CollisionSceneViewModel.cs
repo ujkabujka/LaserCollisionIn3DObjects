@@ -8,6 +8,7 @@ using LaserCollisionIn3DObjects.Wpf.Infrastructure;
 using OxyPlot;
 using OxyPlot.Axes;
 using OxyPlot.Series;
+using LaserCollisionIn3DObjects.Wpf.Services;
 
 namespace LaserCollisionIn3DObjects.Wpf.ViewModels;
 
@@ -25,6 +26,9 @@ public sealed class CollisionSceneViewModel : ObservableObject
     private PanelCollisionResult? _selectedPanelResult;
     private PlotModel? _panelPlotModel;
     private CollisionSourceLibraryItemViewModel? _assignedSource;
+    private bool _showCollisionRays = true;
+    private bool _showCollisionHitPoints = true;
+    private int _sceneOrdinal = 1;
     public CollisionSceneViewModel(string name)
     {
         _name = name;
@@ -39,6 +43,11 @@ public sealed class CollisionSceneViewModel : ObservableObject
         get => _name;
         set => SetProperty(ref _name, value);
     }
+
+    public bool ShowCollisionRays { get => _showCollisionRays; set => SetProperty(ref _showCollisionRays, value); }
+    public bool ShowCollisionHitPoints { get => _showCollisionHitPoints; set => SetProperty(ref _showCollisionHitPoints, value); }
+    public int SceneOrdinal { get => _sceneOrdinal; internal set => SetProperty(ref _sceneOrdinal, value); }
+    internal SceneRenderSyncService.CollisionComputation? LastCollisionComputation { get; set; }
 
     public ObservableCollection<PrismItemViewModel> Prisms { get; } = new();
     public ObservableCollection<RayItemViewModel> Rays { get; } = new();
@@ -98,6 +107,7 @@ public sealed class CollisionSceneViewModel : ObservableObject
         PanelAnalysis = null;
         SelectedPanelResult = null;
         HasValidCollisionRun = false;
+        LastCollisionComputation = null;
         RaisePropertyChanged(nameof(HitPointRecords));
         RaisePropertyChanged(nameof(HasValidCollisionRun));
         RaisePropertyChanged(nameof(PanelAnalysis));
