@@ -24,6 +24,7 @@ public sealed class CollisionSceneViewModel : ObservableObject
     private bool _isProjectionOnly;
     private PanelCollisionResult? _selectedPanelResult;
     private PlotModel? _panelPlotModel;
+    private CollisionSourceLibraryItemViewModel? _assignedSource;
     public CollisionSceneViewModel(string name)
     {
         _name = name;
@@ -43,6 +44,24 @@ public sealed class CollisionSceneViewModel : ObservableObject
     public ObservableCollection<RayItemViewModel> Rays { get; } = new();
     public ObservableCollection<CylindricalLightSourceItemViewModel> LightSources { get; } = new();
     public ObservableCollection<ProjectedLightSourceItemViewModel> ProjectedLightSources { get; } = new();
+    public CollisionSourceLibraryItemViewModel? AssignedSource
+    {
+        get => _assignedSource;
+        private set => SetProperty(ref _assignedSource, value);
+    }
+
+    /// <summary>Replaces the sole scene source with a deep, scene-owned snapshot.</summary>
+    public void AssignSource(CollisionSourceLibraryItemViewModel? definition)
+    {
+        LightSources.Clear();
+        ProjectedLightSources.Clear();
+        AssignedSource = definition?.DeepClone();
+        if (AssignedSource?.GeneratedSource is { } generated) LightSources.Add(generated);
+        if (AssignedSource?.TransferredSource is { } transferred) ProjectedLightSources.Add(transferred);
+        SelectedLightSource = AssignedSource?.GeneratedSource;
+        SelectedProjectedLightSource = AssignedSource?.TransferredSource;
+        InvalidateCollisionResults();
+    }
     public ObservableCollection<HitResultItemViewModel> HitResults { get; } = new();
     public IReadOnlyList<CollisionHitPointRecord> HitPointRecords { get; private set; } = Array.Empty<CollisionHitPointRecord>();
     public bool HasValidCollisionRun { get; private set; }

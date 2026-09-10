@@ -13,6 +13,17 @@ public sealed class SceneCollectionService : ObservableObject
     private CollisionSceneViewModel? _selectedScene;
 
     public ObservableCollection<CollisionSceneViewModel> Scenes { get; } = new();
+    public ObservableCollection<CollisionSourceLibraryItemViewModel> AvailableSources { get; } = new();
+
+    public CollisionSourceLibraryItemViewModel AddToLibrary(CollisionSourceLibraryItemViewModel source)
+    {
+        var existing = AvailableSources.FirstOrDefault(item => item.SourceId == source.SourceId);
+        if (existing is not null) return existing;
+        AvailableSources.Add(source.DeepClone());
+        return AvailableSources[^1];
+    }
+
+    public void AssignSource(CollisionSceneViewModel scene, CollisionSourceLibraryItemViewModel source) => scene.AssignSource(AddToLibrary(source));
 
     public CollisionSceneViewModel? SelectedScene
     {

@@ -311,9 +311,7 @@ public sealed class SourceCompletionWorkspaceViewModel : ObservableObject
 
         foreach (var ray in rays) completedSource.ExactRays.Add(ray.Ray);
 
-        target.InvalidateCollisionResults();
-        target.ProjectedLightSources.Add(completedSource);
-        target.SelectedProjectedLightSource = completedSource;
+        _sceneCollectionService.AssignSource(target, new CollisionSourceLibraryItemViewModel { TransferredSource = completedSource });
         if (!ReferenceEquals(_sceneCollectionService.SelectedScene, target)) _sceneCollectionService.SelectedScene = target;
         _sceneCollectionService.NotifySceneContentChanged();
 

@@ -55,4 +55,19 @@ public sealed class CylindricalLightSourceItemViewModel : ObservableObject
     public NumericsQuaternion BaseOrientation { get; set; } = NumericsQuaternion.Identity;
 
     public override string ToString() => Name;
+
+    public CylindricalLightSourceItemViewModel DeepClone()
+    {
+        var clone = new CylindricalLightSourceItemViewModel
+        {
+            Name = Name, SourceKind = SourceKind, PositionX = PositionX, PositionY = PositionY, PositionZ = PositionZ,
+            RotationX = RotationX, RotationY = RotationY, RotationZ = RotationZ, Radius = Radius, Height = Height,
+            RadiusStart = RadiusStart, RadiusEnd = RadiusEnd, Length = Length, ArcRadius = ArcRadius,
+            OgiveCurvatureDirection = OgiveCurvatureDirection, RayCount = RayCount, TiltWeight = TiltWeight,
+            TiltPointX = TiltPointX, TiltPointY = TiltPointY, TiltPointZ = TiltPointZ, BaseOrientation = BaseOrientation,
+        };
+        foreach (var item in HybridSegments)
+            clone.HybridSegments.Add(new HybridSourceSegmentItemViewModel { SegmentIndex = item.SegmentIndex, SegmentKind = item.SegmentKind, Length = item.Length, RadiusStart = item.RadiusStart, RadiusEnd = item.RadiusEnd, ArcRadius = item.ArcRadius, OgiveCurvatureDirection = item.OgiveCurvatureDirection, IsRadiusStartEditable = item.IsRadiusStartEditable });
+        return clone;
+    }
 }
