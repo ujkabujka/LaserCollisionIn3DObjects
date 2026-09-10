@@ -201,7 +201,7 @@ public sealed class MainWindowViewModel : ObservableObject
         NewSceneName = $"Scene {Scenes.Count + 1}";
     }
 
-    public string Title => "UJK Colision";
+    public string Title => "Laser Collision in 3D Objects";
 
     public void RequestShutdown()
     {
@@ -1591,7 +1591,7 @@ public sealed class MainWindowViewModel : ObservableObject
     {
         var dialog = new SaveFileDialog
         {
-            Filter = "UJK Colision Project (*.lc3d.json)|*.lc3d.json|JSON (*.json)|*.json",
+            Filter = "Laser Collision Project (*.lc3d.json)|*.lc3d.json|JSON (*.json)|*.json",
             FileName = "project.lc3d.json",
         };
 
@@ -1616,7 +1616,7 @@ public sealed class MainWindowViewModel : ObservableObject
     {
         var dialog = new OpenFileDialog
         {
-            Filter = "UJK Colision Project (*.lc3d.json)|*.lc3d.json|JSON (*.json)|*.json",
+            Filter = "Laser Collision Project (*.lc3d.json)|*.lc3d.json|JSON (*.json)|*.json",
         };
 
         if (dialog.ShowDialog() != true)
