@@ -112,9 +112,6 @@ public sealed class CollisionWorkspaceBindingTests
         // Empty collections keep the real workspace templates lightweight while bindings activate.
         public IEnumerable CollisionScenes => Array.Empty<object>();
         public IEnumerable Prisms => Array.Empty<object>();
-        public IEnumerable LightSources => Array.Empty<object>();
-        public IEnumerable ProjectedLightSources => Array.Empty<object>();
-        public IEnumerable Rays => Array.Empty<object>();
         public IEnumerable HitResults => Array.Empty<object>();
     }
 

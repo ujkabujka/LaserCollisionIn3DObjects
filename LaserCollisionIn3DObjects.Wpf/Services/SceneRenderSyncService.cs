@@ -53,9 +53,7 @@ public sealed class SceneRenderSyncService
     /// </summary>
     public SceneSyncResult SyncScene(
         IReadOnlyList<PrismItemViewModel> prismItems,
-        IReadOnlyList<CylindricalLightSourceItemViewModel> lightSourceItems,
-        IReadOnlyList<RayItemViewModel> rayItems,
-        IReadOnlyList<ProjectedLightSourceItemViewModel> projectedLightSources,
+        CollisionSourceLibraryItemViewModel? assignedSource,
         IReadOnlyList<Point3> holePoints,
         IReadOnlyList<Point3> naturalPoints,
         string sceneName,
@@ -63,8 +61,8 @@ public sealed class SceneRenderSyncService
         CollisionAlgorithmOption algorithm)
     {
         var renderStopwatch = Stopwatch.StartNew();
-        Trace.WriteLine($"[CollisionRender] SyncScene started: prisms={prismItems.Count}, generatedSources={lightSourceItems.Count}, transferredSources={projectedLightSources.Count}, manualRays={rayItems.Count}, runCollision={runCollision}.");
-        var buildResult = BuildDomainScene(prismItems, lightSourceItems, rayItems, projectedLightSources, holePoints, naturalPoints);
+        Trace.WriteLine($"[CollisionRender] SyncScene started: prisms={prismItems.Count}, source={assignedSource?.Name ?? "none"}, runCollision={runCollision}.");
+        var buildResult = BuildDomainScene(prismItems, assignedSource, holePoints, naturalPoints);
         Trace.WriteLine($"[CollisionRender] BuildDomainScene completed in {renderStopwatch.ElapsedMilliseconds} ms.");
         var scene = buildResult.Scene;
         var stopwatch = System.Diagnostics.Stopwatch.StartNew();
@@ -88,26 +86,10 @@ public sealed class SceneRenderSyncService
             runCollision ? algorithm : null);
     }
 
-    public SceneSyncResult SyncScene(
-        IReadOnlyList<PrismItemViewModel> prisms,
-        CollisionSourceLibraryItemViewModel? assignedSource,
-        IReadOnlyList<Point3> holes,
-        IReadOnlyList<Point3> naturalPoints,
-        string sceneName,
-        bool runCollision,
-        CollisionAlgorithmOption algorithm) => SyncScene(
-            prisms,
-            assignedSource?.GeneratedSource is { } generated ? [generated] : [],
-            [],
-            assignedSource?.TransferredSource is { } transferred ? [transferred] : [],
-            holes, naturalPoints, sceneName, runCollision && assignedSource is not null, algorithm);
-
     /// <summary>Performs domain-only scene generation and intersections; no WPF visuals are touched.</summary>
     public CollisionComputation ComputeCollision(
         IReadOnlyList<PrismItemViewModel> prismItems,
-        IReadOnlyList<CylindricalLightSourceItemViewModel> lightSourceItems,
-        IReadOnlyList<RayItemViewModel> rayItems,
-        IReadOnlyList<ProjectedLightSourceItemViewModel> projectedLightSources,
+        CollisionSourceLibraryItemViewModel assignedSource,
         IReadOnlyList<Point3> holePoints,
         IReadOnlyList<Point3> naturalPoints,
         string sceneName,
@@ -116,27 +98,12 @@ public sealed class SceneRenderSyncService
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        var scene = BuildDomainScene(prismItems, lightSourceItems, rayItems, projectedLightSources, holePoints, naturalPoints).Scene;
+        var scene = BuildDomainScene(prismItems, assignedSource, holePoints, naturalPoints).Scene;
         var stopwatch = System.Diagnostics.Stopwatch.StartNew();
         var hits = CalculateFirstHits(scene, algorithm, progress, cancellationToken);
         stopwatch.Stop();
         return new CollisionComputation(scene, hits, sceneName, stopwatch.Elapsed, algorithm, BuildPanelAnalysis(sceneName, scene, hits));
     }
-
-    public CollisionComputation ComputeCollision(
-        IReadOnlyList<PrismItemViewModel> prisms,
-        CollisionSourceLibraryItemViewModel assignedSource,
-        IReadOnlyList<Point3> holes,
-        IReadOnlyList<Point3> naturalPoints,
-        string sceneName,
-        CollisionAlgorithmOption algorithm,
-        IProgress<(int Processed, int Total)>? progress = null,
-        CancellationToken cancellationToken = default) => ComputeCollision(
-            prisms,
-            assignedSource.GeneratedSource is { } generated ? [generated] : [],
-            [],
-            assignedSource.TransferredSource is { } transferred ? [transferred] : [],
-            holes, naturalPoints, sceneName, algorithm, progress, cancellationToken);
 
     /// <summary>Publishes a completed computation to Helix on the UI thread.</summary>
     public SceneSyncResult RenderCollision(CollisionComputation computation, CollisionSceneVisualOptions? options = null)
@@ -153,9 +120,7 @@ public sealed class SceneRenderSyncService
 
     private SceneBuildResult BuildDomainScene(
         IReadOnlyList<PrismItemViewModel> prisms,
-        IReadOnlyList<CylindricalLightSourceItemViewModel> lightSources,
-        IReadOnlyList<RayItemViewModel> rays,
-        IReadOnlyList<ProjectedLightSourceItemViewModel> projectedLightSources,
+        CollisionSourceLibraryItemViewModel? assignedSource,
         IReadOnlyList<Point3> holePoints,
         IReadOnlyList<Point3> naturalPoints)
     {
@@ -166,7 +131,7 @@ public sealed class SceneRenderSyncService
             scene.RectangularPrisms.Add(PrismGeometryConverter.CreateDomainPrism(prism));
         }
 
-        foreach (var lightSource in lightSources)
+        if (assignedSource?.GeneratedSource is { } lightSource)
         {
             var orientation = FrameOrientationBuilder.ApplyLocalEulerDegrees(
                 lightSource.BaseOrientation,
@@ -225,7 +190,7 @@ public sealed class SceneRenderSyncService
         }
 
 
-        foreach (var projectedSource in projectedLightSources)
+        if (assignedSource?.TransferredSource is { } projectedSource)
         {
             var frame = BuildFrame(projectedSource.SourceFrame, projectedSource.BaseOrientation);
             var profile = projectedSource.ProfileDefinition.BuildProfile();
@@ -253,15 +218,6 @@ public sealed class SceneRenderSyncService
                 scene.Rays.Add(exactRay);
                 scene.CollisionRayInputs.Add(new SceneModel.CollisionRayInput(exactRay, sourceType, projectedSource.Name));
             }
-        }
-
-        foreach (var ray in rays)
-        {
-            var domainRay = new DomainRay3D(
-                    new Vector3(ray.OriginX, ray.OriginY, ray.OriginZ),
-                    new Vector3(ray.DirectionX, ray.DirectionY, ray.DirectionZ));
-            scene.Rays.Add(domainRay);
-            scene.CollisionRayInputs.Add(new SceneModel.CollisionRayInput(domainRay, CollisionRaySourceType.Manual, "Manual Ray"));
         }
 
         foreach (var hole in holePoints)
