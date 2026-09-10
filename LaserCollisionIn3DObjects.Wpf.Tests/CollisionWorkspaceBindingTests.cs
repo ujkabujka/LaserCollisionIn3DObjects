@@ -5,6 +5,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Threading;
+using LaserCollisionIn3DObjects.Wpf.Converters;
 using LaserCollisionIn3DObjects.Wpf.Views;
 using Xunit;
 
@@ -12,6 +13,17 @@ namespace LaserCollisionIn3DObjects.Wpf.Tests;
 
 public sealed class CollisionWorkspaceBindingTests
 {
+    [Fact]
+    public void CollisionWorkspace_LoadsWithLocalNumericConverterResource()
+    {
+        StaTest.Run(() =>
+        {
+            var view = new CollisionWorkspaceView();
+
+            Assert.IsType<FlexibleNumericConverter>(view.Resources["FlexibleNumericConverter"]);
+        });
+    }
+
     [Fact]
     public void CollisionProgressBinding_IsOneWay_ForReadOnlyProgressProperty()
     {
