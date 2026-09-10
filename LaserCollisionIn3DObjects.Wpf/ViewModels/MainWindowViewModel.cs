@@ -201,7 +201,13 @@ public sealed class MainWindowViewModel : ObservableObject
         NewSceneName = $"Scene {Scenes.Count + 1}";
     }
 
-    public string Title => "Laser Collision in 3D Objects";
+    public string Title => "UJK Colision";
+
+    public void RequestShutdown()
+    {
+        Trace.WriteLine("[Shutdown] Collision cancellation requested.");
+        RaiseCanExecuteChanges();
+    }
 
     public AnnotationWorkspaceViewModel AnnotationWorkspace { get; }
     public ProjectionWorkspaceViewModel ProjectionWorkspace { get; }
@@ -1021,6 +1027,8 @@ public sealed class MainWindowViewModel : ObservableObject
 
     private async Task RunCollisionAsync()
     {
+        var cancellationToken = (Application.Current as App)?.Lifetime.Token ?? CancellationToken.None;
+        if (cancellationToken.IsCancellationRequested) return;
         if (SelectedScene is null)
         {
             SetStatus("Create or select a scene first.", ApplicationLogLevel.Warning);
@@ -1052,7 +1060,8 @@ public sealed class MainWindowViewModel : ObservableObject
                 CollisionProgressPercent = value.Total == 0 ? 100 : 100d * value.Processed / value.Total;
                 CollisionProgressMessage = $"Checking collisions — {value.Processed} / {value.Total} rays ({CollisionProgressPercent:F0}%)";
             });
-            var computation = await Task.Run(() => _renderSyncService.ComputeCollision(prisms, sources, rays, transferred, holes, natural, sceneName, algorithm, progress));
+            var computation = await Task.Run(() => _renderSyncService.ComputeCollision(prisms, sources, rays, transferred, holes, natural, sceneName, algorithm, progress, cancellationToken), cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
             CollisionProgressMessage = "Preparing collision results and updating 3D scene...";
             var result = _renderSyncService.RenderCollision(computation);
             scene.PublishCollisionResults(result.HitRows, result.HitPointRecords, result.PanelAnalysis);
@@ -1063,6 +1072,7 @@ public sealed class MainWindowViewModel : ObservableObject
             CollisionProgressIsIndeterminate = false; CollisionProgressPercent = 100;
             SetStatus($"Collision run complete ({algorithm}) in {LastCollisionDurationMs} ms. Hits: {result.HitRows.Count(r => r.HasHit)}/{result.HitRows.Count}.", ApplicationLogLevel.Success);
         }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { Trace.WriteLine("[Shutdown] Collision stopped."); }
         catch (Exception ex) { SetStatus($"Collision failed: {ex.Message}", ApplicationLogLevel.Warning, ex); }
         finally { IsCollisionBusy = false; IsCollisionProgressVisible = false; RaiseCanExecuteChanges(); }
     }
@@ -1581,7 +1591,7 @@ public sealed class MainWindowViewModel : ObservableObject
     {
         var dialog = new SaveFileDialog
         {
-            Filter = "Laser Collision Project (*.lc3d.json)|*.lc3d.json|JSON (*.json)|*.json",
+            Filter = "UJK Colision Project (*.lc3d.json)|*.lc3d.json|JSON (*.json)|*.json",
             FileName = "project.lc3d.json",
         };
 
@@ -1606,7 +1616,7 @@ public sealed class MainWindowViewModel : ObservableObject
     {
         var dialog = new OpenFileDialog
         {
-            Filter = "Laser Collision Project (*.lc3d.json)|*.lc3d.json|JSON (*.json)|*.json",
+            Filter = "UJK Colision Project (*.lc3d.json)|*.lc3d.json|JSON (*.json)|*.json",
         };
 
         if (dialog.ShowDialog() != true)

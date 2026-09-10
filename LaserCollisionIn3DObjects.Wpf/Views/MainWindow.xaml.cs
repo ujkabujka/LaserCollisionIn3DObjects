@@ -20,11 +20,21 @@ public partial class MainWindow : Window
         DataContext = _viewModel;
         Trace.WriteLine("[Startup] DataContext assigned.");
         Loaded += OnMainWindowLoaded;
+        Closing += OnMainWindowClosing;
     }
 
     private void OnMainWindowLoaded(object sender, RoutedEventArgs e)
     {
         Trace.WriteLine("[Startup] MainWindow Loaded.");
         _viewModel.InitializeViewport();
+    }
+
+    private void OnMainWindowClosing(object? sender, System.ComponentModel.CancelEventArgs e)
+    {
+        Trace.WriteLine("[Shutdown] MainWindow closing.");
+        (Application.Current as App)?.Lifetime.RequestShutdown();
+        _viewModel.RequestShutdown();
+        Loaded -= OnMainWindowLoaded;
+        Closing -= OnMainWindowClosing;
     }
 }

@@ -164,6 +164,8 @@ public sealed class SourceCompletionWorkspaceViewModel : ObservableObject
 
     private async Task AnalyzeCoverageAsync()
     {
+        var cancellationToken = (System.Windows.Application.Current as App)?.Lifetime.Token ?? CancellationToken.None;
+        if (cancellationToken.IsCancellationRequested) return;
         if (SelectedProjectedSource is null || SelectedProjectedSource.Rays.Count == 0 || GapThresholdDegrees <= 0d)
         {
             StatusMessage = SelectedProjectedSource is null
@@ -179,7 +181,8 @@ public sealed class SourceCompletionWorkspaceViewModel : ObservableObject
         BeginBusy("Analyzing source coverage...");
         try
         {
-        var (coverage, gaps) = await Task.Run(() => (_azimuthAnalyzer.DetectCoverage(request, threshold), _azimuthAnalyzer.DetectGaps(request, threshold)));
+        var (coverage, gaps) = await Task.Run(() => { cancellationToken.ThrowIfCancellationRequested(); return (_azimuthAnalyzer.DetectCoverage(request, threshold), _azimuthAnalyzer.DetectGaps(request, threshold)); }, cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
 
         CoverageIntervals.Clear();
         foreach (var interval in coverage)
@@ -197,12 +200,15 @@ public sealed class SourceCompletionWorkspaceViewModel : ObservableObject
         CompletionSummary = "Coverage analysis complete.";
         _applicationLogService?.LogInfo(StatusMessage, nameof(SourceCompletionWorkspaceViewModel));
         }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { }
         catch (Exception ex) { StatusMessage = $"Coverage analysis failed: {ex.Message}"; _applicationLogService?.LogError(StatusMessage, ex, nameof(SourceCompletionWorkspaceViewModel)); }
         finally { EndBusy(); }
     }
 
     private async Task GenerateCompletedSourceAsync()
     {
+        var cancellationToken = (System.Windows.Application.Current as App)?.Lifetime.Token ?? CancellationToken.None;
+        if (cancellationToken.IsCancellationRequested) return;
         if (SelectedProjectedSource is null || SelectedProjectedSource.Rays.Count == 0 || AngularStepDegrees <= 0d || GapThresholdDegrees <= 0d)
         {
             StatusMessage = SelectedProjectedSource is null
@@ -234,7 +240,8 @@ public sealed class SourceCompletionWorkspaceViewModel : ObservableObject
         BeginBusy("Generating synthetic rays...");
         try
         {
-        LastCompletionResult = await Task.Run(() => _completionService.Complete(request, settings));
+        LastCompletionResult = await Task.Run(() => { cancellationToken.ThrowIfCancellationRequested(); return _completionService.Complete(request, settings); }, cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
         var synthetic = LastCompletionResult.Rays.Skip(Math.Min(LastCompletionResult.OriginalRayCount, LastCompletionResult.Rays.Count)).ToList();
         var item = new CompletedSourceItem
         {
@@ -267,6 +274,7 @@ public sealed class SourceCompletionWorkspaceViewModel : ObservableObject
         StatusMessage = "Completed source generated. Review and add to a collision scene when ready.";
         RefreshPreview();
         }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { }
         catch (Exception ex) { StatusMessage = $"Source completion failed: {ex.Message}"; _applicationLogService?.LogError(StatusMessage, ex, nameof(SourceCompletionWorkspaceViewModel)); }
         finally { EndBusy(); }
     }

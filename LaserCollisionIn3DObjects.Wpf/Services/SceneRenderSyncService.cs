@@ -98,11 +98,13 @@ public sealed class SceneRenderSyncService
         IReadOnlyList<Point3> naturalPoints,
         string sceneName,
         CollisionAlgorithmOption algorithm,
-        IProgress<(int Processed, int Total)>? progress = null)
+        IProgress<(int Processed, int Total)>? progress = null,
+        CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         var scene = BuildDomainScene(prismItems, lightSourceItems, rayItems, projectedLightSources, holePoints, naturalPoints).Scene;
         var stopwatch = System.Diagnostics.Stopwatch.StartNew();
-        var hits = CalculateFirstHits(scene, algorithm, progress);
+        var hits = CalculateFirstHits(scene, algorithm, progress, cancellationToken);
         stopwatch.Stop();
         return new CollisionComputation(scene, hits, sceneName, stopwatch.Elapsed, algorithm, BuildPanelAnalysis(sceneName, scene, hits));
     }
@@ -242,21 +244,22 @@ public sealed class SceneRenderSyncService
         return new SceneBuildResult(scene);
     }
 
-    private static List<(DomainRay3D Ray, RayHitResult Hit)> CalculateFirstHits(SceneModel scene, CollisionAlgorithmOption algorithm, IProgress<(int Processed, int Total)>? progress = null)
+    private static List<(DomainRay3D Ray, RayHitResult Hit)> CalculateFirstHits(SceneModel scene, CollisionAlgorithmOption algorithm, IProgress<(int Processed, int Total)>? progress = null, CancellationToken cancellationToken = default)
     {
         return algorithm switch
         {
-            CollisionAlgorithmOption.ClosestHitParallel => CalculateFirstHitsParallel(scene, progress),
-            _ => CalculateFirstHitsSequential(scene, progress),
+            CollisionAlgorithmOption.ClosestHitParallel => CalculateFirstHitsParallel(scene, progress, cancellationToken),
+            _ => CalculateFirstHitsSequential(scene, progress, cancellationToken),
         };
     }
 
-    private static List<(DomainRay3D Ray, RayHitResult Hit)> CalculateFirstHitsSequential(SceneModel scene, IProgress<(int Processed, int Total)>? progress = null)
+    private static List<(DomainRay3D Ray, RayHitResult Hit)> CalculateFirstHitsSequential(SceneModel scene, IProgress<(int Processed, int Total)>? progress, CancellationToken cancellationToken)
     {
         var results = new List<(DomainRay3D Ray, RayHitResult Hit)>(scene.Rays.Count);
 
         for (var rayIndex = 0; rayIndex < scene.Rays.Count; rayIndex++)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             var ray = scene.Rays[rayIndex];
             var closestHit = RayHitResult.NoHit;
 
@@ -314,12 +317,12 @@ public sealed class SceneRenderSyncService
             _ => throw new ArgumentOutOfRangeException(nameof(lightSource.SourceKind), "Unsupported axisymmetric source kind."),
         };
     }
-    private static List<(DomainRay3D Ray, RayHitResult Hit)> CalculateFirstHitsParallel(SceneModel scene, IProgress<(int Processed, int Total)>? progress = null)
+    private static List<(DomainRay3D Ray, RayHitResult Hit)> CalculateFirstHitsParallel(SceneModel scene, IProgress<(int Processed, int Total)>? progress, CancellationToken cancellationToken)
     {
         var results = new (DomainRay3D Ray, RayHitResult Hit)[scene.Rays.Count];
 
         var processed = 0;
-        Parallel.For(0, scene.Rays.Count, i =>
+        Parallel.For(0, scene.Rays.Count, new ParallelOptions { CancellationToken = cancellationToken }, i =>
         {
             var ray = scene.Rays[i];
             var closestHit = RayHitResult.NoHit;

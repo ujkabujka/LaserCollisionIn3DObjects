@@ -30,8 +30,8 @@
                         <DataGrid Grid.Row="1" ItemsSource="{Binding SelectedScene.SelectedPanelResult.Hits, Mode=OneWay}" AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True">
                             <DataGrid.Columns>
                                 <DataGridTextColumn Header="#" Binding="{Binding PanelHitIndex, Mode=OneWay}" Width="45"/>
-                                <DataGridTextColumn Header="Local Y" Binding="{Binding LocalY, StringFormat=F3, Mode=OneWay}" Width="90"/>
-                                <DataGridTextColumn Header="Local Z" Binding="{Binding LocalZ, StringFormat=F3, Mode=OneWay}" Width="90"/>
+                                <DataGridTextColumn Header="Local Y (m)" Binding="{Binding LocalY, StringFormat=F3, Mode=OneWay}" Width="90"/>
+                                <DataGridTextColumn Header="Local Z (m)" Binding="{Binding LocalZ, StringFormat=F3, Mode=OneWay}" Width="90"/>
                                 <DataGridTextColumn Header="Source Type" Binding="{Binding SourceType, Mode=OneWay}" Width="180"/>
                                 <DataGridTextColumn Header="Source Name" Binding="{Binding SourceName, Mode=OneWay}" Width="*"/>
                             </DataGrid.Columns>
