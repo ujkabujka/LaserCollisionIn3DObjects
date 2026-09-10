@@ -562,6 +562,8 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
 
     private async Task RunProjectionAsync()
     {
+        var cancellationToken = (System.Windows.Application.Current as App)?.Lifetime.Token ?? CancellationToken.None;
+        if (cancellationToken.IsCancellationRequested) return;
         var scene = SelectedScene;
         if (scene is null)
         {
@@ -617,6 +619,7 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
             Parameters = BuildParameters(method),
             Progress = new Progress<ProjectionProgress>(report =>
             {
+                if (cancellationToken.IsCancellationRequested) return;
                 if (report.Percent is not null)
                 {
                     ProjectionProgressPercent = Math.Clamp(report.Percent.Value, 0d, 100d);
@@ -645,7 +648,8 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
 
         try
         {
-            var result = await Task.Run(() => method.Execute(request));
+            var result = await Task.Run(() => { cancellationToken.ThrowIfCancellationRequested(); return method.Execute(request); }, cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
             var namedResult = SceneProjectionStateUpdater.SaveResult(scene.ProjectionState, resultName, result);
             NewResultName = $"Projection Result {scene.ProjectionState.SavedResults.Count + 1}";
             scene.ProjectionState.SelectedMethodId = methodOption.Id;
@@ -657,6 +661,10 @@ public sealed class ProjectionWorkspaceViewModel : ObservableObject
                 ApplicationLogLevel.Success);
             LogProjectionSummary(result);
             _applicationLogService?.LogSuccess("Projection run completed.", nameof(ProjectionWorkspaceViewModel));
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            _applicationLogService?.LogInfo("Projection stopped during application shutdown.", nameof(ProjectionWorkspaceViewModel));
         }
         catch (Exception ex)
         {

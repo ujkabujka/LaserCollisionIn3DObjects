@@ -7,6 +7,7 @@ namespace LaserCollisionIn3DObjects.Wpf;
 public partial class App : System.Windows.Application
 {
     public ApplicationLogService AppLog { get; } = new();
+    public ApplicationLifetime Lifetime { get; } = new();
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -19,10 +20,14 @@ public partial class App : System.Windows.Application
 
     protected override void OnExit(ExitEventArgs e)
     {
+        Trace.WriteLine("[Shutdown] App.OnExit entered.");
+        Lifetime.RequestShutdown();
         DispatcherUnhandledException -= OnDispatcherUnhandledException;
         AppDomain.CurrentDomain.UnhandledException -= OnCurrentDomainUnhandledException;
         TaskScheduler.UnobservedTaskException -= OnUnobservedTaskException;
         base.OnExit(e);
+        Lifetime.Dispose();
+        Trace.WriteLine("[Shutdown] App.OnExit completed.");
     }
 
     private void OnDispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
