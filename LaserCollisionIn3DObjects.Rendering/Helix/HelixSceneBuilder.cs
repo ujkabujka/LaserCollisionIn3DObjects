@@ -27,9 +27,11 @@ public sealed class HelixSceneBuilder
     public IReadOnlyList<Visual3D> BuildVisuals(
         SceneModel scene,
         IReadOnlyDictionary<Ray3D, RayHitResult>? hitResults = null,
-        float defaultRayLength = 25f)
+        float defaultRayLength = 25f,
+        CollisionSceneVisualOptions? options = null)
     {
         ArgumentNullException.ThrowIfNull(scene);
+        options ??= new CollisionSceneVisualOptions();
 
         var visuals = new List<Visual3D>();
         var generatedRayLookup = scene.GeneratedRays.Count > 0 ? new HashSet<Ray3D>(scene.GeneratedRays) : null;
@@ -94,12 +96,12 @@ public sealed class HelixSceneBuilder
             }
         }
 
-        if(hitResultList.Count > 0)
+        if(options.ShowCollisionHitPoints && hitResultList.Count > 0)
         {
             visuals.Add(_rayVisualizer.CreateHitPoints(hitResultList, color: Colors.Red));
         }
 
-        if (raySegments.Count > 0)
+        if (options.ShowCollisionRays && raySegments.Count > 0)
         {
             visuals.Add(_rayVisualizer.CreateRayLines(raySegments, color: Colors.OrangeRed));
         }

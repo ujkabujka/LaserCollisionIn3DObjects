@@ -148,6 +148,8 @@ public sealed class ProjectPersistenceCoordinator
         {
             Name = scene.Name,
             IsProjectionOnly = scene.IsProjectionOnly,
+            ShowCollisionRays = scene.ShowCollisionRays,
+            ShowCollisionHitPoints = scene.ShowCollisionHitPoints,
             Prisms = scene.Prisms.Select(prism => new PrismState
             {
                 Name = prism.Name,
@@ -373,6 +375,8 @@ public sealed class ProjectPersistenceCoordinator
     {
         var scene = new CollisionSceneViewModel(sceneState.Name);
         scene.IsProjectionOnly = sceneState.IsProjectionOnly;
+        scene.ShowCollisionRays = sceneState.ShowCollisionRays;
+        scene.ShowCollisionHitPoints = sceneState.ShowCollisionHitPoints;
 
         foreach (var prism in sceneState.Prisms)
         {

@@ -12,6 +12,8 @@ public sealed class SceneCollectionService : ObservableObject
     public event EventHandler? SceneContentChanged;
     private CollisionSceneViewModel? _selectedScene;
 
+    public SceneCollectionService() => Scenes.CollectionChanged += (_, _) => UpdateSceneOrdinals();
+
     public ObservableCollection<CollisionSceneViewModel> Scenes { get; } = new();
     public ObservableCollection<CollisionSourceLibraryItemViewModel> AvailableSources { get; } = new();
 
@@ -65,6 +67,12 @@ public sealed class SceneCollectionService : ObservableObject
     }
 
     public void NotifySceneContentChanged() => SceneContentChanged?.Invoke(this, EventArgs.Empty);
+
+    private void UpdateSceneOrdinals()
+    {
+        var ordinal = 1;
+        foreach (var scene in Scenes.Where(scene => !scene.IsProjectionOnly)) scene.SceneOrdinal = ordinal++;
+    }
 
     public bool RemoveScene(CollisionSceneViewModel scene)
     {

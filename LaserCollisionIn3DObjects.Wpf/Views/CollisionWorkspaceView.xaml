@@ -198,13 +198,23 @@
 
         <TabControl Grid.Column="1">
           <TabItem Header="Scene View">
-            <h:HelixViewport3D x:Name="Viewport" ShowCoordinateSystem="True" ShowViewCube="True" ZoomExtentsWhenLoaded="True">
+            <Grid>
+              <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+              <Border Padding="8,5" Background="#F8FAFC" BorderBrush="#E5E7EB" BorderThickness="0,0,0,1">
+                <StackPanel Orientation="Horizontal">
+                  <TextBlock Text="Display:" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                  <CheckBox Content="Collision Rays" IsChecked="{Binding SelectedScene.ShowCollisionRays, Mode=TwoWay}" Margin="0,0,14,0"/>
+                  <CheckBox Content="Collision Hit Points" IsChecked="{Binding SelectedScene.ShowCollisionHitPoints, Mode=TwoWay}"/>
+                </StackPanel>
+              </Border>
+            <h:HelixViewport3D Grid.Row="1" x:Name="Viewport" ShowCoordinateSystem="True" ShowViewCube="True" ZoomExtentsWhenLoaded="True">
                 <h:HelixViewport3D.Camera>
                     <PerspectiveCamera Position="0,-30,30" LookDirection="0,30,-30" UpDirection="0,0,1" FieldOfView="45" />
                 </h:HelixViewport3D.Camera>
                 <h:SunLight />
                 <h:GridLinesVisual3D Width="120" Length="120" MinorDistance="5" MajorDistance="10" />
             </h:HelixViewport3D>
+            </Grid>
           </TabItem>
           <TabItem Header="Collision Results"><views:CollisionResultsView/></TabItem>
         </TabControl>

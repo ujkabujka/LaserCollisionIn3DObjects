@@ -22,6 +22,7 @@ using LaserCollisionIn3DObjects.Domain.Projection;
 using LaserCollisionIn3DObjects.Domain.Scene;
 using System.Diagnostics;
 using OxyPlot.Wpf;
+using LaserCollisionIn3DObjects.Rendering.Helix;
 
 namespace LaserCollisionIn3DObjects.Wpf.ViewModels;
 
@@ -1023,7 +1024,8 @@ public sealed class MainWindowViewModel : ObservableObject
             var computation = await Task.Run(() => _renderSyncService.ComputeCollision(prisms, assignedSource, holes, natural, sceneName, algorithm, progress, cancellationToken), cancellationToken);
             cancellationToken.ThrowIfCancellationRequested();
             CollisionProgressMessage = "Preparing collision results and updating 3D scene...";
-            var result = _renderSyncService.RenderCollision(computation);
+            scene.LastCollisionComputation = computation;
+            var result = _renderSyncService.RenderCollision(computation, new CollisionSceneVisualOptions(scene.ShowCollisionRays, scene.ShowCollisionHitPoints));
             scene.PublishCollisionResults(result.HitRows, result.HitPointRecords, result.PanelAnalysis);
             RaisePropertyChanged(nameof(HitResults));
             LastCollisionDurationMs = $"{result.CollisionDuration.TotalMilliseconds:F3}";
@@ -1479,6 +1481,7 @@ public sealed class MainWindowViewModel : ObservableObject
 
         if (_subscribedScene is not null)
         {
+            _subscribedScene.PropertyChanged -= OnSelectedScenePropertyChanged;
             _subscribedScene.LightSources.CollectionChanged -= OnSceneLightSourcesCollectionChanged;
             _subscribedScene.ProjectedLightSources.CollectionChanged -= OnSceneProjectedLightSourcesCollectionChanged;
         }
@@ -1487,9 +1490,21 @@ public sealed class MainWindowViewModel : ObservableObject
 
         if (_subscribedScene is not null)
         {
+            _subscribedScene.PropertyChanged += OnSelectedScenePropertyChanged;
             _subscribedScene.LightSources.CollectionChanged += OnSceneLightSourcesCollectionChanged;
             _subscribedScene.ProjectedLightSources.CollectionChanged += OnSceneProjectedLightSourcesCollectionChanged;
         }
+    }
+
+    private void OnSelectedScenePropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (sender is not CollisionSceneViewModel scene ||
+            e.PropertyName is not (nameof(CollisionSceneViewModel.ShowCollisionRays) or nameof(CollisionSceneViewModel.ShowCollisionHitPoints))) return;
+
+        if (scene.LastCollisionComputation is { } computation)
+            _renderSyncService.RenderCollision(computation, new CollisionSceneVisualOptions(scene.ShowCollisionRays, scene.ShowCollisionHitPoints));
+        else
+            RefreshViewport(false);
     }
 
     private void OnSceneLightSourcesCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
@@ -1507,7 +1522,10 @@ public sealed class MainWindowViewModel : ObservableObject
         if (e.PropertyName == nameof(SceneCollectionService.SelectedScene))
         {
             RefreshSceneBindings();
-            RefreshViewport(false);
+            if (SelectedScene?.LastCollisionComputation is { } computation)
+                _renderSyncService.RenderCollision(computation, new CollisionSceneVisualOptions(SelectedScene.ShowCollisionRays, SelectedScene.ShowCollisionHitPoints));
+            else
+                RefreshViewport(false);
         }
     }
 

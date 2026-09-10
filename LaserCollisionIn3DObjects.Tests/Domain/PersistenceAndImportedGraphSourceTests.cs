@@ -27,6 +27,28 @@ public sealed class PersistenceAndImportedGraphSourceTests
     }
 
     [Fact]
+    public void OldSceneDisplayOptionsDefaultToVisibleAndRoundTripIndependently()
+    {
+        var path = Path.GetTempFileName();
+        try
+        {
+            File.WriteAllText(path, "{\"schemaVersion\":1,\"scenes\":[{\"name\":\"old\"}]}");
+            var oldScene = Assert.Single(new JsonStateFileService().LoadProject(path).Scenes);
+            Assert.True(oldScene.ShowCollisionRays);
+            Assert.True(oldScene.ShowCollisionHitPoints);
+
+            var state = new ProjectState { Scenes = [new SceneState { Name = "one", ShowCollisionRays = false, ShowCollisionHitPoints = true }, new SceneState { Name = "two", ShowCollisionRays = true, ShowCollisionHitPoints = false }] };
+            new JsonStateFileService().SaveProject(path, state);
+            var scenes = new JsonStateFileService().LoadProject(path).Scenes;
+            Assert.False(scenes[0].ShowCollisionRays);
+            Assert.True(scenes[0].ShowCollisionHitPoints);
+            Assert.True(scenes[1].ShowCollisionRays);
+            Assert.False(scenes[1].ShowCollisionHitPoints);
+        }
+        finally { File.Delete(path); }
+    }
+
+    [Fact]
     public void GraphicMasterDataRoundTripsWithoutOriginalFile()
     {
         var path = Path.GetTempFileName();
