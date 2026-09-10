@@ -19,9 +19,6 @@ public sealed class CollisionSceneViewModel : ObservableObject
 {
     private string _name;
     private PrismItemViewModel? _selectedPrism;
-    private RayItemViewModel? _selectedRay;
-    private CylindricalLightSourceItemViewModel? _selectedLightSource;
-    private ProjectedLightSourceItemViewModel? _selectedProjectedLightSource;
     private bool _isProjectionOnly;
     private PanelCollisionResult? _selectedPanelResult;
     private PlotModel? _panelPlotModel;
@@ -33,9 +30,6 @@ public sealed class CollisionSceneViewModel : ObservableObject
     {
         _name = name;
         Prisms.CollectionChanged += (_, _) => InvalidateCollisionResults();
-        Rays.CollectionChanged += (_, _) => InvalidateCollisionResults();
-        LightSources.CollectionChanged += (_, _) => InvalidateCollisionResults();
-        ProjectedLightSources.CollectionChanged += (_, _) => InvalidateCollisionResults();
     }
 
     public string Name
@@ -50,9 +44,6 @@ public sealed class CollisionSceneViewModel : ObservableObject
     internal SceneRenderSyncService.CollisionComputation? LastCollisionComputation { get; set; }
 
     public ObservableCollection<PrismItemViewModel> Prisms { get; } = new();
-    public ObservableCollection<RayItemViewModel> Rays { get; } = new();
-    public ObservableCollection<CylindricalLightSourceItemViewModel> LightSources { get; } = new();
-    public ObservableCollection<ProjectedLightSourceItemViewModel> ProjectedLightSources { get; } = new();
     public CollisionSourceLibraryItemViewModel? AssignedSource
     {
         get => _assignedSource;
@@ -62,13 +53,7 @@ public sealed class CollisionSceneViewModel : ObservableObject
     /// <summary>Replaces the sole scene source with a deep, scene-owned snapshot.</summary>
     public void AssignSource(CollisionSourceLibraryItemViewModel? definition)
     {
-        LightSources.Clear();
-        ProjectedLightSources.Clear();
         AssignedSource = definition?.DeepClone();
-        if (AssignedSource?.GeneratedSource is { } generated) LightSources.Add(generated);
-        if (AssignedSource?.TransferredSource is { } transferred) ProjectedLightSources.Add(transferred);
-        SelectedLightSource = AssignedSource?.GeneratedSource;
-        SelectedProjectedLightSource = AssignedSource?.TransferredSource;
         InvalidateCollisionResults();
     }
     public ObservableCollection<HitResultItemViewModel> HitResults { get; } = new();
@@ -146,24 +131,6 @@ public sealed class CollisionSceneViewModel : ObservableObject
     {
         get => _selectedPrism;
         set => SetProperty(ref _selectedPrism, value);
-    }
-
-    public RayItemViewModel? SelectedRay
-    {
-        get => _selectedRay;
-        set => SetProperty(ref _selectedRay, value);
-    }
-
-    public CylindricalLightSourceItemViewModel? SelectedLightSource
-    {
-        get => _selectedLightSource;
-        set => SetProperty(ref _selectedLightSource, value);
-    }
-
-    public ProjectedLightSourceItemViewModel? SelectedProjectedLightSource
-    {
-        get => _selectedProjectedLightSource;
-        set => SetProperty(ref _selectedProjectedLightSource, value);
     }
 
 }
