@@ -88,6 +88,20 @@ public sealed class SceneRenderSyncService
             runCollision ? algorithm : null);
     }
 
+    public SceneSyncResult SyncScene(
+        IReadOnlyList<PrismItemViewModel> prisms,
+        CollisionSourceLibraryItemViewModel? assignedSource,
+        IReadOnlyList<Point3> holes,
+        IReadOnlyList<Point3> naturalPoints,
+        string sceneName,
+        bool runCollision,
+        CollisionAlgorithmOption algorithm) => SyncScene(
+            prisms,
+            assignedSource?.GeneratedSource is { } generated ? [generated] : [],
+            [],
+            assignedSource?.TransferredSource is { } transferred ? [transferred] : [],
+            holes, naturalPoints, sceneName, runCollision && assignedSource is not null, algorithm);
+
     /// <summary>Performs domain-only scene generation and intersections; no WPF visuals are touched.</summary>
     public CollisionComputation ComputeCollision(
         IReadOnlyList<PrismItemViewModel> prismItems,
@@ -108,6 +122,21 @@ public sealed class SceneRenderSyncService
         stopwatch.Stop();
         return new CollisionComputation(scene, hits, sceneName, stopwatch.Elapsed, algorithm, BuildPanelAnalysis(sceneName, scene, hits));
     }
+
+    public CollisionComputation ComputeCollision(
+        IReadOnlyList<PrismItemViewModel> prisms,
+        CollisionSourceLibraryItemViewModel assignedSource,
+        IReadOnlyList<Point3> holes,
+        IReadOnlyList<Point3> naturalPoints,
+        string sceneName,
+        CollisionAlgorithmOption algorithm,
+        IProgress<(int Processed, int Total)>? progress = null,
+        CancellationToken cancellationToken = default) => ComputeCollision(
+            prisms,
+            assignedSource.GeneratedSource is { } generated ? [generated] : [],
+            [],
+            assignedSource.TransferredSource is { } transferred ? [transferred] : [],
+            holes, naturalPoints, sceneName, algorithm, progress, cancellationToken);
 
     /// <summary>Publishes a completed computation to Helix on the UI thread.</summary>
     public SceneSyncResult RenderCollision(CollisionComputation computation)

@@ -58,4 +58,17 @@ public sealed class ProjectedLightSourceItemViewModel : ObservableObject
 
     public NumericsQuaternion BaseOrientation { get; set; } = NumericsQuaternion.Identity;
     public ProjectedLightSourceOriginKind OriginKind { get; set; } = ProjectedLightSourceOriginKind.ProjectionResult;
+
+    public ProjectedLightSourceItemViewModel DeepClone()
+    {
+        var clone = new ProjectedLightSourceItemViewModel
+        {
+            Name = Name, ProfileDefinition = ProfileDefinition with { },
+            SourceFrame = new PointSourceFrameState { Origin = SourceFrame.Origin, AxisX = SourceFrame.AxisX, AxisY = SourceFrame.AxisY, AxisZ = SourceFrame.AxisZ },
+            BaseOrientation = BaseOrientation, OriginKind = OriginKind,
+        };
+        foreach (var ray in Rays) clone.Rays.Add(ray);
+        foreach (var ray in ExactRays) clone.ExactRays.Add(ray);
+        return clone;
+    }
 }

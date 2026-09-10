@@ -27,6 +27,7 @@ public sealed class ProjectPersistenceCoordinator
             CollisionWorkspace = new CollisionWorkspaceState { SelectedSceneName = selectedCollisionScene?.Name },
             ProjectionWorkspace = projectionWorkspace.ExportWorkspaceState(),
             AnnotationWorkspace = annotationWorkspace.ExportWorkspaceState(),
+            AvailableSources = sceneCollectionService.AvailableSources.Select(MapCollisionSource).ToList(),
         };
 
         _jsonService.SaveProject(filePath, state);
@@ -41,9 +42,10 @@ public sealed class ProjectPersistenceCoordinator
         var state = _jsonService.LoadProject(filePath);
 
         sceneCollectionService.Scenes.Clear();
+        RestoreLibrary(state, sceneCollectionService);
         foreach (var sceneState in state.Scenes)
         {
-            sceneCollectionService.AddScene(MapScene(sceneState), selectScene: false);
+            sceneCollectionService.AddScene(MapScene(sceneState, sceneCollectionService), selectScene: false);
         }
 
         sceneCollectionService.SelectedScene = sceneCollectionService.Scenes
@@ -60,6 +62,7 @@ public sealed class ProjectPersistenceCoordinator
         {
             Scenes = sceneCollectionService.Scenes.Select(MapScene).ToList(),
             CollisionWorkspace = new CollisionWorkspaceState { SelectedSceneName = selectedScene?.Name },
+            AvailableSources = sceneCollectionService.AvailableSources.Select(MapCollisionSource).ToList(),
         };
 
         _jsonService.SaveProject(filePath, state);
@@ -69,9 +72,10 @@ public sealed class ProjectPersistenceCoordinator
     {
         var state = _jsonService.LoadProject(filePath);
         sceneCollectionService.Scenes.Clear();
+        RestoreLibrary(state, sceneCollectionService);
         foreach (var sceneState in state.Scenes)
         {
-            sceneCollectionService.AddScene(MapScene(sceneState), selectScene: false);
+            sceneCollectionService.AddScene(MapScene(sceneState, sceneCollectionService), selectScene: false);
         }
 
         sceneCollectionService.SelectedScene = sceneCollectionService.Scenes
@@ -96,7 +100,7 @@ public sealed class ProjectPersistenceCoordinator
         sceneCollectionService.Scenes.Clear();
         foreach (var sceneState in state.Scenes)
         {
-            sceneCollectionService.AddScene(MapScene(sceneState), selectScene: false);
+            sceneCollectionService.AddScene(MapScene(sceneState, sceneCollectionService), selectScene: false);
         }
 
         projectionWorkspace.ApplyWorkspaceState(state.ProjectionWorkspace);
@@ -141,17 +145,7 @@ public sealed class ProjectPersistenceCoordinator
                 BaseOrientationZ = prism.BaseOrientation.Z,
                 BaseOrientationW = prism.BaseOrientation.W,
             }).ToList(),
-            ManualRays = scene.Rays.Select(ray => new RayState
-            {
-                OriginX = ray.OriginX,
-                OriginY = ray.OriginY,
-                OriginZ = ray.OriginZ,
-                DirectionX = ray.DirectionX,
-                DirectionY = ray.DirectionY,
-                DirectionZ = ray.DirectionZ,
-            }).ToList(),
-            LightSources = scene.LightSources.Select(MapGeneratedLightSource).ToList(),
-            ProjectedLightSources = scene.ProjectedLightSources.Select(MapProjectedLightSource).ToList(),
+            AssignedSource = scene.AssignedSource is null ? null : MapCollisionSource(scene.AssignedSource),
             HolePoints = scene.HolePoints.ToList(),
             NaturalPoints = scene.NaturalPoints.ToList(),
             MeasuredCornerPoints = scene.MeasuredCornerPoints.ToList(),
@@ -162,6 +156,26 @@ public sealed class ProjectPersistenceCoordinator
                 Results = scene.ProjectionState.SavedResults.Select(MapProjectionResult).ToList(),
             },
         };
+    }
+
+    private static CollisionSourceState MapCollisionSource(CollisionSourceLibraryItemViewModel source) => new()
+    {
+        SourceId = source.SourceId,
+        GeneratedSource = source.GeneratedSource is null ? null : MapGeneratedLightSource(source.GeneratedSource),
+        TransferredSource = source.TransferredSource is null ? null : MapProjectedLightSource(source.TransferredSource),
+    };
+
+    private static CollisionSourceLibraryItemViewModel MapCollisionSource(CollisionSourceState source) => new()
+    {
+        SourceId = source.SourceId == Guid.Empty ? Guid.NewGuid() : source.SourceId,
+        GeneratedSource = source.GeneratedSource is null ? null : MapGeneratedLightSource(source.GeneratedSource),
+        TransferredSource = source.TransferredSource is null ? null : MapProjectedLightSource(source.TransferredSource),
+    };
+
+    private static void RestoreLibrary(ProjectState state, SceneCollectionService service)
+    {
+        service.AvailableSources.Clear();
+        foreach (var source in state.AvailableSources) service.AddToLibrary(MapCollisionSource(source));
     }
 
     private static AxisymmetricLightSourceState MapGeneratedLightSource(CylindricalLightSourceItemViewModel source)
@@ -335,7 +349,7 @@ public sealed class ProjectPersistenceCoordinator
         };
     }
 
-    private static CollisionSceneViewModel MapScene(SceneState sceneState)
+    private static CollisionSceneViewModel MapScene(SceneState sceneState, SceneCollectionService service)
     {
         var scene = new CollisionSceneViewModel(sceneState.Name);
         scene.IsProjectionOnly = sceneState.IsProjectionOnly;
@@ -362,76 +376,32 @@ public sealed class ProjectPersistenceCoordinator
             });
         }
 
-        foreach (var ray in sceneState.ManualRays)
-        {
-            scene.Rays.Add(new RayItemViewModel
-            {
-                OriginX = ray.OriginX,
-                OriginY = ray.OriginY,
-                OriginZ = ray.OriginZ,
-                DirectionX = ray.DirectionX,
-                DirectionY = ray.DirectionY,
-                DirectionZ = ray.DirectionZ,
-            });
-        }
-
+        // Manual rays are intentionally ignored during migration. Legacy source arrays are
+        // retained in the reusable catalog, while only the first source is assigned.
+        var legacySources = new List<CollisionSourceLibraryItemViewModel>();
         if (sceneState.LightSources.Count > 0)
-        {
-            foreach (var source in sceneState.LightSources)
-            {
-                scene.LightSources.Add(MapGeneratedLightSource(source));
-            }
-        }
+            legacySources.AddRange(sceneState.LightSources.Select(source => new CollisionSourceLibraryItemViewModel { GeneratedSource = MapGeneratedLightSource(source) }));
         else
-        {
-            foreach (var source in sceneState.CylindricalLightSources)
+            legacySources.AddRange(sceneState.CylindricalLightSources.Select(source => new CollisionSourceLibraryItemViewModel { GeneratedSource = MapGeneratedLightSource(new AxisymmetricLightSourceState
             {
-                scene.LightSources.Add(new CylindricalLightSourceItemViewModel
-                {
-                    Name = source.Name,
-                    SourceKind = AxisymmetricSourceKind.Cylinder,
-                    PositionX = source.PositionX,
-                    PositionY = source.PositionY,
-                    PositionZ = source.PositionZ,
-                    RotationX = source.RotationX,
-                    RotationY = source.RotationY,
-                    RotationZ = source.RotationZ,
-                    Radius = source.Radius,
-                    Height = source.Height,
-                    RadiusStart = source.Radius,
-                    RadiusEnd = source.Radius,
-                    Length = source.Height,
-                    RayCount = source.RayCount,
-                    TiltWeight = source.TiltWeight,
-                    TiltPointX = source.TiltPointX,
-                    TiltPointY = source.TiltPointY,
-                    TiltPointZ = source.TiltPointZ,
-                    BaseOrientation = BaseOrientationPersistence.FromComponents(
-                        source.BaseOrientationX,
-                        source.BaseOrientationY,
-                        source.BaseOrientationZ,
-                        source.BaseOrientationW),
-                });
-
-                var restored = scene.LightSources.Last();
-                foreach (var segment in source.Segments)
-                {
-                    restored.HybridSegments.Add(new HybridSourceSegmentItemViewModel
-                    {
-                        SegmentKind = segment.SegmentKind,
-                        Length = segment.Length,
-                        RadiusStart = segment.RadiusStart,
-                        RadiusEnd = segment.RadiusEnd,
-                        ArcRadius = segment.ArcRadius ?? 20f,
-                        OgiveCurvatureDirection = segment.OgiveCurvatureDirection,
-                    });
-                }
-            }
-        }
-
-        foreach (var projectedSource in sceneState.ProjectedLightSources)
+                Name = source.Name, SourceKind = AxisymmetricSourceKind.Cylinder, PositionX = source.PositionX, PositionY = source.PositionY, PositionZ = source.PositionZ,
+                RotationX = source.RotationX, RotationY = source.RotationY, RotationZ = source.RotationZ, Radius = source.Radius, Height = source.Height,
+                RadiusStart = source.Radius, RadiusEnd = source.Radius, Length = source.Height, RayCount = source.RayCount, TiltWeight = source.TiltWeight,
+                TiltPointX = source.TiltPointX, TiltPointY = source.TiltPointY, TiltPointZ = source.TiltPointZ,
+                BaseOrientationX = source.BaseOrientationX, BaseOrientationY = source.BaseOrientationY, BaseOrientationZ = source.BaseOrientationZ, BaseOrientationW = source.BaseOrientationW,
+                Segments = source.Segments,
+            }) }));
+        legacySources.AddRange(sceneState.ProjectedLightSources.Select(source => new CollisionSourceLibraryItemViewModel { TransferredSource = MapProjectedLightSource(source) }));
+        foreach (var source in legacySources) service.AddToLibrary(source);
+        if (sceneState.AssignedSource is not null)
         {
-            scene.ProjectedLightSources.Add(MapProjectedLightSource(projectedSource));
+            var assigned = MapCollisionSource(sceneState.AssignedSource);
+            service.AddToLibrary(assigned);
+            scene.AssignSource(assigned);
+        }
+        else if (legacySources.FirstOrDefault() is { } legacyAssigned)
+        {
+            scene.AssignSource(legacyAssigned);
         }
 
         foreach (var hole in sceneState.HolePoints)

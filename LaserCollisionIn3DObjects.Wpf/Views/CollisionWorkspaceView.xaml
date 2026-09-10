@@ -144,40 +144,30 @@
 
                             <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
                                 <Button Content="Add Source" Command="{Binding AddLightSourceCommand}" Width="95" Margin="0,0,8,0"/>
-                                <Button Content="Remove Selected" Command="{Binding RemoveSelectedLightSourceCommand}" Width="130" Margin="0,0,8,0"/>
                                 <Button Content="Regenerate Rays" Command="{Binding RegenerateLightSourceRaysCommand}" Width="120"/>
                             </StackPanel>
-                            <DataGrid ItemsSource="{Binding LightSources}" SelectedItem="{Binding SelectedLightSource}" AutoGenerateColumns="False" CanUserAddRows="False" Height="130">
-                                <DataGrid.Columns><DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="*"/><DataGridTextColumn Header="Type" Binding="{Binding SourceKind}" Width="95"/><DataGridTextColumn Header="R/H" Binding="{Binding Radius}" Width="45"/><DataGridTextColumn Header="R1" Binding="{Binding RadiusStart}" Width="45"/><DataGridTextColumn Header="R2" Binding="{Binding RadiusEnd}" Width="45"/><DataGridTextColumn Header="#" Binding="{Binding RayCount}" Width="55"/></DataGrid.Columns>
-                            </DataGrid>
-
-                            <GroupBox Header="Projected / Completed / Imported Sources" Margin="0,8,0,0" Padding="6">
+                            <GroupBox Header="Available Sources" Margin="0,8,0,0" Padding="6">
                                 <StackPanel>
-                                    <ListBox ItemsSource="{Binding ProjectedLightSources}"
-                                            SelectedItem="{Binding SelectedProjectedLightSource}"
-                                            Height="110">
+                                    <ListBox ItemsSource="{Binding AvailableSources}" SelectedItem="{Binding SelectedAvailableSource}" Height="130">
                                         <ListBox.ItemTemplate>
                                             <DataTemplate>
                                                 <StackPanel Orientation="Horizontal">
                                                     <TextBlock Text="{Binding Name}" />
                                                     <TextBlock Text=" | " />
-                                                    <TextBlock Text="{Binding SourceTypeLabel}" />
+                                                    <TextBlock Text="{Binding SourceType}" />
                                                     <TextBlock Text=" | " />
-                                                    <TextBlock Text="{Binding EffectiveRayCount}" />
+                                                    <TextBlock Text="{Binding RayCount, Mode=OneWay}" />
                                                     <TextBlock Text=" rays)" />
                                                 </StackPanel>
                                             </DataTemplate>
                                         </ListBox.ItemTemplate>
                                     </ListBox>
-                                    <Button Content="Remove Selected Transferred Source"
-                                            Command="{Binding RemoveSelectedProjectedLightSourceCommand}"
-                                            Margin="0,6,0,0"
-                                            Width="230" />
-
+                                    <Button Content="Assign to Current Scene" Command="{Binding AssignSelectedAvailableSourceCommand}" Margin="0,6,0,0" Width="190" />
                                 </StackPanel>
                             </GroupBox>
-                            <GroupBox Header="Selected Source" Margin="0,8,0,0" Padding="6">
+                            <GroupBox Header="Current Scene Source" Margin="0,8,0,0" Padding="6">
                                 <StackPanel>
+                                    <TextBlock Text="{Binding AssignedSceneSource.Name, TargetNullValue=No source assigned, Mode=OneWay}" FontWeight="SemiBold" Margin="0,0,0,6"/>
                                     <TextBlock Text="No source selected." Visibility="{Binding HasNoSourceSelection, Converter={StaticResource BoolToVisibility}}"/>
                                     <StackPanel Visibility="{Binding IsSelectedSourceEditable, Converter={StaticResource BoolToVisibility}}">
                                         <TextBlock Text="{Binding SelectedObjectEditorType}" FontWeight="SemiBold" Margin="0,0,0,6"/>

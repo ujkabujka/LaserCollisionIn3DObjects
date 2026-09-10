@@ -29,6 +29,14 @@ public sealed class ProjectState
 
     [JsonPropertyName(PersistenceKeys.Annotation)]
     public AnnotationWorkspaceState AnnotationWorkspace { get; set; } = new();
+    public List<CollisionSourceState> AvailableSources { get; set; } = new();
+}
+
+public sealed class CollisionSourceState
+{
+    public Guid SourceId { get; set; }
+    public AxisymmetricLightSourceState? GeneratedSource { get; set; }
+    public ProjectedLightSourceState? TransferredSource { get; set; }
 }
 
 public sealed class SceneState
@@ -44,6 +52,7 @@ public sealed class SceneState
     public List<Point3> NaturalPoints { get; set; } = new();
     public List<Point3> MeasuredCornerPoints { get; set; } = new();
     public SceneProjectionStateDto Projection { get; set; } = new();
+    public CollisionSourceState? AssignedSource { get; set; }
 }
 
 public sealed class PrismState
