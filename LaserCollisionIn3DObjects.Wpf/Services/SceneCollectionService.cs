@@ -12,7 +12,20 @@ public sealed class SceneCollectionService : ObservableObject
     public event EventHandler? SceneContentChanged;
     private CollisionSceneViewModel? _selectedScene;
 
+    public SceneCollectionService() => Scenes.CollectionChanged += (_, _) => UpdateSceneOrdinals();
+
     public ObservableCollection<CollisionSceneViewModel> Scenes { get; } = new();
+    public ObservableCollection<CollisionSourceLibraryItemViewModel> AvailableSources { get; } = new();
+
+    public CollisionSourceLibraryItemViewModel AddToLibrary(CollisionSourceLibraryItemViewModel source)
+    {
+        var existing = AvailableSources.FirstOrDefault(item => item.SourceId == source.SourceId);
+        if (existing is not null) return existing;
+        AvailableSources.Add(source.DeepClone());
+        return AvailableSources[^1];
+    }
+
+    public void AssignSource(CollisionSceneViewModel scene, CollisionSourceLibraryItemViewModel source) => scene.AssignSource(AddToLibrary(source));
 
     public CollisionSceneViewModel? SelectedScene
     {
@@ -31,6 +44,17 @@ public sealed class SceneCollectionService : ObservableObject
         return scene;
     }
 
+    public string CreateUniqueSceneName(string baseName)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(baseName);
+        if (Scenes.All(scene => !string.Equals(scene.Name, baseName, StringComparison.OrdinalIgnoreCase))) return baseName;
+        for (var suffix = 2; ; suffix++)
+        {
+            var candidate = $"{baseName} ({suffix})";
+            if (Scenes.All(scene => !string.Equals(scene.Name, candidate, StringComparison.OrdinalIgnoreCase))) return candidate;
+        }
+    }
+
     public void AddScene(CollisionSceneViewModel scene, bool selectScene = true)
     {
         ArgumentNullException.ThrowIfNull(scene);
@@ -43,6 +67,12 @@ public sealed class SceneCollectionService : ObservableObject
     }
 
     public void NotifySceneContentChanged() => SceneContentChanged?.Invoke(this, EventArgs.Empty);
+
+    private void UpdateSceneOrdinals()
+    {
+        var ordinal = 1;
+        foreach (var scene in Scenes.Where(scene => !scene.IsProjectionOnly)) scene.SceneOrdinal = ordinal++;
+    }
 
     public bool RemoveScene(CollisionSceneViewModel scene)
     {

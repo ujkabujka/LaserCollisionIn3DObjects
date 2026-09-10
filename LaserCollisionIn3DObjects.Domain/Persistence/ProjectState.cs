@@ -1,6 +1,7 @@
 using System.Text.Json.Serialization;
 using LaserCollisionIn3DObjects.Domain.Geometry;
 using LaserCollisionIn3DObjects.Domain.Projection;
+using LaserCollisionIn3DObjects.Domain.Export;
 
 namespace LaserCollisionIn3DObjects.Domain.Persistence;
 
@@ -15,8 +16,10 @@ public static class PersistenceKeys
 
 public sealed class ProjectState
 {
+    public const int CurrentSchemaVersion = 2;
+
     [JsonPropertyName(PersistenceKeys.SchemaVersion)]
-    public int SchemaVersion { get; set; } = 1;
+    public int SchemaVersion { get; set; } = CurrentSchemaVersion;
 
     [JsonPropertyName(PersistenceKeys.Scenes)]
     public List<SceneState> Scenes { get; set; } = new();
@@ -29,19 +32,58 @@ public sealed class ProjectState
 
     [JsonPropertyName(PersistenceKeys.Annotation)]
     public AnnotationWorkspaceState AnnotationWorkspace { get; set; } = new();
+    public List<CollisionSourceState> AvailableSources { get; set; } = new();
+    public GraphicMasterState GraphicMaster { get; set; } = new();
+}
+
+public sealed class GraphicMasterState
+{
+    public List<ImportedGraphSourceState> ImportedSources { get; set; } = new();
+    public List<StoredGraphChartState> StoredCharts { get; set; } = new();
+    public string? SelectedChartId { get; set; }
+}
+
+public sealed class ImportedGraphSourceState
+{
+    public string Id { get; set; } = string.Empty;
+    public string? OriginalFileName { get; set; }
+    public LightSourceTransferData? Source { get; set; }
+}
+
+public sealed class StoredGraphChartState
+{
+    public string Id { get; set; } = string.Empty;
+    public string DisplayName { get; set; } = string.Empty;
+    public string GraphTypeId { get; set; } = string.Empty;
+    public double AngleBinSizeDeg { get; set; }
+    public double AzimuthBinSizeDeg { get; set; }
+    public double PolarBinSizeDeg { get; set; }
+    public List<string> SelectedSourceIds { get; set; } = new();
+}
+
+public sealed class CollisionSourceState
+{
+    public Guid SourceId { get; set; }
+    public AxisymmetricLightSourceState? GeneratedSource { get; set; }
+    public ProjectedLightSourceState? TransferredSource { get; set; }
 }
 
 public sealed class SceneState
 {
     public string Name { get; set; } = string.Empty;
     public bool IsProjectionOnly { get; set; }
+    public bool ShowCollisionRays { get; set; } = true;
+    public bool ShowCollisionHitPoints { get; set; } = true;
     public List<PrismState> Prisms { get; set; } = new();
     public List<RayState> ManualRays { get; set; } = new();
     public List<CylindricalLightSourceState> CylindricalLightSources { get; set; } = new();
     public List<AxisymmetricLightSourceState> LightSources { get; set; } = new();
     public List<ProjectedLightSourceState> ProjectedLightSources { get; set; } = new();
     public List<Point3> HolePoints { get; set; } = new();
+    public List<Point3> NaturalPoints { get; set; } = new();
+    public List<Point3> MeasuredCornerPoints { get; set; } = new();
     public SceneProjectionStateDto Projection { get; set; } = new();
+    public CollisionSourceState? AssignedSource { get; set; }
 }
 
 public sealed class PrismState
@@ -120,6 +162,7 @@ public sealed class ProjectedLightSourceState
     public PointSourceFrameStateDto SourceFrame { get; set; } = new();
     public AxisymmetricSourceProfileDefinition ProfileDefinition { get; set; } = new();
     public List<ProjectionRayStateDto> Rays { get; set; } = new();
+    public List<RayState> ExactRays { get; set; } = new();
     public float? BaseOrientationX { get; set; }
     public float? BaseOrientationY { get; set; }
     public float? BaseOrientationZ { get; set; }
@@ -260,11 +303,22 @@ public sealed class ProjectionWorkspaceStateDto
 {
     public string? SelectedSceneName { get; set; }
     public bool? ShowPanels { get; set; }
+    public bool? ShowMeasuredCorners { get; set; }
+    public bool? IncludeNaturalPoints { get; set; }
     public string SelectedMethodId { get; set; } = string.Empty;
     public AxisymmetricSourceKind ProjectionGeometryKind { get; set; } = AxisymmetricSourceKind.Cylinder;
-    public double GeometryRadiusStart { get; set; } = 1d;
-    public double GeometryRadiusEnd { get; set; } = 1d;
-    public double GeometryLength { get; set; } = 10d;
+    public double BeamOriginX { get; set; }
+    public double BeamOriginY { get; set; }
+    public double BeamOriginZ { get; set; }
+    public double SourceFrameXx { get; set; } = 1d;
+    public double SourceFrameXy { get; set; }
+    public double SourceFrameXz { get; set; }
+    public double SourceFrameYx { get; set; }
+    public double SourceFrameYy { get; set; } = 1d;
+    public double SourceFrameYz { get; set; }
+    public double GeometryRadiusStart { get; set; } = 0.15d;
+    public double GeometryRadiusEnd { get; set; } = 0.15d;
+    public double GeometryLength { get; set; } = 0.30d;
     public double GeometryArcRadius { get; set; } = 20d;
     public OgiveCurvatureDirection GeometryOgiveCurvatureDirection { get; set; } = OgiveCurvatureDirection.Outward;
     public int HybridSegmentCount { get; set; } = 1;
@@ -286,6 +340,7 @@ public sealed class ProjectionWorkspaceStateDto
 
 public sealed class AnnotationWorkspaceState
 {
+    public string? PrismGenerationMethodology { get; set; }
     public string? FolderPath { get; set; }
     public bool IsFolderResolved { get; set; }
     public double GlobalPanelWidthMm { get; set; }

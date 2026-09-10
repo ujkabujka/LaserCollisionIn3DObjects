@@ -58,4 +58,27 @@ public sealed class PanelMeasurementsCsvImportServiceTests
     [InlineData("99")]
     public void AnnotationTypeClassifier_TreatsAllOtherTypesAsCollisionPoints(string type) => Assert.False(AnnotationTypeClassifier.IsPanel(type));
 
+    [Fact]
+    public void Parse_SemicolonHeaderlessCsv_ParsesFixedCornerOrder()
+    {
+        var row = Assert.Single(_service.Parse(new StringReader(Data.Replace(',', ';'))));
+        Assert.Equal(100, row.WidthMm); Assert.Equal(10, row.LeftBottom.DistanceMeters);
+    }
+
+    [Fact]
+    public void Parse_SemicolonHeaderWithBomAndBlankLines_ParsesData()
+    {
+        const string header = "\uFEFFWidth;Height;Thickness;LT_R;LT_Azimuth;LT_Elevation;RT_R;RT_Azimuth;RT_Elevation;RB_R;RB_Azimuth;RB_Elevation;LB_R;LB_Azimuth;LB_Elevation";
+        var row = Assert.Single(_service.Parse(new StringReader($"\n{header}\n\n{Data.Replace(',', ';')}\n")));
+        Assert.Equal(12, row.LeftBottom.ElevationDeg);
+    }
+
+    [Fact]
+    public void Parse_MixedDelimiters_RejectsTransactionally()
+    {
+        var header = "Width;Height;Thickness;LT_R;LT_Azimuth;LT_Elevation;RT_R;RT_Azimuth;RT_Elevation;RB_R;RB_Azimuth;RB_Elevation;LB_R;LB_Azimuth;LB_Elevation";
+        var error = Assert.Throws<FormatException>(() => _service.Parse(new StringReader($"{header}\n{Data}")));
+        Assert.Contains("inconsistent delimiters", error.Message);
+    }
+
 }

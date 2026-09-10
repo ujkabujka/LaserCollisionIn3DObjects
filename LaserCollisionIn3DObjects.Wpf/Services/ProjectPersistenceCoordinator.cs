@@ -5,6 +5,7 @@ using LaserCollisionIn3DObjects.Domain.Projection;
 using LaserCollisionIn3DObjects.Domain.Scene;
 using LaserCollisionIn3DObjects.Wpf.Features.Annotations.ViewModels;
 using LaserCollisionIn3DObjects.Wpf.Features.Projection.ViewModels;
+using LaserCollisionIn3DObjects.Wpf.Features.GraphicMaster.ViewModels;
 using LaserCollisionIn3DObjects.Wpf.ViewModels;
 using DomainRay3D = LaserCollisionIn3DObjects.Domain.Geometry.Ray3D;
 
@@ -14,12 +15,16 @@ public sealed class ProjectPersistenceCoordinator
 {
     private readonly JsonStateFileService _jsonService = new();
 
+    public static SceneState MapSceneForSnapshot(CollisionSceneViewModel scene) => MapScene(scene);
+    public static CollisionSourceState MapSourceForSnapshot(CollisionSourceLibraryItemViewModel source) => MapCollisionSource(source);
+
     public void SaveProject(
         string filePath,
         SceneCollectionService sceneCollectionService,
         CollisionSceneViewModel? selectedCollisionScene,
         AnnotationWorkspaceViewModel annotationWorkspace,
-        ProjectionWorkspaceViewModel projectionWorkspace)
+        ProjectionWorkspaceViewModel projectionWorkspace,
+        GraphicMasterViewModel graphicMaster)
     {
         var state = new ProjectState
         {
@@ -27,6 +32,8 @@ public sealed class ProjectPersistenceCoordinator
             CollisionWorkspace = new CollisionWorkspaceState { SelectedSceneName = selectedCollisionScene?.Name },
             ProjectionWorkspace = projectionWorkspace.ExportWorkspaceState(),
             AnnotationWorkspace = annotationWorkspace.ExportWorkspaceState(),
+            AvailableSources = sceneCollectionService.AvailableSources.Select(MapCollisionSource).ToList(),
+            GraphicMaster = graphicMaster.ExportState(),
         };
 
         _jsonService.SaveProject(filePath, state);
@@ -36,14 +43,26 @@ public sealed class ProjectPersistenceCoordinator
         string filePath,
         SceneCollectionService sceneCollectionService,
         AnnotationWorkspaceViewModel annotationWorkspace,
-        ProjectionWorkspaceViewModel projectionWorkspace)
+        ProjectionWorkspaceViewModel projectionWorkspace,
+        GraphicMasterViewModel graphicMaster)
     {
         var state = _jsonService.LoadProject(filePath);
+        ApplyProject(state, sceneCollectionService, annotationWorkspace, projectionWorkspace, graphicMaster);
+    }
+
+    public Task<ProjectState> ReadStateAsync(string filePath) => _jsonService.LoadProjectAsync(filePath);
+
+    public void ApplyProject(ProjectState state, SceneCollectionService sceneCollectionService,
+        AnnotationWorkspaceViewModel annotationWorkspace, ProjectionWorkspaceViewModel projectionWorkspace,
+        GraphicMasterViewModel graphicMaster)
+    {
+        ArgumentNullException.ThrowIfNull(state);
 
         sceneCollectionService.Scenes.Clear();
+        RestoreLibrary(state, sceneCollectionService);
         foreach (var sceneState in state.Scenes)
         {
-            sceneCollectionService.AddScene(MapScene(sceneState), selectScene: false);
+            sceneCollectionService.AddScene(MapScene(sceneState, sceneCollectionService), selectScene: false);
         }
 
         sceneCollectionService.SelectedScene = sceneCollectionService.Scenes
@@ -52,6 +71,7 @@ public sealed class ProjectPersistenceCoordinator
 
         annotationWorkspace.ApplyWorkspaceState(state.AnnotationWorkspace);
         projectionWorkspace.ApplyWorkspaceState(state.ProjectionWorkspace);
+        graphicMaster.ApplyState(state.GraphicMaster);
     }
 
     public void SaveCollisionTab(string filePath, SceneCollectionService sceneCollectionService, CollisionSceneViewModel? selectedScene)
@@ -60,6 +80,7 @@ public sealed class ProjectPersistenceCoordinator
         {
             Scenes = sceneCollectionService.Scenes.Select(MapScene).ToList(),
             CollisionWorkspace = new CollisionWorkspaceState { SelectedSceneName = selectedScene?.Name },
+            AvailableSources = sceneCollectionService.AvailableSources.Select(MapCollisionSource).ToList(),
         };
 
         _jsonService.SaveProject(filePath, state);
@@ -69,9 +90,10 @@ public sealed class ProjectPersistenceCoordinator
     {
         var state = _jsonService.LoadProject(filePath);
         sceneCollectionService.Scenes.Clear();
+        RestoreLibrary(state, sceneCollectionService);
         foreach (var sceneState in state.Scenes)
         {
-            sceneCollectionService.AddScene(MapScene(sceneState), selectScene: false);
+            sceneCollectionService.AddScene(MapScene(sceneState, sceneCollectionService), selectScene: false);
         }
 
         sceneCollectionService.SelectedScene = sceneCollectionService.Scenes
@@ -85,6 +107,7 @@ public sealed class ProjectPersistenceCoordinator
         {
             Scenes = sceneCollectionService.Scenes.Select(MapScene).ToList(),
             ProjectionWorkspace = projectionWorkspace.ExportWorkspaceState(),
+            AvailableSources = sceneCollectionService.AvailableSources.Select(MapCollisionSource).ToList(),
         };
 
         _jsonService.SaveProject(filePath, state);
@@ -94,9 +117,10 @@ public sealed class ProjectPersistenceCoordinator
     {
         var state = _jsonService.LoadProject(filePath);
         sceneCollectionService.Scenes.Clear();
+        RestoreLibrary(state, sceneCollectionService);
         foreach (var sceneState in state.Scenes)
         {
-            sceneCollectionService.AddScene(MapScene(sceneState), selectScene: false);
+            sceneCollectionService.AddScene(MapScene(sceneState, sceneCollectionService), selectScene: false);
         }
 
         projectionWorkspace.ApplyWorkspaceState(state.ProjectionWorkspace);
@@ -124,6 +148,8 @@ public sealed class ProjectPersistenceCoordinator
         {
             Name = scene.Name,
             IsProjectionOnly = scene.IsProjectionOnly,
+            ShowCollisionRays = scene.ShowCollisionRays,
+            ShowCollisionHitPoints = scene.ShowCollisionHitPoints,
             Prisms = scene.Prisms.Select(prism => new PrismState
             {
                 Name = prism.Name,
@@ -141,18 +167,10 @@ public sealed class ProjectPersistenceCoordinator
                 BaseOrientationZ = prism.BaseOrientation.Z,
                 BaseOrientationW = prism.BaseOrientation.W,
             }).ToList(),
-            ManualRays = scene.Rays.Select(ray => new RayState
-            {
-                OriginX = ray.OriginX,
-                OriginY = ray.OriginY,
-                OriginZ = ray.OriginZ,
-                DirectionX = ray.DirectionX,
-                DirectionY = ray.DirectionY,
-                DirectionZ = ray.DirectionZ,
-            }).ToList(),
-            LightSources = scene.LightSources.Select(MapGeneratedLightSource).ToList(),
-            ProjectedLightSources = scene.ProjectedLightSources.Select(MapProjectedLightSource).ToList(),
+            AssignedSource = scene.AssignedSource is null ? null : MapCollisionSource(scene.AssignedSource),
             HolePoints = scene.HolePoints.ToList(),
+            NaturalPoints = scene.NaturalPoints.ToList(),
+            MeasuredCornerPoints = scene.MeasuredCornerPoints.ToList(),
             Projection = new SceneProjectionStateDto
             {
                 SelectedMethodId = scene.ProjectionState.SelectedMethodId,
@@ -160,6 +178,26 @@ public sealed class ProjectPersistenceCoordinator
                 Results = scene.ProjectionState.SavedResults.Select(MapProjectionResult).ToList(),
             },
         };
+    }
+
+    private static CollisionSourceState MapCollisionSource(CollisionSourceLibraryItemViewModel source) => new()
+    {
+        SourceId = source.SourceId,
+        GeneratedSource = source.GeneratedSource is null ? null : MapGeneratedLightSource(source.GeneratedSource),
+        TransferredSource = source.TransferredSource is null ? null : MapProjectedLightSource(source.TransferredSource),
+    };
+
+    private static CollisionSourceLibraryItemViewModel MapCollisionSource(CollisionSourceState source) => new()
+    {
+        SourceId = source.SourceId == Guid.Empty ? Guid.NewGuid() : source.SourceId,
+        GeneratedSource = source.GeneratedSource is null ? null : MapGeneratedLightSource(source.GeneratedSource),
+        TransferredSource = source.TransferredSource is null ? null : MapProjectedLightSource(source.TransferredSource),
+    };
+
+    private static void RestoreLibrary(ProjectState state, SceneCollectionService service)
+    {
+        service.AvailableSources.Clear();
+        foreach (var source in state.AvailableSources) service.AddToLibrary(MapCollisionSource(source));
     }
 
     private static AxisymmetricLightSourceState MapGeneratedLightSource(CylindricalLightSourceItemViewModel source)
@@ -216,6 +254,7 @@ public sealed class ProjectPersistenceCoordinator
             },
             ProfileDefinition = source.ProfileDefinition,
             Rays = source.Rays.Select(MapProjectionRay).ToList(),
+            ExactRays = source.ExactRays.Select(ray => new RayState { OriginX = ray.Origin.X, OriginY = ray.Origin.Y, OriginZ = ray.Origin.Z, DirectionX = ray.Direction.X, DirectionY = ray.Direction.Y, DirectionZ = ray.Direction.Z }).ToList(),
             BaseOrientationX = source.BaseOrientation.X,
             BaseOrientationY = source.BaseOrientation.Y,
             BaseOrientationZ = source.BaseOrientation.Z,
@@ -332,10 +371,12 @@ public sealed class ProjectPersistenceCoordinator
         };
     }
 
-    private static CollisionSceneViewModel MapScene(SceneState sceneState)
+    private static CollisionSceneViewModel MapScene(SceneState sceneState, SceneCollectionService service)
     {
         var scene = new CollisionSceneViewModel(sceneState.Name);
         scene.IsProjectionOnly = sceneState.IsProjectionOnly;
+        scene.ShowCollisionRays = sceneState.ShowCollisionRays;
+        scene.ShowCollisionHitPoints = sceneState.ShowCollisionHitPoints;
 
         foreach (var prism in sceneState.Prisms)
         {
@@ -359,81 +400,44 @@ public sealed class ProjectPersistenceCoordinator
             });
         }
 
-        foreach (var ray in sceneState.ManualRays)
-        {
-            scene.Rays.Add(new RayItemViewModel
-            {
-                OriginX = ray.OriginX,
-                OriginY = ray.OriginY,
-                OriginZ = ray.OriginZ,
-                DirectionX = ray.DirectionX,
-                DirectionY = ray.DirectionY,
-                DirectionZ = ray.DirectionZ,
-            });
-        }
-
+        // Manual rays are intentionally ignored during migration. Legacy source arrays are
+        // retained in the reusable catalog, while only the first source is assigned.
+        var legacySources = new List<CollisionSourceLibraryItemViewModel>();
         if (sceneState.LightSources.Count > 0)
-        {
-            foreach (var source in sceneState.LightSources)
-            {
-                scene.LightSources.Add(MapGeneratedLightSource(source));
-            }
-        }
+            legacySources.AddRange(sceneState.LightSources.Select(source => new CollisionSourceLibraryItemViewModel { GeneratedSource = MapGeneratedLightSource(source) }));
         else
-        {
-            foreach (var source in sceneState.CylindricalLightSources)
+            legacySources.AddRange(sceneState.CylindricalLightSources.Select(source => new CollisionSourceLibraryItemViewModel { GeneratedSource = MapGeneratedLightSource(new AxisymmetricLightSourceState
             {
-                scene.LightSources.Add(new CylindricalLightSourceItemViewModel
-                {
-                    Name = source.Name,
-                    SourceKind = AxisymmetricSourceKind.Cylinder,
-                    PositionX = source.PositionX,
-                    PositionY = source.PositionY,
-                    PositionZ = source.PositionZ,
-                    RotationX = source.RotationX,
-                    RotationY = source.RotationY,
-                    RotationZ = source.RotationZ,
-                    Radius = source.Radius,
-                    Height = source.Height,
-                    RadiusStart = source.Radius,
-                    RadiusEnd = source.Radius,
-                    Length = source.Height,
-                    RayCount = source.RayCount,
-                    TiltWeight = source.TiltWeight,
-                    TiltPointX = source.TiltPointX,
-                    TiltPointY = source.TiltPointY,
-                    TiltPointZ = source.TiltPointZ,
-                    BaseOrientation = BaseOrientationPersistence.FromComponents(
-                        source.BaseOrientationX,
-                        source.BaseOrientationY,
-                        source.BaseOrientationZ,
-                        source.BaseOrientationW),
-                });
-
-                var restored = scene.LightSources.Last();
-                foreach (var segment in source.Segments)
-                {
-                    restored.HybridSegments.Add(new HybridSourceSegmentItemViewModel
-                    {
-                        SegmentKind = segment.SegmentKind,
-                        Length = segment.Length,
-                        RadiusStart = segment.RadiusStart,
-                        RadiusEnd = segment.RadiusEnd,
-                        ArcRadius = segment.ArcRadius ?? 20f,
-                        OgiveCurvatureDirection = segment.OgiveCurvatureDirection,
-                    });
-                }
-            }
-        }
-
-        foreach (var projectedSource in sceneState.ProjectedLightSources)
+                Name = source.Name, SourceKind = AxisymmetricSourceKind.Cylinder, PositionX = source.PositionX, PositionY = source.PositionY, PositionZ = source.PositionZ,
+                RotationX = source.RotationX, RotationY = source.RotationY, RotationZ = source.RotationZ, Radius = source.Radius, Height = source.Height,
+                RadiusStart = source.Radius, RadiusEnd = source.Radius, Length = source.Height, RayCount = source.RayCount, TiltWeight = source.TiltWeight,
+                TiltPointX = source.TiltPointX, TiltPointY = source.TiltPointY, TiltPointZ = source.TiltPointZ,
+                BaseOrientationX = source.BaseOrientationX, BaseOrientationY = source.BaseOrientationY, BaseOrientationZ = source.BaseOrientationZ, BaseOrientationW = source.BaseOrientationW,
+                Segments = source.Segments,
+            }) }));
+        legacySources.AddRange(sceneState.ProjectedLightSources.Select(source => new CollisionSourceLibraryItemViewModel { TransferredSource = MapProjectedLightSource(source) }));
+        foreach (var source in legacySources) service.AddToLibrary(source);
+        if (sceneState.AssignedSource is not null)
         {
-            scene.ProjectedLightSources.Add(MapProjectedLightSource(projectedSource));
+            var assigned = MapCollisionSource(sceneState.AssignedSource);
+            service.AddToLibrary(assigned);
+            scene.AssignSource(assigned);
+        }
+        else if (legacySources.FirstOrDefault() is { } legacyAssigned)
+        {
+            scene.AssignSource(legacyAssigned);
         }
 
         foreach (var hole in sceneState.HolePoints)
         {
             scene.HolePoints.Add(hole);
+        }
+        foreach (var point in sceneState.NaturalPoints ?? new List<Point3>())
+            scene.NaturalPoints.Add(point);
+
+        foreach (var corner in sceneState.MeasuredCornerPoints ?? new List<Point3>())
+        {
+            scene.MeasuredCornerPoints.Add(corner);
         }
 
         scene.ProjectionState.SelectedMethodId = sceneState.Projection.SelectedMethodId;
@@ -533,6 +537,18 @@ public sealed class ProjectPersistenceCoordinator
         foreach (var ray in state.Rays)
         {
             restored.Rays.Add(MapProjectionRay(ray));
+        }
+        foreach (var ray in state.ExactRays)
+        {
+            restored.ExactRays.Add(new DomainRay3D(new Vector3(ray.OriginX, ray.OriginY, ray.OriginZ), new Vector3(ray.DirectionX, ray.DirectionY, ray.DirectionZ)));
+        }
+
+        // Part 1 persisted completed physical rays in the projection metadata collection.
+        // Normalize those files in memory so the next save uses the canonical exact-ray form.
+        if (restored.OriginKind == ProjectedLightSourceOriginKind.CompletedProjectionResult && restored.ExactRays.Count == 0 && restored.Rays.Count > 0)
+        {
+            foreach (var ray in restored.Rays) restored.ExactRays.Add(ray.Ray);
+            restored.Rays.Clear();
         }
 
         return restored;

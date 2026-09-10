@@ -19,6 +19,10 @@ using LaserCollisionIn3DObjects.Wpf.Features.SourceCompletion.ViewModels;
 using LaserCollisionIn3DObjects.Wpf.Infrastructure;
 using LaserCollisionIn3DObjects.Wpf.Services;
 using LaserCollisionIn3DObjects.Domain.Projection;
+using LaserCollisionIn3DObjects.Domain.Scene;
+using System.Diagnostics;
+using OxyPlot.Wpf;
+using LaserCollisionIn3DObjects.Rendering.Helix;
 
 namespace LaserCollisionIn3DObjects.Wpf.ViewModels;
 
@@ -45,12 +49,22 @@ public sealed class MainWindowViewModel : ObservableObject
     private static readonly ObservableCollection<ProjectedLightSourceItemViewModel> EmptyProjectedLightSources = new();
     private static readonly ObservableCollection<HitResultItemViewModel> EmptyHitResults = new();
     private static readonly ObservableCollection<Point3> EmptyHoles = new();
+    private static readonly ObservableCollection<Point3> EmptyNaturalPoints = new();
     private readonly SceneRenderSyncService _renderSyncService;
-    private readonly CollisionHitPointCsvExportService _collisionHitPointCsvExportService = new();
+    private readonly PanelCollisionCsvExportService _panelCollisionCsvExportService = new();
     private readonly SceneCollectionService _sceneCollectionService;
     private readonly CompletedSourceStore _completedSourceStore = new();
     private readonly ProjectPersistenceCoordinator _projectPersistenceCoordinator = new();
-    private IReadOnlyList<CollisionHitPointRecord> _lastCollisionHitPointRecords = Array.Empty<CollisionHitPointRecord>();
+    private readonly LightSourceTransferService _lightSourceTransferService = new();
+    private readonly LightSourceFileService _lightSourceFileService = new();
+    private readonly CollisionViewportRefreshCoordinator _viewportRefreshCoordinator;
+    private bool _isCollisionBusy;
+    private bool _isCollisionProgressVisible;
+    private double _collisionProgressPercent;
+    private string _collisionProgressMessage = string.Empty;
+    private bool _collisionProgressIsIndeterminate;
+    private bool _isIoBusy;
+    private string _ioBusyMessage = string.Empty;
     private string _newSceneName = "Scene 1";
     private string _newPrismName = "Prism 1";
     private float _newPrismSizeX = 0.002f;
@@ -59,8 +73,11 @@ public sealed class MainWindowViewModel : ObservableObject
     private int _newPrismArrayCount = 8;
     private float _newPrismArrayRadius = 10f;
     private float _newPrismArrayLength = 20f;
-    private PrismArrayPlacementMode _selectedPrismArrayPlacementMode = PrismArrayPlacementMode.Cylindrical;
-    private float _newRayDirectionX = 1f;
+    private float _newPrismArrayZ;
+    private float _newPrismArrayStartAngle;
+    private float _newPrismArrayEndAngle = 120f;
+    private float _newPrismArrayStepAngle = 15f;
+    private PrismArrayPlacementMode _selectedPrismArrayPlacementMode = PrismArrayPlacementMode.FullCircle;
     private string _newLightSourceName = "Light Source 1";
     private AxisymmetricSourceKind _newLightSourceKind = AxisymmetricSourceKind.Cylinder;
     private float _newLightSourceRadius = 5f;
@@ -97,7 +114,9 @@ public sealed class MainWindowViewModel : ObservableObject
 
     public MainWindowViewModel(SceneRenderSyncService renderSyncService, ProjectionRenderSyncService projectionRenderSyncService)
     {
+        Trace.WriteLine("[Startup] MainWindowViewModel constructor entered.");
         _renderSyncService = renderSyncService ?? throw new ArgumentNullException(nameof(renderSyncService));
+        _viewportRefreshCoordinator = new CollisionViewportRefreshCoordinator(RefreshViewportCore);
         ArgumentNullException.ThrowIfNull(projectionRenderSyncService);
         AppLog = (Application.Current as App)?.AppLog ?? new ApplicationLogService();
         _sceneCollectionService = new SceneCollectionService();
@@ -120,22 +139,23 @@ public sealed class MainWindowViewModel : ObservableObject
         ApplySelectedPrismChangesCommand = new RelayCommand(ApplySelectedPrismChanges, () => SelectedScene is not null && SelectedPrism is not null);
         ApplySelectedSourceChangesCommand = new RelayCommand(ApplySelectedSourceChanges, () => SelectedScene is not null && IsSelectedSourceEditable);
         ApplySelectedObjectChangesCommand = new RelayCommand(ApplySelectedObjectChanges, CanApplySelectedObjectChanges);
-        AddRayCommand = new RelayCommand(AddRay, () => SelectedScene is not null);
         AddLightSourceCommand = new RelayCommand(AddLightSource, () => SelectedScene is not null);
+        AssignSelectedAvailableSourceCommand = new RelayCommand(AssignSelectedAvailableSource, () => SelectedScene is not null && SelectedAvailableSource is not null);
         AddHybridSegmentCommand = new RelayCommand(AddHybridSegment);
         RemoveSelectedHybridSegmentCommand = new RelayCommand(RemoveSelectedHybridSegment, () => SelectedNewHybridSegment is not null);
         RemoveSelectedPrismCommand = new RelayCommand(RemoveSelectedPrism, () => SelectedPrism is not null);
         RemoveAllPrismsCommand = new RelayCommand(RemoveAllPrisms, () => Prisms.Count > 0);
-        RemoveSelectedRayCommand = new RelayCommand(RemoveSelectedRay, () => SelectedRay is not null);
-        RemoveAllRaysCommand = new RelayCommand(RemoveAllRays, () => Rays.Count > 0);
         RemoveSelectedLightSourceCommand = new RelayCommand(RemoveSelectedLightSource, () => SelectedLightSource is not null);
         RemoveSelectedProjectedLightSourceCommand = new RelayCommand(RemoveSelectedProjectedLightSource, () => SelectedProjectedLightSource is not null);
-        RunCollisionCommand = new RelayCommand(RunCollision, () => SelectedScene is not null);
-        ExportHitPointsCsvCommand = new RelayCommand(ExportHitPointsCsv);
+        RunCollisionCommand = new AsyncRelayCommand(RunCollisionAsync, () => SelectedScene?.AssignedSource is not null && !IsCollisionBusy);
+        ExportHitPointsCsvCommand = new RelayCommand(ExportHitPointsCsv, () => SelectedScene?.HasValidCollisionRun == true && SelectedScene.HitPointRecords.Count > 0);
+        SaveSelectedPanelImageCommand = new RelayCommand(SaveSelectedPanelImage, () => SelectedScene?.HasValidCollisionRun == true && SelectedScene.SelectedPanelResult is not null);
         RegenerateLightSourceRaysCommand = new RelayCommand(RegenerateLightSourceRays, () => SelectedScene is not null);
         ResetDemoSceneCommand = new RelayCommand(ResetDemoScene, () => SelectedScene is not null);
-        SaveProjectCommand = new RelayCommand(SaveProject);
-        LoadProjectCommand = new RelayCommand(LoadProject);
+        SaveProjectCommand = new AsyncRelayCommand(SaveProjectAsync, () => !IsIoBusy);
+        LoadProjectCommand = new AsyncRelayCommand(LoadProjectAsync, () => !IsIoBusy);
+        ExportLightSourceCommand = new RelayCommand(ExportLightSource, () => SelectedLightSource is not null || SelectedProjectedLightSource is not null);
+        ImportLightSourceCommand = new RelayCommand(ImportLightSource, () => SelectedScene is not null && !SelectedScene.IsProjectionOnly);
         SaveCollisionTabCommand = new RelayCommand(SaveCollisionTabState);
         LoadCollisionTabCommand = new RelayCommand(LoadCollisionTabState);
         SaveProjectionTabCommand = new RelayCommand(SaveProjectionTabState);
@@ -157,12 +177,37 @@ public sealed class MainWindowViewModel : ObservableObject
         {
             AddHybridSegment();
         }
-        CreateScene();
+        CreateInitialScene();
         AppLog.LogInfo("Application started.", nameof(MainWindowViewModel));
-        RefreshViewport(false);
+        Trace.WriteLine("[Startup] MainWindowViewModel constructor completed.");
+    }
+
+    public void InitializeViewport()
+    {
+        if (_viewportRefreshCoordinator.IsInitialized) return;
+        var stopwatch = Stopwatch.StartNew();
+        Trace.WriteLine("[Startup] Initial Collision viewport refresh started.");
+        RefreshSceneBindings();
+        _viewportRefreshCoordinator.Initialize();
+        stopwatch.Stop();
+        Trace.WriteLine($"[Startup] Initial Collision viewport refresh completed in {stopwatch.ElapsedMilliseconds} ms.");
+        Trace.WriteLine("[Startup] READY");
+        AppLog.LogSuccess($"Application ready. Initial viewport initialized in {stopwatch.ElapsedMilliseconds} ms.", nameof(MainWindowViewModel));
+    }
+
+    private void CreateInitialScene()
+    {
+        _sceneCollectionService.CreateScene(NewSceneName);
+        NewSceneName = $"Scene {Scenes.Count + 1}";
     }
 
     public string Title => "Laser Collision in 3D Objects";
+
+    public void RequestShutdown()
+    {
+        Trace.WriteLine("[Shutdown] Collision cancellation requested.");
+        RaiseCanExecuteChanges();
+    }
 
     public AnnotationWorkspaceViewModel AnnotationWorkspace { get; }
     public ProjectionWorkspaceViewModel ProjectionWorkspace { get; }
@@ -190,7 +235,7 @@ public sealed class MainWindowViewModel : ObservableObject
                 SetStatus($"Selected scene '{value.Name}'.");
             }
 
-            RefreshSceneBindingsAndViewport();
+            // SceneCollectionService.PropertyChanged owns the single selection refresh.
         }
     }
 
@@ -199,6 +244,14 @@ public sealed class MainWindowViewModel : ObservableObject
     public ObservableCollection<CylindricalLightSourceItemViewModel> LightSources => SelectedScene?.LightSources ?? EmptyLightSources;
     public ObservableCollection<ProjectedLightSourceItemViewModel> ProjectedLightSources => SelectedScene?.ProjectedLightSources ?? EmptyProjectedLightSources;
     public ObservableCollection<HitResultItemViewModel> HitResults => SelectedScene?.HitResults ?? EmptyHitResults;
+    public ObservableCollection<CollisionSourceLibraryItemViewModel> AvailableSources => _sceneCollectionService.AvailableSources;
+    private CollisionSourceLibraryItemViewModel? _selectedAvailableSource;
+    public CollisionSourceLibraryItemViewModel? SelectedAvailableSource
+    {
+        get => _selectedAvailableSource;
+        set { if (SetProperty(ref _selectedAvailableSource, value) && AssignSelectedAvailableSourceCommand is RelayCommand command) command.RaiseCanExecuteChanged(); }
+    }
+    public CollisionSourceLibraryItemViewModel? AssignedSceneSource => SelectedScene?.AssignedSource;
 
     public PrismArrayPlacementMode[] PrismArrayPlacementModes { get; } = Enum.GetValues<PrismArrayPlacementMode>();
     public CollisionAlgorithmOption[] CollisionAlgorithms { get; } = Enum.GetValues<CollisionAlgorithmOption>();
@@ -227,22 +280,23 @@ public sealed class MainWindowViewModel : ObservableObject
     public ICommand ApplySelectedPrismChangesCommand { get; }
     public ICommand ApplySelectedSourceChangesCommand { get; }
     public ICommand ApplySelectedObjectChangesCommand { get; }
-    public ICommand AddRayCommand { get; }
     public ICommand AddLightSourceCommand { get; }
+    public ICommand AssignSelectedAvailableSourceCommand { get; }
     public ICommand AddHybridSegmentCommand { get; }
     public ICommand RemoveSelectedHybridSegmentCommand { get; }
     public ICommand RemoveSelectedPrismCommand { get; }
     public ICommand RemoveAllPrismsCommand { get; }
-    public ICommand RemoveSelectedRayCommand { get; }
-    public ICommand RemoveAllRaysCommand { get; }
     public ICommand RemoveSelectedLightSourceCommand { get; }
     public ICommand RemoveSelectedProjectedLightSourceCommand { get; }
     public ICommand RunCollisionCommand { get; }
     public ICommand ExportHitPointsCsvCommand { get; }
+    public ICommand SaveSelectedPanelImageCommand { get; }
     public ICommand RegenerateLightSourceRaysCommand { get; }
     public ICommand ResetDemoSceneCommand { get; }
     public ICommand SaveProjectCommand { get; }
     public ICommand LoadProjectCommand { get; }
+    public ICommand ExportLightSourceCommand { get; }
+    public ICommand ImportLightSourceCommand { get; }
     public ICommand SaveCollisionTabCommand { get; }
     public ICommand LoadCollisionTabCommand { get; }
     public ICommand SaveProjectionTabCommand { get; }
@@ -259,6 +313,18 @@ public sealed class MainWindowViewModel : ObservableObject
     public ICommand ShowConsoleCommand { get; }
     public ICommand HideConsoleCommand { get; }
     public ICommand ToggleConsoleCommand { get; }
+
+    public bool IsIoBusy
+    {
+        get => _isIoBusy;
+        private set => SetProperty(ref _isIoBusy, value);
+    }
+
+    public string IoBusyMessage
+    {
+        get => _ioBusyMessage;
+        private set => SetProperty(ref _ioBusyMessage, value);
+    }
 
     public bool IsConsoleVisible
     {
@@ -307,9 +373,12 @@ public sealed class MainWindowViewModel : ObservableObject
         : SelectedLightSource is not null
             ? "Light Source"
             : SelectedProjectedLightSource is not null
-                ? (SelectedProjectedLightSource.OriginKind == ProjectedLightSourceOriginKind.CompletedProjectionResult
-                    ? "Completed Source"
-                    : "Projected Light Source")
+                ? SelectedProjectedLightSource.OriginKind switch
+                {
+                    ProjectedLightSourceOriginKind.CompletedProjectionResult => "Completed Source",
+                    ProjectedLightSourceOriginKind.ImportedTextFile => "Imported Light Source",
+                    _ => "Projected Light Source",
+                }
                 : "None";
 
     public PrismItemViewModel? SelectedPrism
@@ -442,7 +511,7 @@ public sealed class MainWindowViewModel : ObservableObject
     public float NewPrismRotY { get; set; }
     public float NewPrismRotZ { get; set; }
     public float NewPrismSizeX { get => _newPrismSizeX; set => SetProperty(ref _newPrismSizeX, value); }
-    public float NewPrismSizeY { get => _newPrismSizeY; set => SetProperty(ref _newPrismSizeY, value); }
+    public float NewPrismSizeY { get => _newPrismSizeY; set { if (SetProperty(ref _newPrismSizeY, value)) RaiseArrayDerivedProperties(); } }
     public float NewPrismSizeZ { get => _newPrismSizeZ; set => SetProperty(ref _newPrismSizeZ, value); }
     public float SelectedEditPositionX { get => _selectedEditPositionX; set => SetProperty(ref _selectedEditPositionX, value); }
     public float SelectedEditPositionY { get => _selectedEditPositionY; set => SetProperty(ref _selectedEditPositionY, value); }
@@ -471,18 +540,23 @@ public sealed class MainWindowViewModel : ObservableObject
     public int NewPrismArrayCount { get => _newPrismArrayCount; set => SetProperty(ref _newPrismArrayCount, value); }
     public float NewPrismArrayRadius { get => _newPrismArrayRadius; set => SetProperty(ref _newPrismArrayRadius, value); }
     public float NewPrismArrayLength { get => _newPrismArrayLength; set => SetProperty(ref _newPrismArrayLength, value); }
+    public float NewPrismArrayZ { get => _newPrismArrayZ; set => SetProperty(ref _newPrismArrayZ, value); }
+    public float NewPrismArrayStartAngle { get => _newPrismArrayStartAngle; set { if (SetProperty(ref _newPrismArrayStartAngle, value)) RaiseArrayDerivedProperties(); } }
+    public float NewPrismArrayEndAngle { get => _newPrismArrayEndAngle; set { if (SetProperty(ref _newPrismArrayEndAngle, value)) RaiseArrayDerivedProperties(); } }
+    public float NewPrismArrayStepAngle { get => _newPrismArrayStepAngle; set => SetProperty(ref _newPrismArrayStepAngle, value); }
+    public bool IsPrismArrayPolar => SelectedPrismArrayPlacementMode != PrismArrayPlacementMode.Cartesian;
+    public bool IsPrismArrayFullCircle => SelectedPrismArrayPlacementMode == PrismArrayPlacementMode.FullCircle;
+    public bool IsPrismArrayAngularRange => SelectedPrismArrayPlacementMode == PrismArrayPlacementMode.AngularRange;
+    public bool IsPrismArrayAngularStep => SelectedPrismArrayPlacementMode == PrismArrayPlacementMode.AngularStep;
+    public bool IsPrismArrayCartesian => SelectedPrismArrayPlacementMode == PrismArrayPlacementMode.Cartesian;
+    public bool IsPrismArrayCountVisible => SelectedPrismArrayPlacementMode != PrismArrayPlacementMode.AngularRange;
+    public int CalculatedPrismArrayCount { get { try { return PrismPlacementGenerator.CreateAngularRangePlacements(NewPrismArrayRadius, NewPrismSizeY, NewPrismArrayStartAngle, NewPrismArrayEndAngle, NewPrismArrayZ).PanelCount; } catch { return 0; } } }
+    public float PanelAngularFootprintDegrees => NewPrismArrayRadius > 0 && NewPrismSizeY > 0 ? FrameOrientationBuilder.RadiansToDegrees(2 * MathF.Atan(NewPrismSizeY / (2 * NewPrismArrayRadius))) : 0;
     public PrismArrayPlacementMode SelectedPrismArrayPlacementMode
     {
         get => _selectedPrismArrayPlacementMode;
-        set => SetProperty(ref _selectedPrismArrayPlacementMode, value);
+        set { if (SetProperty(ref _selectedPrismArrayPlacementMode, value)) RaiseArrayDerivedProperties(); }
     }
-
-    public float NewRayOriginX { get; set; }
-    public float NewRayOriginY { get; set; }
-    public float NewRayOriginZ { get; set; }
-    public float NewRayDirectionX { get => _newRayDirectionX; set => SetProperty(ref _newRayDirectionX, value); }
-    public float NewRayDirectionY { get; set; }
-    public float NewRayDirectionZ { get; set; }
 
     public string NewLightSourceName { get => _newLightSourceName; set => SetProperty(ref _newLightSourceName, value); }
     public AxisymmetricSourceKind NewLightSourceKind
@@ -533,6 +607,12 @@ public sealed class MainWindowViewModel : ObservableObject
     public string LastCollisionDurationMs { get => _lastCollisionDurationMs; private set => SetProperty(ref _lastCollisionDurationMs, value); }
     public string LastSequentialCollisionDurationMs { get => _lastSequentialCollisionDurationMs; private set => SetProperty(ref _lastSequentialCollisionDurationMs, value); }
     public string LastParallelCollisionDurationMs { get => _lastParallelCollisionDurationMs; private set => SetProperty(ref _lastParallelCollisionDurationMs, value); }
+    public bool IsCollisionBusy { get => _isCollisionBusy; private set { if (SetProperty(ref _isCollisionBusy, value)) { RaisePropertyChanged(nameof(IsCollisionEditingEnabled)); RaiseCanExecuteChanges(); } } }
+    public bool IsCollisionEditingEnabled => !IsCollisionBusy;
+    public bool IsCollisionProgressVisible { get => _isCollisionProgressVisible; private set => SetProperty(ref _isCollisionProgressVisible, value); }
+    public double CollisionProgressPercent { get => _collisionProgressPercent; private set => SetProperty(ref _collisionProgressPercent, value); }
+    public string CollisionProgressMessage { get => _collisionProgressMessage; private set => SetProperty(ref _collisionProgressMessage, value); }
+    public bool CollisionProgressIsIndeterminate { get => _collisionProgressIsIndeterminate; private set => SetProperty(ref _collisionProgressIsIndeterminate, value); }
 
     private void CreateScene()
     {
@@ -541,7 +621,6 @@ public sealed class MainWindowViewModel : ObservableObject
         NewSceneName = $"Scene {Scenes.Count + 1}";
         SetStatus($"Created scene '{scene.Name}'.", ApplicationLogLevel.Success);
         RaiseCanExecuteChanges();
-        RefreshViewport(false);
     }
 
     private void DeleteSelectedScene()
@@ -559,7 +638,6 @@ public sealed class MainWindowViewModel : ObservableObject
             : $"Deleted '{deletedName}'.",
             ApplicationLogLevel.Success);
 
-        RefreshSceneBindingsAndViewport();
     }
 
     private void AddPrism()
@@ -601,18 +679,19 @@ public sealed class MainWindowViewModel : ObservableObject
             return;
         }
 
-        if (!ValidatePrismArrayInputs(SelectedPrismArrayPlacementMode, NewPrismArrayCount, NewPrismArrayRadius, NewPrismArrayLength, out error))
+        IReadOnlyList<FramePlacement> placements;
+        try
         {
-            SetStatus(error, ApplicationLogLevel.Warning);
-            return;
+            placements = SelectedPrismArrayPlacementMode switch
+            {
+                PrismArrayPlacementMode.FullCircle => PrismPlacementGenerator.CreateCylindricalPlacements(NewPrismArrayRadius, NewPrismArrayCount, NewPrismArrayZ),
+                PrismArrayPlacementMode.AngularStep => PrismPlacementGenerator.CreateAngularStepPlacements(NewPrismArrayRadius, NewPrismArrayStartAngle, NewPrismArrayStepAngle, NewPrismArrayCount, NewPrismArrayZ),
+                PrismArrayPlacementMode.AngularRange => PrismPlacementGenerator.CreateAngularRangePlacements(NewPrismArrayRadius, NewPrismSizeY, NewPrismArrayStartAngle, NewPrismArrayEndAngle, NewPrismArrayZ).Placements,
+                PrismArrayPlacementMode.Cartesian => PrismPlacementGenerator.CreateCartesianPlacements(NewPrismArrayLength, NewPrismArrayCount, NewPrismArrayZ),
+                _ => throw new InvalidOperationException("Unsupported prism array placement mode."),
+            };
         }
-
-        var placements = SelectedPrismArrayPlacementMode switch
-        {
-            PrismArrayPlacementMode.Cylindrical => PrismPlacementGenerator.CreateCylindricalPlacements(NewPrismArrayRadius, NewPrismArrayCount, NewPrismPosY),
-            PrismArrayPlacementMode.Cartesian => PrismPlacementGenerator.CreateCartesianPlacements(NewPrismArrayLength, NewPrismArrayCount, NewPrismPosY),
-            _ => throw new InvalidOperationException("Unsupported prism array placement mode."),
-        };
+        catch (ArgumentException exception) { SetStatus(exception.Message, ApplicationLogLevel.Warning); return; }
 
         var baseName = string.IsNullOrWhiteSpace(NewPrismName) ? "Prism" : NewPrismName;
         var created = new List<PrismItemViewModel>(placements.Count);
@@ -620,7 +699,12 @@ public sealed class MainWindowViewModel : ObservableObject
         for (var i = 0; i < placements.Count; i++)
         {
             var placement = placements[i];
-            created.Add(CreatePrismViewModel($"{baseName} {i + 1}", placement.Position, placement.Orientation));
+            var candidate = $"{baseName} {i + 1}";
+            var suffix = 2;
+            while (scene.Prisms.Any(prism => string.Equals(prism.Name, candidate, StringComparison.OrdinalIgnoreCase)) ||
+                   created.Any(prism => string.Equals(prism.Name, candidate, StringComparison.OrdinalIgnoreCase)))
+                candidate = $"{baseName} {i + 1} ({suffix++})";
+            created.Add(CreatePrismViewModel(candidate, placement.Position, placement.Orientation));
         }
 
         foreach (var prism in created)
@@ -632,38 +716,8 @@ public sealed class MainWindowViewModel : ObservableObject
         NewPrismName = $"Prism {scene.Prisms.Count + 1}";
         RaiseCanExecuteChanges();
         RefreshViewport(false);
-        SetStatus($"Added {created.Count} prisms in a {SelectedPrismArrayPlacementMode} array around the world origin with global-axis-aligned default frames.", ApplicationLogLevel.Success);
+        SetStatus($"Added {created.Count} inward-facing prisms in a {SelectedPrismArrayPlacementMode} array.", ApplicationLogLevel.Success);
     }
-
-    private void AddRay()
-    {
-        var scene = GetSelectedSceneOrSetStatus();
-        if (scene is null)
-        {
-            return;
-        }
-
-        if (!ValidateDirection(NewRayDirectionX, NewRayDirectionY, NewRayDirectionZ, out var error))
-        {
-            SetStatus(error, ApplicationLogLevel.Warning);
-            return;
-        }
-
-        scene.Rays.Add(new RayItemViewModel
-        {
-            OriginX = NewRayOriginX,
-            OriginY = NewRayOriginY,
-            OriginZ = NewRayOriginZ,
-            DirectionX = NewRayDirectionX,
-            DirectionY = NewRayDirectionY,
-            DirectionZ = NewRayDirectionZ,
-        });
-
-        scene.SelectedRay = scene.Rays.Last();
-        RaiseCanExecuteChanges();
-        RefreshViewport(false);
-    }
-
 
     private void AddHybridSegment()
     {
@@ -793,7 +847,7 @@ public sealed class MainWindowViewModel : ObservableObject
             return;
         }
 
-        scene.LightSources.Add(new CylindricalLightSourceItemViewModel
+        var newSource = new CylindricalLightSourceItemViewModel
         {
             Name = string.IsNullOrWhiteSpace(NewLightSourceName) ? $"Light Source {scene.LightSources.Count + 1}" : NewLightSourceName,
             SourceKind = NewLightSourceKind,
@@ -816,11 +870,11 @@ public sealed class MainWindowViewModel : ObservableObject
             TiltPointY = NewLightSourceTiltPointY,
             TiltPointZ = NewLightSourceTiltPointZ,
             BaseOrientation = Quaternion.Identity,
-        });
+        };
 
         if (NewLightSourceKind == AxisymmetricSourceKind.Hybrid)
         {
-            var added = scene.LightSources.Last();
+            var added = newSource;
             foreach (var segment in NewHybridSegments)
             {
                 added.HybridSegments.Add(new HybridSourceSegmentItemViewModel
@@ -837,11 +891,24 @@ public sealed class MainWindowViewModel : ObservableObject
             }
         }
 
-        SelectedLightSource = scene.LightSources.Last();
-        NewLightSourceName = $"Light Source {scene.LightSources.Count + 1}";
+        _sceneCollectionService.AssignSource(scene, new CollisionSourceLibraryItemViewModel { GeneratedSource = newSource });
+        SelectedLightSource = scene.AssignedSource!.GeneratedSource;
+        NewLightSourceName = $"Light Source {AvailableSources.Count + 1}";
         RaiseCanExecuteChanges();
         RefreshViewport(false);
         SetStatus($"Added {NewLightSourceKind} light source.");
+    }
+
+    private void AssignSelectedAvailableSource()
+    {
+        if (SelectedScene is null || SelectedAvailableSource is null) return;
+        _sceneCollectionService.AssignSource(SelectedScene, SelectedAvailableSource);
+        SelectedLightSource = SelectedScene.AssignedSource?.GeneratedSource;
+        SelectedProjectedLightSource = SelectedScene.AssignedSource?.TransferredSource;
+        RaisePropertyChanged(nameof(AssignedSceneSource));
+        RefreshViewport(false);
+        SetStatus($"Assigned '{SelectedAvailableSource.Name}' to scene '{SelectedScene.Name}'.", ApplicationLogLevel.Success);
+        RaiseCanExecuteChanges();
     }
 
     private void RemoveSelectedPrism()
@@ -881,43 +948,6 @@ public sealed class MainWindowViewModel : ObservableObject
         SetStatus($"Deleted {deleted} prisms.", ApplicationLogLevel.Success);
     }
 
-    private void RemoveAllRays()
-    {
-        var scene = GetSelectedSceneOrSetStatus();
-        if (scene is null)
-        {
-            return;
-        }
-
-        if (scene.Rays.Count == 0)
-        {
-            SetStatus("There are no rays to delete.", ApplicationLogLevel.Warning);
-            return;
-        }
-
-        var deleted = scene.Rays.Count;
-        scene.Rays.Clear();
-        scene.SelectedRay = null;
-        RaiseCanExecuteChanges();
-        RefreshViewport(false);
-        SetStatus($"Deleted {deleted} rays.", ApplicationLogLevel.Success);
-    }
-
-    private void RemoveSelectedRay()
-    {
-        var scene = GetSelectedSceneOrSetStatus();
-        if (scene?.SelectedRay is null)
-        {
-            SetStatus("Select a ray to remove.", ApplicationLogLevel.Warning);
-            return;
-        }
-
-        scene.Rays.Remove(scene.SelectedRay);
-        scene.SelectedRay = null;
-        RaiseCanExecuteChanges();
-        RefreshViewport(false);
-    }
-
     private void RemoveSelectedLightSource()
     {
         var scene = GetSelectedSceneOrSetStatus();
@@ -927,8 +957,7 @@ public sealed class MainWindowViewModel : ObservableObject
             return;
         }
 
-        scene.LightSources.Remove(scene.SelectedLightSource);
-        scene.SelectedLightSource = null;
+        scene.AssignSource(null);
         RaiseCanExecuteChanges();
         RefreshViewport(false);
     }
@@ -944,19 +973,26 @@ public sealed class MainWindowViewModel : ObservableObject
 
         var removed = scene.SelectedProjectedLightSource;
         var removedName = removed.Name;
-        scene.ProjectedLightSources.Remove(removed);
-        scene.SelectedProjectedLightSource = null;
+        scene.AssignSource(null);
         ClearCollisionResults(scene);
         RaiseCanExecuteChanges();
         RefreshViewport(false);
         SetStatus($"Removed projected light source '{removedName}' from collision scene '{scene.Name}'.", ApplicationLogLevel.Success);
     }
 
-    private void RunCollision()
+    private async Task RunCollisionAsync()
     {
+        var cancellationToken = (Application.Current as App)?.Lifetime.Token ?? CancellationToken.None;
+        if (cancellationToken.IsCancellationRequested) return;
         if (SelectedScene is null)
         {
             SetStatus("Create or select a scene first.", ApplicationLogLevel.Warning);
+            return;
+        }
+
+        if (SelectedScene.AssignedSource is null)
+        {
+            SetStatus("Assign an available source before running Collision.", ApplicationLogLevel.Warning);
             return;
         }
 
@@ -966,7 +1002,41 @@ public sealed class MainWindowViewModel : ObservableObject
             return;
         }
 
-        RefreshViewport(true);
+        var scene = SelectedScene;
+        IsCollisionBusy = true;
+        IsCollisionProgressVisible = true;
+        CollisionProgressIsIndeterminate = true;
+        CollisionProgressPercent = 0;
+        CollisionProgressMessage = "Preparing collision scene...";
+        try
+        {
+            // Capture collection membership on the UI thread; background computation never revisits ObservableCollections.
+            var prisms = scene.Prisms.ToArray(); var assignedSource = scene.AssignedSource!.DeepClone();
+            var holes = scene.HolePoints.ToArray(); var natural = scene.NaturalPoints.ToArray();
+            var algorithm = SelectedCollisionAlgorithm; var sceneName = scene.Name;
+            CollisionProgressMessage = "Generating source rays and checking collisions...";
+            CollisionProgressIsIndeterminate = false;
+            var progress = new Progress<(int Processed, int Total)>(value =>
+            {
+                CollisionProgressPercent = value.Total == 0 ? 100 : 100d * value.Processed / value.Total;
+                CollisionProgressMessage = $"Checking collisions — {value.Processed} / {value.Total} rays ({CollisionProgressPercent:F0}%)";
+            });
+            var computation = await Task.Run(() => _renderSyncService.ComputeCollision(prisms, assignedSource, holes, natural, sceneName, algorithm, progress, cancellationToken), cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
+            CollisionProgressMessage = "Preparing collision results and updating 3D scene...";
+            scene.LastCollisionComputation = computation;
+            var result = _renderSyncService.RenderCollision(computation, new CollisionSceneVisualOptions(scene.ShowCollisionRays, scene.ShowCollisionHitPoints));
+            scene.PublishCollisionResults(result.HitRows, result.HitPointRecords, result.PanelAnalysis);
+            RaisePropertyChanged(nameof(HitResults));
+            LastCollisionDurationMs = $"{result.CollisionDuration.TotalMilliseconds:F3}";
+            if (algorithm == CollisionAlgorithmOption.ClosestHitSequential) LastSequentialCollisionDurationMs = LastCollisionDurationMs;
+            else LastParallelCollisionDurationMs = LastCollisionDurationMs;
+            CollisionProgressIsIndeterminate = false; CollisionProgressPercent = 100;
+            SetStatus($"Collision run complete ({algorithm}) in {LastCollisionDurationMs} ms. Hits: {result.HitRows.Count(r => r.HasHit)}/{result.HitRows.Count}.", ApplicationLogLevel.Success);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { Trace.WriteLine("[Shutdown] Collision stopped."); }
+        catch (Exception ex) { SetStatus($"Collision failed: {ex.Message}", ApplicationLogLevel.Warning, ex); }
+        finally { IsCollisionBusy = false; IsCollisionProgressVisible = false; RaiseCanExecuteChanges(); }
     }
 
     private void RegenerateLightSourceRays()
@@ -996,15 +1066,12 @@ public sealed class MainWindowViewModel : ObservableObject
         }
 
         scene.Prisms.Clear();
-        scene.Rays.Clear();
-        scene.LightSources.Clear();
+        scene.AssignSource(null);
 
         scene.Prisms.Add(CreatePrismViewModel("Prism 1", new Vector3(0f, 0f, 0f), Quaternion.Identity, sizeX: 10f, sizeY: 10f, sizeZ: 10f));
         scene.Prisms.Add(CreatePrismViewModel("Prism 2", new Vector3(16f, 0f, 0f), Quaternion.Identity, sizeX: 8f, sizeY: 8f, sizeZ: 8f));
 
-        scene.Rays.Add(new RayItemViewModel { OriginX = -30, OriginY = 0, OriginZ = 0, DirectionX = 1, DirectionY = 0, DirectionZ = 0 });
-
-        scene.LightSources.Add(new CylindricalLightSourceItemViewModel
+        var demoSource = new CylindricalLightSourceItemViewModel
         {
             Name = "Light Source 1",
             SourceKind = AxisymmetricSourceKind.Cylinder,
@@ -1024,11 +1091,11 @@ public sealed class MainWindowViewModel : ObservableObject
             TiltPointY = 0f,
             TiltPointZ = 0f,
             BaseOrientation = Quaternion.Identity,
-        });
+        };
 
         if (NewLightSourceKind == AxisymmetricSourceKind.Hybrid)
         {
-            var added = scene.LightSources.Last();
+            var added = demoSource;
             foreach (var segment in NewHybridSegments)
             {
                 added.HybridSegments.Add(new HybridSourceSegmentItemViewModel
@@ -1045,12 +1112,13 @@ public sealed class MainWindowViewModel : ObservableObject
             }
         }
 
+        _sceneCollectionService.AssignSource(scene, new CollisionSourceLibraryItemViewModel { GeneratedSource = demoSource });
         scene.SelectedPrism = null;
         scene.SelectedRay = null;
         scene.SelectedLightSource = null;
 
         RefreshViewport(true);
-        SetStatus("Demo scene reset with manual and generated rays.", ApplicationLogLevel.Success);
+        SetStatus("Demo scene reset with panels and one generated source.", ApplicationLogLevel.Success);
         RaiseCanExecuteChanges();
     }
 
@@ -1078,20 +1146,19 @@ public sealed class MainWindowViewModel : ObservableObject
         };
     }
 
-    private void RefreshViewport(bool runCollision)
+    private void RefreshViewport(bool runCollision) => _viewportRefreshCoordinator.Request(runCollision);
+
+    private void RefreshViewportCore(bool runCollision)
     {
         try
         {
             var scene = SelectedScene;
             var prisms = scene?.Prisms ?? EmptyPrisms;
-            var lightSources = scene?.LightSources ?? EmptyLightSources;
-            var rays = scene?.Rays ?? EmptyRays;
-            var projectedLightSources = scene?.ProjectedLightSources ?? EmptyProjectedLightSources;
             var holes = scene?.HolePoints ?? EmptyHoles;
-            var projectionResult = scene?.ProjectionState.SelectedResult;
+            var naturalPoints = scene?.NaturalPoints ?? EmptyNaturalPoints;
             var sceneName = scene?.Name ?? "Scene";
 
-            var sceneSyncResult = _renderSyncService.SyncScene(prisms, lightSources, rays, projectedLightSources, holes, projectionResult, sceneName, runCollision, SelectedCollisionAlgorithm);
+            var sceneSyncResult = _renderSyncService.SyncScene(prisms, scene?.AssignedSource, holes, naturalPoints, sceneName, runCollision, SelectedCollisionAlgorithm);
             var rows = sceneSyncResult.HitRows;
 
             if (scene is not null)
@@ -1107,11 +1174,11 @@ public sealed class MainWindowViewModel : ObservableObject
 
             if (runCollision)
             {
-                var projectedRaysTested = projectedLightSources.Sum(source => source.Rays.Count);
-                _lastCollisionHitPointRecords = sceneSyncResult.HitPointRecords;
+                var projectedRaysTested = scene?.AssignedSource?.TransferredSource?.EffectiveRayCount ?? 0;
+                scene?.PublishCollisionResults(rows, sceneSyncResult.HitPointRecords, sceneSyncResult.PanelAnalysis);
                 var elapsedMs = sceneSyncResult.CollisionDuration.TotalMilliseconds;
                 LastCollisionDurationMs = $"{elapsedMs:F3}";
-                var projectedHits = sceneSyncResult.HitPointRecords.Count(record => record.SourceType == CollisionRaySourceType.ProjectionResult);
+                var projectedHits = sceneSyncResult.HitPointRecords.Count(record => record.SourceType is CollisionRaySourceType.ProjectionResult or CollisionRaySourceType.CompletedProjectionResult or CollisionRaySourceType.ImportedLightSource);
 
                 if (sceneSyncResult.CollisionAlgorithm == CollisionAlgorithmOption.ClosestHitSequential)
                 {
@@ -1123,13 +1190,15 @@ public sealed class MainWindowViewModel : ObservableObject
                 }
 
                 SetStatus($"Collision run complete ({SelectedCollisionAlgorithm}) in {elapsedMs:F3} ms. Hits: {rows.Count(r => r.HasHit)}/{rows.Count}.", ApplicationLogLevel.Success);
-                AppLog.LogInfo($"Collision: {projectedRaysTested} projected rays tested, {projectedHits} hits detected.", nameof(MainWindowViewModel));
+                AppLog.LogInfo($"Collision: {projectedRaysTested} transferred rays tested, {projectedHits} hits detected.", nameof(MainWindowViewModel));
             }
             else
             {
                 SetStatus(scene is null
                     ? "No scene selected. Create a scene to begin."
-                    : $"Scene refreshed. Manual rays: {rays.Count}, generated rays: {lightSources.Sum(s => Math.Max(0, s.RayCount))}.",
+                    : scene.AssignedSource is null
+                        ? "Scene refreshed. No source assigned."
+                        : $"Scene refreshed. Assigned source rays: {scene.AssignedSource.RayCount}.",
                     ApplicationLogLevel.Trace);
             }
         }
@@ -1142,7 +1211,8 @@ public sealed class MainWindowViewModel : ObservableObject
 
     private void ExportHitPointsCsv()
     {
-        if (_lastCollisionHitPointRecords.Count == 0)
+        var analysis = SelectedScene?.PanelAnalysis;
+        if (SelectedScene?.HasValidCollisionRun != true || analysis is null || analysis.TotalHits == 0)
         {
             SetStatus("Run collision first to export hit points.", ApplicationLogLevel.Warning);
             return;
@@ -1161,8 +1231,29 @@ public sealed class MainWindowViewModel : ObservableObject
             return;
         }
 
-        _collisionHitPointCsvExportService.Export(dialog.FileName, _lastCollisionHitPointRecords);
-        SetStatus($"Exported {_lastCollisionHitPointRecords.Count} collision hit points to '{dialog.FileName}'.", ApplicationLogLevel.Success);
+        _panelCollisionCsvExportService.Export(dialog.FileName, analysis);
+        SetStatus($"Exported {analysis.TotalHits} collision hits to '{dialog.FileName}'.", ApplicationLogLevel.Success);
+    }
+
+    private void SaveSelectedPanelImage()
+    {
+        var plot = SelectedScene?.PanelPlotModel;
+        if (plot is null) return;
+        var dialog = new SaveFileDialog { Filter = "PNG image (*.png)|*.png", DefaultExt = ".png", AddExtension = true, FileName = "panel-collision-results.png" };
+        if (dialog.ShowDialog() != true) return;
+        plot.Background = OxyPlot.OxyColors.White;
+        var exporter = new PngExporter { Width = 1400, Height = 1000 };
+        exporter.ExportToFile(plot, dialog.FileName);
+        SetStatus($"Saved selected panel image to '{dialog.FileName}'.", ApplicationLogLevel.Success);
+    }
+
+    private void RaiseArrayDerivedProperties()
+    {
+        RaisePropertyChanged(nameof(IsPrismArrayPolar)); RaisePropertyChanged(nameof(IsPrismArrayFullCircle));
+        RaisePropertyChanged(nameof(IsPrismArrayAngularRange)); RaisePropertyChanged(nameof(IsPrismArrayAngularStep));
+        RaisePropertyChanged(nameof(IsPrismArrayCartesian)); RaisePropertyChanged(nameof(CalculatedPrismArrayCount));
+        RaisePropertyChanged(nameof(IsPrismArrayCountVisible));
+        RaisePropertyChanged(nameof(PanelAngularFootprintDegrees));
     }
 
     private bool ValidateAllSceneItems(out string error)
@@ -1206,9 +1297,21 @@ public sealed class MainWindowViewModel : ObservableObject
             }
         }
 
+        foreach (var source in ProjectedLightSources)
+        {
+            if (source.EffectiveRayCount == 0) { error = $"Transferred source '{source.Name}' has no collision rays."; return false; }
+            foreach (var ray in source.GetEffectiveCollisionRays())
+            {
+                if (!IsFinite(ray.Origin) || !IsFinite(ray.Direction) || ray.Direction.LengthSquared() <= 0f)
+                { error = $"Transferred source '{source.Name}' contains a non-finite or zero-direction ray."; return false; }
+            }
+        }
+
         error = string.Empty;
         return true;
     }
+
+    private static bool IsFinite(Vector3 value) => float.IsFinite(value.X) && float.IsFinite(value.Y) && float.IsFinite(value.Z);
 
     private static bool ValidatePrismInputs(float sx, float sy, float sz, out string error)
     {
@@ -1235,7 +1338,7 @@ public sealed class MainWindowViewModel : ObservableObject
             return false;
         }
 
-        if (mode == PrismArrayPlacementMode.Cylindrical && radius <= 0f)
+        if (mode != PrismArrayPlacementMode.Cartesian && radius <= 0f)
         {
             error = "Cylindrical prism arrays require a positive radius.";
             return false;
@@ -1378,6 +1481,7 @@ public sealed class MainWindowViewModel : ObservableObject
 
         if (_subscribedScene is not null)
         {
+            _subscribedScene.PropertyChanged -= OnSelectedScenePropertyChanged;
             _subscribedScene.LightSources.CollectionChanged -= OnSceneLightSourcesCollectionChanged;
             _subscribedScene.ProjectedLightSources.CollectionChanged -= OnSceneProjectedLightSourcesCollectionChanged;
         }
@@ -1386,36 +1490,79 @@ public sealed class MainWindowViewModel : ObservableObject
 
         if (_subscribedScene is not null)
         {
+            _subscribedScene.PropertyChanged += OnSelectedScenePropertyChanged;
             _subscribedScene.LightSources.CollectionChanged += OnSceneLightSourcesCollectionChanged;
             _subscribedScene.ProjectedLightSources.CollectionChanged += OnSceneProjectedLightSourcesCollectionChanged;
         }
     }
 
+    private void OnSelectedScenePropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (sender is not CollisionSceneViewModel scene ||
+            e.PropertyName is not (nameof(CollisionSceneViewModel.ShowCollisionRays) or nameof(CollisionSceneViewModel.ShowCollisionHitPoints))) return;
+
+        if (scene.LastCollisionComputation is { } computation)
+            _renderSyncService.RenderCollision(computation, new CollisionSceneVisualOptions(scene.ShowCollisionRays, scene.ShowCollisionHitPoints));
+        else
+            RefreshViewport(false);
+    }
+
     private void OnSceneLightSourcesCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
-        RefreshViewport(false);
+        RaisePropertyChanged(nameof(LightSources));
     }
 
     private void OnSceneProjectedLightSourcesCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
         RaisePropertyChanged(nameof(ProjectedLightSources));
-        RefreshViewport(false);
     }
 
     private void OnSceneCollectionPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
         if (e.PropertyName == nameof(SceneCollectionService.SelectedScene))
         {
-            RefreshSceneBindingsAndViewport();
+            RefreshSceneBindings();
+            if (SelectedScene?.LastCollisionComputation is { } computation)
+                _renderSyncService.RenderCollision(computation, new CollisionSceneVisualOptions(SelectedScene.ShowCollisionRays, SelectedScene.ShowCollisionHitPoints));
+            else
+                RefreshViewport(false);
         }
     }
 
     private void OnSceneContentChanged(object? sender, EventArgs e)
     {
-        RefreshSceneBindingsAndViewport();
+        RefreshSceneBindings();
+        RefreshViewport(false);
     }
 
-    private void SaveProject()
+
+    private void ExportLightSource()
+    {
+        if (SelectedLightSource is null && SelectedProjectedLightSource is null) { SetStatus("Cannot export a light source because no source is selected."); return; }
+        try
+        {
+            var data = SelectedLightSource is not null ? _lightSourceTransferService.Export(SelectedLightSource) : _lightSourceTransferService.Export(SelectedProjectedLightSource!);
+            var formats = _lightSourceFileService.GetExportFormats(data);
+            if (formats.Count == 0) { SetStatus("No installed light-source format supports the selected source."); return; }
+            var safe = string.Concat((string.IsNullOrWhiteSpace(data.Name) ? "Light Source" : data.Name).Select(c => Path.GetInvalidFileNameChars().Contains(c) ? '_' : c));
+            var dialog = new SaveFileDialog { Filter = _lightSourceFileService.BuildExportFilter(formats), FilterIndex = 1, FileName = safe, DefaultExt = _lightSourceFileService.DefaultExtension(formats[0]) };
+            if (dialog.ShowDialog() != true) return;
+            var format = _lightSourceFileService.GetExportFormat(formats, dialog.FilterIndex); _lightSourceFileService.Write(format, data, dialog.FileName);
+            SetStatus($"Exported source '{data.Name}' with {data.Rays.Count} rays using '{format.DisplayName}' to '{dialog.FileName}'."); AppLog.LogInfo(StatusMessage, nameof(MainWindowViewModel));
+        }
+        catch (Exception ex) { SetStatus($"Could not export light source: {ex.Message}"); AppLog.LogError(StatusMessage, ex, nameof(MainWindowViewModel)); }
+    }
+
+    private void ImportLightSource()
+    {
+        if (SelectedScene is null || SelectedScene.IsProjectionOnly) { SetStatus("Cannot import a light source because no collision scene is selected."); return; }
+        var dialog = new OpenFileDialog { Filter = _lightSourceFileService.BuildImportFilter(), FilterIndex = 1 };
+        if (dialog.ShowDialog() != true) return;
+        try { var (data, format) = _lightSourceFileService.Read(dialog.FileName); var source = _lightSourceTransferService.Import(data); _sceneCollectionService.AssignSource(SelectedScene, new CollisionSourceLibraryItemViewModel { TransferredSource = source }); SelectedProjectedLightSource = SelectedScene.AssignedSource!.TransferredSource; RefreshViewport(false); SetStatus($"Imported source '{source.Name}' with {source.ExactRays.Count} exact rays using '{format.DisplayName}'."); AppLog.LogInfo(StatusMessage, nameof(MainWindowViewModel)); }
+        catch (Exception ex) { SetStatus($"Could not import light source '{dialog.FileName}': {ex.Message}"); AppLog.LogError(StatusMessage, ex, nameof(MainWindowViewModel)); }
+    }
+
+    private async Task SaveProjectAsync()
     {
         var dialog = new SaveFileDialog
         {
@@ -1430,17 +1577,30 @@ public sealed class MainWindowViewModel : ObservableObject
 
         try
         {
+            IsIoBusy = true;
+            IoBusyMessage = "Saving project...";
             SetStatus($"Saving project to '{dialog.FileName}'...");
-            _projectPersistenceCoordinator.SaveProject(dialog.FileName, _sceneCollectionService, SelectedScene, AnnotationWorkspace, ProjectionWorkspace);
+            // Snapshot UI-owned collections before moving serialization and disk I/O off the UI thread.
+            var snapshot = new LaserCollisionIn3DObjects.Domain.Persistence.ProjectState
+            {
+                Scenes = _sceneCollectionService.Scenes.Select(scene => ProjectPersistenceCoordinator.MapSceneForSnapshot(scene)).ToList(),
+                CollisionWorkspace = new() { SelectedSceneName = SelectedScene?.Name },
+                ProjectionWorkspace = ProjectionWorkspace.ExportWorkspaceState(),
+                AnnotationWorkspace = AnnotationWorkspace.ExportWorkspaceState(),
+                AvailableSources = _sceneCollectionService.AvailableSources.Select(ProjectPersistenceCoordinator.MapSourceForSnapshot).ToList(),
+                GraphicMaster = GraphicMasterWorkspace.ExportState(),
+            };
+            await new LaserCollisionIn3DObjects.Domain.Persistence.JsonStateFileService().SaveProjectAsync(dialog.FileName, snapshot);
             SetStatus($"Project saved to '{dialog.FileName}'.", ApplicationLogLevel.Success);
         }
         catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or IOException)
         {
             SetStatus($"Failed to save project: {ex.Message}", ApplicationLogLevel.Error, ex);
         }
+        finally { IsIoBusy = false; }
     }
 
-    private void LoadProject()
+    private async Task LoadProjectAsync()
     {
         var dialog = new OpenFileDialog
         {
@@ -1454,15 +1614,19 @@ public sealed class MainWindowViewModel : ObservableObject
 
         try
         {
+            IsIoBusy = true;
+            IoBusyMessage = "Reading and validating project...";
             SetStatus($"Loading project from '{dialog.FileName}'...");
-            _projectPersistenceCoordinator.LoadProject(dialog.FileName, _sceneCollectionService, AnnotationWorkspace, ProjectionWorkspace);
-            RefreshSceneBindingsAndViewport();
+            var state = await _projectPersistenceCoordinator.ReadStateAsync(dialog.FileName);
+            IoBusyMessage = "Restoring project workspaces...";
+            _projectPersistenceCoordinator.ApplyProject(state, _sceneCollectionService, AnnotationWorkspace, ProjectionWorkspace, GraphicMasterWorkspace);
             SetStatus($"Project loaded from '{dialog.FileName}'.", ApplicationLogLevel.Success);
         }
-        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or IOException)
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or NotSupportedException or IOException or UnauthorizedAccessException or System.Text.Json.JsonException)
         {
             SetStatus($"Failed to load project: {ex.Message}", ApplicationLogLevel.Error, ex);
         }
+        finally { IsIoBusy = false; }
     }
 
     private void SaveCollisionTabState()
@@ -1506,7 +1670,6 @@ public sealed class MainWindowViewModel : ObservableObject
         {
             SetStatus($"Loading collision tab state from '{dialog.FileName}'...");
             _projectPersistenceCoordinator.LoadCollisionTab(dialog.FileName, _sceneCollectionService);
-            RefreshSceneBindingsAndViewport();
             SetStatus($"Collision tab state loaded from '{dialog.FileName}'.", ApplicationLogLevel.Success);
         }
         catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or IOException)
@@ -1556,7 +1719,6 @@ public sealed class MainWindowViewModel : ObservableObject
         {
             SetStatus($"Loading projection tab state from '{dialog.FileName}'...");
             _projectPersistenceCoordinator.LoadProjectionTab(dialog.FileName, _sceneCollectionService, ProjectionWorkspace);
-            RefreshSceneBindingsAndViewport();
             SetStatus($"Projection tab state loaded from '{dialog.FileName}'.", ApplicationLogLevel.Success);
         }
         catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or IOException)
@@ -1627,7 +1789,7 @@ public sealed class MainWindowViewModel : ObservableObject
         }
     }
 
-    private void RefreshSceneBindingsAndViewport()
+    private void RefreshSceneBindings()
     {
         CollisionScenes.Refresh();
         UpdateSceneCollectionSubscriptions(SelectedScene);
@@ -1640,12 +1802,17 @@ public sealed class MainWindowViewModel : ObservableObject
         {
             LoadLightSourceIntoEditor(SelectedScene.SelectedLightSource);
         }
+        else if (SelectedScene?.SelectedProjectedLightSource is not null)
+        {
+            LoadProjectedLightSourceIntoEditor(SelectedScene.SelectedProjectedLightSource);
+        }
 
         RaisePropertyChanged(nameof(SelectedScene));
         RaisePropertyChanged(nameof(Prisms));
         RaisePropertyChanged(nameof(Rays));
         RaisePropertyChanged(nameof(LightSources));
         RaisePropertyChanged(nameof(ProjectedLightSources));
+        RaisePropertyChanged(nameof(AssignedSceneSource));
         RaisePropertyChanged(nameof(HitResults));
         RaisePropertyChanged(nameof(SelectedPrism));
         RaisePropertyChanged(nameof(SelectedRay));
@@ -1657,7 +1824,6 @@ public sealed class MainWindowViewModel : ObservableObject
         RaisePropertyChanged(nameof(HasNoEditableSelection));
         RaisePropertyChanged(nameof(SelectedObjectEditorType));
         RaiseCanExecuteChanges();
-        RefreshViewport(false);
     }
 
     private void LoadPrismIntoEditor(PrismItemViewModel prism)
@@ -1702,7 +1868,8 @@ public sealed class MainWindowViewModel : ObservableObject
         SelectedEditPositionX = (float)source.SourceFrame.Origin.X;
         SelectedEditPositionY = (float)source.SourceFrame.Origin.Y;
         SelectedEditPositionZ = (float)source.SourceFrame.Origin.Z;
-        var (rx, ry, rz) = FrameOrientationBuilder.ToLocalEulerDegrees(source.BaseOrientation);
+        // SourceFrame is authoritative; BaseOrientation is compatibility/persistence cache only.
+        var (rx, ry, rz) = FrameOrientationBuilder.ToLocalEulerDegrees(TransferredLightSourcePoseService.GetOrientation(source.SourceFrame));
         SelectedEditRotationX = rx;
         SelectedEditRotationY = ry;
         SelectedEditRotationZ = rz;
@@ -1745,36 +1912,29 @@ public sealed class MainWindowViewModel : ObservableObject
         else if (SelectedProjectedLightSource is not null)
         {
             var frame = SelectedProjectedLightSource.SourceFrame;
-            var oldOrigin = new Vector3((float)frame.Origin.X, (float)frame.Origin.Y, (float)frame.Origin.Z);
-            var oldRotation = SelectedProjectedLightSource.BaseOrientation;
             var newRotation = Quaternion.CreateFromYawPitchRoll(
                 float.DegreesToRadians(SelectedSourceEditRotationY),
                 float.DegreesToRadians(SelectedSourceEditRotationX),
                 float.DegreesToRadians(SelectedSourceEditRotationZ));
 
-            var deltaRotation = newRotation * Quaternion.Inverse(oldRotation);
             var newOrigin = new Vector3(SelectedSourceEditPositionX, SelectedSourceEditPositionY, SelectedSourceEditPositionZ);
-            SelectedProjectedLightSource.SourceFrame = new PointSourceFrameState
+            var newFrame = TransferredLightSourcePoseService.CreateFrame(newOrigin, newRotation);
+
+            // Only the physical ray moves. TargetHolePoint remains historical projection metadata.
+            for (var i = 0; i < SelectedProjectedLightSource.Rays.Count; i++)
             {
-                Origin = new Point3(SelectedSourceEditPositionX, SelectedSourceEditPositionY, SelectedSourceEditPositionZ),
-                AxisX = RotateFrameAxis(frame.AxisX, deltaRotation),
-                AxisY = RotateFrameAxis(frame.AxisY, deltaRotation),
-                AxisZ = RotateFrameAxis(frame.AxisZ, deltaRotation),
-            };
-            SelectedProjectedLightSource.BaseOrientation = newRotation;
-            foreach (var projectionRay in SelectedProjectedLightSource.Rays)
-            {
-                var oldRayOrigin = projectionRay.Ray.Origin;
-                var rotatedOffset = Vector3.Transform(oldRayOrigin - oldOrigin, deltaRotation);
-                projectionRay.Ray.Origin = newOrigin + rotatedOffset;
-                projectionRay.Ray.Direction = Vector3.Normalize(Vector3.TransformNormal(projectionRay.Ray.Direction, Matrix4x4.CreateFromQuaternion(deltaRotation)));
+                var projectionRay = SelectedProjectedLightSource.Rays[i];
+                SelectedProjectedLightSource.Rays[i] = projectionRay with { Ray = TransferredLightSourcePoseService.TransformRay(projectionRay.Ray, frame, newFrame) };
             }
+            for (var i = 0; i < SelectedProjectedLightSource.ExactRays.Count; i++)
+                SelectedProjectedLightSource.ExactRays[i] = TransferredLightSourcePoseService.TransformRay(SelectedProjectedLightSource.ExactRays[i], frame, newFrame);
+            SelectedProjectedLightSource.SourceFrame = newFrame;
+            SelectedProjectedLightSource.BaseOrientation = newRotation;
         }
 
         ClearCollisionResults(scene);
         SetStatus("Selected object changes applied.", ApplicationLogLevel.Success);
         _sceneCollectionService.NotifySceneContentChanged();
-        RefreshViewport(false);
     }
 
     private void ApplySelectedPrismChanges() => ApplySelectedObjectChanges();
@@ -1793,8 +1953,7 @@ public sealed class MainWindowViewModel : ObservableObject
 
     private void ClearCollisionResults(CollisionSceneViewModel scene)
     {
-        scene.HitResults.Clear();
-        _lastCollisionHitPointRecords = Array.Empty<CollisionHitPointRecord>();
+        scene.InvalidateCollisionResults();
         LastCollisionDurationMs = "N/A";
         RaisePropertyChanged(nameof(HitResults));
     }
@@ -1833,11 +1992,6 @@ public sealed class MainWindowViewModel : ObservableObject
             applySourceCommand.RaiseCanExecuteChanged();
         }
 
-        if (AddRayCommand is RelayCommand addRayCommand)
-        {
-            addRayCommand.RaiseCanExecuteChanged();
-        }
-
         if (AddLightSourceCommand is RelayCommand addLightSourceCommand)
         {
             addLightSourceCommand.RaiseCanExecuteChanged();
@@ -1851,16 +2005,6 @@ public sealed class MainWindowViewModel : ObservableObject
         if (RemoveAllPrismsCommand is RelayCommand removeAllPrismsCommand)
         {
             removeAllPrismsCommand.RaiseCanExecuteChanged();
-        }
-
-        if (RemoveSelectedRayCommand is RelayCommand rayCommand)
-        {
-            rayCommand.RaiseCanExecuteChanged();
-        }
-
-        if (RemoveAllRaysCommand is RelayCommand removeAllRaysCommand)
-        {
-            removeAllRaysCommand.RaiseCanExecuteChanged();
         }
 
         if (RemoveSelectedLightSourceCommand is RelayCommand lightCommand)
@@ -1878,10 +2022,14 @@ public sealed class MainWindowViewModel : ObservableObject
             removeHybridSegmentCommand.RaiseCanExecuteChanged();
         }
 
-        if (RunCollisionCommand is RelayCommand runCollisionCommand)
+        if (RunCollisionCommand is AsyncRelayCommand runCollisionCommand)
         {
             runCollisionCommand.RaiseCanExecuteChanged();
         }
+        if (ExportLightSourceCommand is RelayCommand exportLightSourceCommand) exportLightSourceCommand.RaiseCanExecuteChanged();
+        if (ExportHitPointsCsvCommand is RelayCommand exportResultsCommand) exportResultsCommand.RaiseCanExecuteChanged();
+        if (SaveSelectedPanelImageCommand is RelayCommand savePanelImageCommand) savePanelImageCommand.RaiseCanExecuteChanged();
+        if (ImportLightSourceCommand is RelayCommand importLightSourceCommand) importLightSourceCommand.RaiseCanExecuteChanged();
 
         if (RegenerateLightSourceRaysCommand is RelayCommand regenerateCommand)
         {

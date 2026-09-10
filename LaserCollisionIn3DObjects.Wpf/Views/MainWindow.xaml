@@ -9,6 +9,7 @@
         xmlns:services="clr-namespace:LaserCollisionIn3DObjects.Wpf.Services"
         xmlns:v="clr-namespace:LaserCollisionIn3DObjects.Wpf.Views"
         xmlns:sourceCompletion="clr-namespace:LaserCollisionIn3DObjects.Wpf.Features.SourceCompletion.Views"
+        xmlns:controls="clr-namespace:LaserCollisionIn3DObjects.Wpf.Controls"
         mc:Ignorable="d"
         Title="{Binding Title}"
         Width="1500"
@@ -108,6 +109,9 @@
             <MenuItem Header="_File">
                 <MenuItem Header="Save Project" Command="{Binding SaveProjectCommand}"/>
                 <MenuItem Header="Load Project" Command="{Binding LoadProjectCommand}"/>
+                <Separator/>
+                <MenuItem Header="Export Light Source..." Command="{Binding ExportLightSourceCommand}"/>
+                <MenuItem Header="Import Light Source..." Command="{Binding ImportLightSourceCommand}"/>
                 <Separator/>
                 <MenuItem Header="Save Collision View State" Command="{Binding SaveCollisionTabCommand}"/>
                 <MenuItem Header="Load Collision View State" Command="{Binding LoadCollisionTabCommand}"/>
@@ -340,7 +344,11 @@
                         </Style>
                     </sourceCompletion:SourceCompletionWorkspaceView.Style>
                 </sourceCompletion:SourceCompletionWorkspaceView>
-</Grid>
+            </Grid>
+            <controls:BusyOverlay Grid.ColumnSpan="2" Panel.ZIndex="1000"
+                                  Visibility="{Binding IsIoBusy, Converter={StaticResource BoolToVisibilityConverter}, Mode=OneWay}"
+                                  Message="{Binding IoBusyMessage, Mode=OneWay}"
+                                  IsIndeterminate="True" Progress="0"/>
         </Grid>
     </DockPanel>
 </Window>

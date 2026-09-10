@@ -27,9 +27,11 @@ public sealed class HelixSceneBuilder
     public IReadOnlyList<Visual3D> BuildVisuals(
         SceneModel scene,
         IReadOnlyDictionary<Ray3D, RayHitResult>? hitResults = null,
-        float defaultRayLength = 25f)
+        float defaultRayLength = 25f,
+        CollisionSceneVisualOptions? options = null)
     {
         ArgumentNullException.ThrowIfNull(scene);
+        options ??= new CollisionSceneVisualOptions();
 
         var visuals = new List<Visual3D>();
         var generatedRayLookup = scene.GeneratedRays.Count > 0 ? new HashSet<Ray3D>(scene.GeneratedRays) : null;
@@ -94,12 +96,12 @@ public sealed class HelixSceneBuilder
             }
         }
 
-        if(hitResultList.Count > 0)
+        if(options.ShowCollisionHitPoints && hitResultList.Count > 0)
         {
             visuals.Add(_rayVisualizer.CreateHitPoints(hitResultList, color: Colors.Red));
         }
 
-        if (raySegments.Count > 0)
+        if (options.ShowCollisionRays && raySegments.Count > 0)
         {
             visuals.Add(_rayVisualizer.CreateRayLines(raySegments, color: Colors.OrangeRed));
         }
@@ -116,8 +118,10 @@ public sealed class HelixSceneBuilder
 
         if (scene.HolePoints.Count > 0)
         {
-            visuals.Add(_rayVisualizer.CreatePoints(scene.HolePoints, color: Colors.Blue));
+            visuals.Add(_rayVisualizer.CreatePoints(scene.HolePoints, color: Colors.DodgerBlue));
         }
+        if (scene.NaturalPoints.Count > 0)
+            visuals.Add(_rayVisualizer.CreatePoints(scene.NaturalPoints, color: Colors.Orange));
 
         return visuals;
     }
@@ -155,14 +159,17 @@ public sealed class HelixSceneBuilder
 
     public IReadOnlyList<Visual3D> BuildProjectionVisuals(
         IReadOnlyList<Point3> holePoints,
+        IReadOnlyList<Point3> naturalPoints,
         ProjectionComputationResult? projectionResult,
         IAxisymmetricSourceProfile? previewProfile = null,
         Frame3D? previewFrame = null,
         bool previewAsGhost = true,
         Point3? previewTiltPointLocal = null,
-        IReadOnlyList<RectangularPrism>? panels = null)
+        IReadOnlyList<RectangularPrism>? panels = null,
+        IReadOnlyList<Point3>? measuredCornerPoints = null)
     {
         ArgumentNullException.ThrowIfNull(holePoints);
+        ArgumentNullException.ThrowIfNull(naturalPoints);
 
         var visuals = new List<Visual3D>();
         if (panels is { Count: > 0 })
@@ -170,10 +177,17 @@ public sealed class HelixSceneBuilder
             visuals.Add(_meshFactory.CreateRectangularPrismBatch(panels, Colors.LightGreen, opacity: 0.5d));
         }
 
+        if (measuredCornerPoints is { Count: > 0 })
+        {
+            visuals.Add(_rayVisualizer.CreatePoints(measuredCornerPoints, Colors.Red, size: 7));
+        }
+
         if (holePoints.Count > 0)
         {
             visuals.Add(_rayVisualizer.CreatePoints(holePoints, Colors.DodgerBlue, size: 4));
         }
+        if (naturalPoints.Count > 0)
+            visuals.Add(_rayVisualizer.CreatePoints(naturalPoints, Colors.Orange, size: 4));
 
         if (projectionResult?.SourceFrame is { } sourceFrame)
         {

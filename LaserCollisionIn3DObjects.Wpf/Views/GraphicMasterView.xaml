@@ -39,8 +39,14 @@
                     <GroupBox Header="Graph Sources" Margin="0,0,0,8" Padding="8">
                         <StackPanel>
                             <TextBlock TextWrapping="Wrap" Foreground="#555" Margin="0,0,0,6"
-                                       Text="Select cylindrical sources and/or projection results from all scenes."/>
-                            <ListBox ItemsSource="{Binding GraphicMasterWorkspace.Sources}" Height="280" BorderThickness="1" BorderBrush="#D1D5DB">
+                                       Text="Select scene, completed, projection, or independently imported sources."/>
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                                <Button Content="Import Source File" Command="{Binding GraphicMasterWorkspace.ImportSourceCommand}" Margin="0,0,6,0"/>
+                                <Button Content="Remove Imported" Command="{Binding GraphicMasterWorkspace.RemoveImportedSourceCommand}"/>
+                            </StackPanel>
+                            <ListBox ItemsSource="{Binding GraphicMasterWorkspace.Sources}"
+                                     SelectedItem="{Binding GraphicMasterWorkspace.SelectedSource}"
+                                     Height="280" BorderThickness="1" BorderBrush="#D1D5DB">
                                 <ListBox.ItemTemplate>
                                     <DataTemplate>
                                         <CheckBox IsChecked="{Binding IsSelected}" Content="{Binding DisplayName}" Margin="2"/>
@@ -75,7 +81,7 @@
                             Margin="0,6,0,0"
                             Visibility="{Binding GraphicMasterWorkspace.CanFocusY, Converter={StaticResource BooleanToVisibilityConverter}}"/>
 
-                    <GroupBox Header="Stored Charts (runtime only)" Margin="0,8,0,8" Padding="8">
+                    <GroupBox Header="Stored Charts" Margin="0,8,0,8" Padding="8">
                         <DockPanel>
                             <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Margin="0,8,0,0">
                                 <Button Content="Delete Selected"

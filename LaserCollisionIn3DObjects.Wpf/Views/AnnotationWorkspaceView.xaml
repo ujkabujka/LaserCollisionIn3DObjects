@@ -4,12 +4,25 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:avm="clr-namespace:LaserCollisionIn3DObjects.Wpf.Features.Annotations.ViewModels"
+             xmlns:gen="clr-namespace:LaserCollisionIn3DObjects.Domain.Generation;assembly=LaserCollisionIn3DObjects.Domain"
              xmlns:conv="clr-namespace:LaserCollisionIn3DObjects.Wpf.Converters"
+             xmlns:controls="clr-namespace:LaserCollisionIn3DObjects.Wpf.Controls"
              mc:Ignorable="d">
     <UserControl.Resources>
         <conv:FlexibleNumericConverter x:Key="FlexibleNumericConverter"/>
+        <BooleanToVisibilityConverter x:Key="BoolToVisibility"/>
     </UserControl.Resources>
     <Grid Margin="10">
+        <Grid.Style>
+            <Style TargetType="Grid">
+                <Setter Property="Cursor" Value="Arrow"/>
+                <Style.Triggers>
+                    <DataTrigger Binding="{Binding AnnotationWorkspace.IsBusy}" Value="True">
+                        <Setter Property="Cursor" Value="Wait"/>
+                    </DataTrigger>
+                </Style.Triggers>
+            </Style>
+        </Grid.Style>
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="380" />
             <ColumnDefinition Width="*" />
@@ -73,6 +86,12 @@
                             <Button Content="Generate Scene"
                                     Command="{Binding AnnotationWorkspace.GenerateSceneCommand}"
                                     Height="28"/>
+                            <TextBlock Text="Prism Generation Methodology" Margin="0,6,0,2"/>
+                            <ComboBox ItemsSource="{Binding AnnotationWorkspace.PrismGenerationMethodologies}"
+                                      SelectedItem="{Binding AnnotationWorkspace.SelectedPrismGenerationMethodology}"
+                                      Margin="0,0,0,6">
+                                <ComboBox.ItemTemplate><DataTemplate><TextBlock><TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Text" Value="LT-RT Anchored Orthogonal"/><Style.Triggers><DataTrigger Binding="{Binding}" Value="{x:Static gen:PrismGenerationMethodology.LtAnchoredFourPointBestFit}"><Setter Property="Text" Value="LT-Anchored 4-Point Best Fit"/></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock></DataTemplate></ComboBox.ItemTemplate>
+                            </ComboBox>
                         </StackPanel>
                     </Border>
 
@@ -140,9 +159,10 @@
                     <ListBox ItemsSource="{Binding AnnotationWorkspace.Images}" SelectedItem="{Binding AnnotationWorkspace.SelectedImage}" Height="220" DisplayMemberPath="DisplayName" Margin="0,4,0,8" />
                     <TextBlock Text="Fitted Panel Corners" FontWeight="SemiBold" />
                     <TextBlock Text="{Binding AnnotationWorkspace.SelectedImage.PanelCornersText, TargetNullValue=N/A}" TextWrapping="Wrap" Margin="0,4,0,8" />
-                    <DataGrid ItemsSource="{Binding AnnotationWorkspace.SelectedImage.Holes}" AutoGenerateColumns="False" CanUserAddRows="False" Height="250" HeadersVisibility="Column">
+                    <DataGrid ItemsSource="{Binding AnnotationWorkspace.SelectedImage.AnnotationPoints}" AutoGenerateColumns="False" CanUserAddRows="False" Height="250" HeadersVisibility="Column">
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="#" Binding="{Binding Index}" Width="35"/>
+                            <DataGridTextColumn Header="Category" Binding="{Binding Category}" Width="70"/>
                             <DataGridTextColumn Header="Source Shape" Binding="{Binding ShapeType}" Width="90"/>
                             <DataGridTextColumn Header="Original Center" Binding="{Binding OriginalCenter}" Width="110"/>
                             <DataGridTextColumn Header="Warped Center" Binding="{Binding WarpedCenter}" Width="110"/>
@@ -196,5 +216,10 @@
                 </Grid>
             </ScrollViewer>
         </GroupBox>
+        <controls:BusyOverlay Grid.ColumnSpan="3" Panel.ZIndex="100"
+                              Visibility="{Binding AnnotationWorkspace.IsBusy, Converter={StaticResource BoolToVisibility}}"
+                              Message="{Binding AnnotationWorkspace.BusyMessage}"
+                              Progress="{Binding AnnotationWorkspace.BusyProgressPercent}"
+                              IsIndeterminate="{Binding AnnotationWorkspace.IsBusyIndeterminate}"/>
     </Grid>
 </UserControl>

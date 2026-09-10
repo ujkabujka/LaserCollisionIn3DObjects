@@ -9,8 +9,10 @@ public sealed class OverlayRenderer
 {
     private static readonly Brush PanelPolygonBrush = Brushes.LimeGreen;
     private static readonly Brush PanelCornerBrush = Brushes.Lime;
-    private static readonly Brush HoleBrush = Brushes.Orange;
-    private static readonly Brush HoleFillBrush = new SolidColorBrush(Color.FromArgb(180, 255, 165, 0));
+    private static readonly Brush HoleBrush = Brushes.DodgerBlue;
+    private static readonly Brush HoleFillBrush = new SolidColorBrush(Color.FromArgb(180, 30, 144, 255));
+    private static readonly Brush NaturalBrush = Brushes.Orange;
+    private static readonly Brush NaturalFillBrush = new SolidColorBrush(Color.FromArgb(180, 255, 165, 0));
 
     public BitmapSource CreateOriginalOverlay(AnnotatedImageRecord record, BitmapSource image)
     {
@@ -42,10 +44,16 @@ public sealed class OverlayRenderer
                 }
             }
 
-            for (var i = 0; i < record.Holes.Count; i++)
+            var holeIndex = 0;
+            var naturalIndex = 0;
+            foreach (var point in record.Points)
             {
-                DrawHoleOutline(dc, record.Holes[i].OriginalShape);
-                DrawPointWithLabel(dc, record.Holes[i].CenterPoint, $"H{i + 1}", HoleBrush, HoleFillBrush, 5, 12);
+                var isHole = point.Category == AnnotationPointCategory.Hole;
+                var brush = isHole ? HoleBrush : NaturalBrush;
+                var fill = isHole ? HoleFillBrush : NaturalFillBrush;
+                var label = isHole ? $"H{++holeIndex}" : $"N{++naturalIndex}";
+                DrawPointOutline(dc, point.OriginalShape, brush);
+                DrawPointWithLabel(dc, point.CenterPoint, label, brush, fill, 5, 12);
             }
         }
 
@@ -90,14 +98,16 @@ public sealed class OverlayRenderer
                     6,
                     12);
             }
+            for (var i = 0; i < rectification.TransformedNaturalCenters.Count; i++)
+                DrawPointWithLabel(dc, rectification.TransformedNaturalCenters[i], $"N{i + 1}", NaturalBrush, NaturalFillBrush, 6, 12);
         }
 
         return RenderVisual(visual, width, height);
     }
 
-    private static void DrawHoleOutline(DrawingContext dc, IAnnotationShape shape)
+    private static void DrawPointOutline(DrawingContext dc, IAnnotationShape shape, Brush brush)
     {
-        var pen = new Pen(HoleBrush, 2) { DashStyle = DashStyles.Dash };
+        var pen = new Pen(brush, 2) { DashStyle = DashStyles.Dash };
         switch (shape)
         {
             case PolygonShapeData polygon when polygon.Points.Count >= 3:

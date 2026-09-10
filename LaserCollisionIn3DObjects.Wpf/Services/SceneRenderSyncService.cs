@@ -11,6 +11,7 @@ using LaserCollisionIn3DObjects.Domain.Projection;
 using LaserCollisionIn3DObjects.Rendering.Helix;
 using LaserCollisionIn3DObjects.Wpf.ViewModels;
 using DomainRay3D = LaserCollisionIn3DObjects.Domain.Geometry.Ray3D;
+using System.Diagnostics;
 
 namespace LaserCollisionIn3DObjects.Wpf.Services;
 
@@ -19,13 +20,21 @@ namespace LaserCollisionIn3DObjects.Wpf.Services;
 /// </summary>
 public sealed class SceneRenderSyncService
 {
+    public sealed record CollisionComputation(
+        SceneModel Scene,
+        IReadOnlyList<(DomainRay3D Ray, RayHitResult Hit)> Hits,
+        string SceneName,
+        TimeSpan Duration,
+        CollisionAlgorithmOption Algorithm,
+        PanelCollisionAnalysis PanelAnalysis);
     public sealed record SceneSyncResult(
         IReadOnlyList<HitResultItemViewModel> HitRows,
         IReadOnlyList<CollisionHitPointRecord> HitPointRecords,
+        PanelCollisionAnalysis? PanelAnalysis,
         TimeSpan CollisionDuration,
         CollisionAlgorithmOption? CollisionAlgorithm);
 
-    private sealed record SceneBuildResult(SceneModel Scene, IReadOnlyList<CollisionRaySourceType> RaySourceTypes);
+    private sealed record SceneBuildResult(SceneModel Scene);
 
     private readonly HelixViewport3D _viewport;
     private readonly ModelVisual3D _dynamicVisualRoot = new();
@@ -48,12 +57,15 @@ public sealed class SceneRenderSyncService
         IReadOnlyList<RayItemViewModel> rayItems,
         IReadOnlyList<ProjectedLightSourceItemViewModel> projectedLightSources,
         IReadOnlyList<Point3> holePoints,
-        ProjectionComputationResult? projectionResult,
+        IReadOnlyList<Point3> naturalPoints,
         string sceneName,
         bool runCollision,
         CollisionAlgorithmOption algorithm)
     {
-        var buildResult = BuildDomainScene(prismItems, lightSourceItems, rayItems, projectedLightSources, holePoints, projectionResult);
+        var renderStopwatch = Stopwatch.StartNew();
+        Trace.WriteLine($"[CollisionRender] SyncScene started: prisms={prismItems.Count}, generatedSources={lightSourceItems.Count}, transferredSources={projectedLightSources.Count}, manualRays={rayItems.Count}, runCollision={runCollision}.");
+        var buildResult = BuildDomainScene(prismItems, lightSourceItems, rayItems, projectedLightSources, holePoints, naturalPoints);
+        Trace.WriteLine($"[CollisionRender] BuildDomainScene completed in {renderStopwatch.ElapsedMilliseconds} ms.");
         var scene = buildResult.Scene;
         var stopwatch = System.Diagnostics.Stopwatch.StartNew();
         var collisionResults = runCollision ? CalculateFirstHits(scene, algorithm) : new List<(DomainRay3D Ray, RayHitResult Hit)>();
@@ -64,13 +76,79 @@ public sealed class SceneRenderSyncService
             .ToDictionary(result => result.Ray, result => result.Hit);
 
         var visuals = _sceneBuilder.BuildVisuals(scene, hitLookup);
+        Trace.WriteLine($"[CollisionRender] BuildVisuals completed in {renderStopwatch.ElapsedMilliseconds} ms; visuals={visuals.Count}.");
         UpdateViewport(visuals);
+        Trace.WriteLine($"[CollisionRender] UpdateViewport completed in {renderStopwatch.ElapsedMilliseconds} ms.");
 
         return new SceneSyncResult(
             BuildHitRows(scene, collisionResults),
-            runCollision ? BuildHitPointRecords(sceneName, collisionResults, buildResult.RaySourceTypes) : Array.Empty<CollisionHitPointRecord>(),
+            runCollision ? BuildHitPointRecords(sceneName, collisionResults, scene.CollisionRayInputs) : Array.Empty<CollisionHitPointRecord>(),
+            runCollision ? BuildPanelAnalysis(sceneName, scene, collisionResults) : null,
             runCollision ? stopwatch.Elapsed : TimeSpan.Zero,
             runCollision ? algorithm : null);
+    }
+
+    public SceneSyncResult SyncScene(
+        IReadOnlyList<PrismItemViewModel> prisms,
+        CollisionSourceLibraryItemViewModel? assignedSource,
+        IReadOnlyList<Point3> holes,
+        IReadOnlyList<Point3> naturalPoints,
+        string sceneName,
+        bool runCollision,
+        CollisionAlgorithmOption algorithm) => SyncScene(
+            prisms,
+            assignedSource?.GeneratedSource is { } generated ? [generated] : [],
+            [],
+            assignedSource?.TransferredSource is { } transferred ? [transferred] : [],
+            holes, naturalPoints, sceneName, runCollision && assignedSource is not null, algorithm);
+
+    /// <summary>Performs domain-only scene generation and intersections; no WPF visuals are touched.</summary>
+    public CollisionComputation ComputeCollision(
+        IReadOnlyList<PrismItemViewModel> prismItems,
+        IReadOnlyList<CylindricalLightSourceItemViewModel> lightSourceItems,
+        IReadOnlyList<RayItemViewModel> rayItems,
+        IReadOnlyList<ProjectedLightSourceItemViewModel> projectedLightSources,
+        IReadOnlyList<Point3> holePoints,
+        IReadOnlyList<Point3> naturalPoints,
+        string sceneName,
+        CollisionAlgorithmOption algorithm,
+        IProgress<(int Processed, int Total)>? progress = null,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var scene = BuildDomainScene(prismItems, lightSourceItems, rayItems, projectedLightSources, holePoints, naturalPoints).Scene;
+        var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+        var hits = CalculateFirstHits(scene, algorithm, progress, cancellationToken);
+        stopwatch.Stop();
+        return new CollisionComputation(scene, hits, sceneName, stopwatch.Elapsed, algorithm, BuildPanelAnalysis(sceneName, scene, hits));
+    }
+
+    public CollisionComputation ComputeCollision(
+        IReadOnlyList<PrismItemViewModel> prisms,
+        CollisionSourceLibraryItemViewModel assignedSource,
+        IReadOnlyList<Point3> holes,
+        IReadOnlyList<Point3> naturalPoints,
+        string sceneName,
+        CollisionAlgorithmOption algorithm,
+        IProgress<(int Processed, int Total)>? progress = null,
+        CancellationToken cancellationToken = default) => ComputeCollision(
+            prisms,
+            assignedSource.GeneratedSource is { } generated ? [generated] : [],
+            [],
+            assignedSource.TransferredSource is { } transferred ? [transferred] : [],
+            holes, naturalPoints, sceneName, algorithm, progress, cancellationToken);
+
+    /// <summary>Publishes a completed computation to Helix on the UI thread.</summary>
+    public SceneSyncResult RenderCollision(CollisionComputation computation, CollisionSceneVisualOptions? options = null)
+    {
+        var hitLookup = computation.Hits.Where(x => x.Hit.HasHit).ToDictionary(x => x.Ray, x => x.Hit);
+        UpdateViewport(_sceneBuilder.BuildVisuals(computation.Scene, hitLookup, options: options));
+        return new SceneSyncResult(
+            BuildHitRows(computation.Scene, computation.Hits),
+            BuildHitPointRecords(computation.SceneName, computation.Hits, computation.Scene.CollisionRayInputs),
+            computation.PanelAnalysis,
+            computation.Duration,
+            computation.Algorithm);
     }
 
     private SceneBuildResult BuildDomainScene(
@@ -79,10 +157,9 @@ public sealed class SceneRenderSyncService
         IReadOnlyList<RayItemViewModel> rays,
         IReadOnlyList<ProjectedLightSourceItemViewModel> projectedLightSources,
         IReadOnlyList<Point3> holePoints,
-        ProjectionComputationResult? projectionResult)
+        IReadOnlyList<Point3> naturalPoints)
     {
         var scene = new SceneModel();
-        var raySourceTypes = new List<CollisionRaySourceType>();
 
         foreach (var prism in prisms)
         {
@@ -144,7 +221,7 @@ public sealed class SceneRenderSyncService
 
             scene.GeneratedRays.AddRange(generatedRays);
             scene.Rays.AddRange(generatedRays);
-            raySourceTypes.AddRange(Enumerable.Repeat(sourceType, generatedRays.Count));
+            scene.CollisionRayInputs.AddRange(generatedRays.Select(ray => new SceneModel.CollisionRayInput(ray, sourceType, lightSource.Name)));
         }
 
 
@@ -157,59 +234,62 @@ public sealed class SceneRenderSyncService
                 frame,
                 projectedSource.ProfileDefinition.Kind,
                 profile,
-                projectedSource.Rays.Count,
+                projectedSource.EffectiveRayCount,
                 0f,
                 Vector3.Zero);
 
             scene.AxisymmetricLightSources.Add(axisymmetricSource);
 
-            foreach (var projectionRay in projectedSource.Rays)
+            var exactRays = projectedSource.GetEffectiveCollisionRays();
+            var sourceType = projectedSource.OriginKind switch
             {
-                scene.ProjectedSourceRays.Add(projectionRay.Ray);
-                scene.Rays.Add(projectionRay.Ray);
-                raySourceTypes.Add(CollisionRaySourceType.ProjectionResult);
+                ProjectedLightSourceOriginKind.CompletedProjectionResult => CollisionRaySourceType.CompletedProjectionResult,
+                ProjectedLightSourceOriginKind.ImportedTextFile => CollisionRaySourceType.ImportedLightSource,
+                _ => CollisionRaySourceType.ProjectionResult,
+            };
+            foreach (var exactRay in exactRays)
+            {
+                scene.ProjectedSourceRays.Add(exactRay);
+                scene.Rays.Add(exactRay);
+                scene.CollisionRayInputs.Add(new SceneModel.CollisionRayInput(exactRay, sourceType, projectedSource.Name));
             }
         }
 
         foreach (var ray in rays)
         {
-            scene.Rays.Add(
-                new DomainRay3D(
+            var domainRay = new DomainRay3D(
                     new Vector3(ray.OriginX, ray.OriginY, ray.OriginZ),
-                    new Vector3(ray.DirectionX, ray.DirectionY, ray.DirectionZ)));
-            raySourceTypes.Add(CollisionRaySourceType.Manual);
+                    new Vector3(ray.DirectionX, ray.DirectionY, ray.DirectionZ));
+            scene.Rays.Add(domainRay);
+            scene.CollisionRayInputs.Add(new SceneModel.CollisionRayInput(domainRay, CollisionRaySourceType.Manual, "Manual Ray"));
         }
 
         foreach (var hole in holePoints)
         {
             scene.HolePoints.Add(hole);
         }
+        scene.NaturalPoints.AddRange(naturalPoints);
 
-        if (projectionResult is not null && projectedLightSources.Count == 0)
-        {
-            var projectionRays = projectionResult.GetEffectiveRays().Select(projectionRay => projectionRay.Ray).ToList();
-            scene.Rays.AddRange(projectionRays);
-            raySourceTypes.AddRange(Enumerable.Repeat(CollisionRaySourceType.ProjectionResult, projectionRays.Count));
-        }
-
-        return new SceneBuildResult(scene, raySourceTypes);
+        return new SceneBuildResult(scene);
     }
 
-    private static List<(DomainRay3D Ray, RayHitResult Hit)> CalculateFirstHits(SceneModel scene, CollisionAlgorithmOption algorithm)
+    private static List<(DomainRay3D Ray, RayHitResult Hit)> CalculateFirstHits(SceneModel scene, CollisionAlgorithmOption algorithm, IProgress<(int Processed, int Total)>? progress = null, CancellationToken cancellationToken = default)
     {
         return algorithm switch
         {
-            CollisionAlgorithmOption.ClosestHitParallel => CalculateFirstHitsParallel(scene),
-            _ => CalculateFirstHitsSequential(scene),
+            CollisionAlgorithmOption.ClosestHitParallel => CalculateFirstHitsParallel(scene, progress, cancellationToken),
+            _ => CalculateFirstHitsSequential(scene, progress, cancellationToken),
         };
     }
 
-    private static List<(DomainRay3D Ray, RayHitResult Hit)> CalculateFirstHitsSequential(SceneModel scene)
+    private static List<(DomainRay3D Ray, RayHitResult Hit)> CalculateFirstHitsSequential(SceneModel scene, IProgress<(int Processed, int Total)>? progress, CancellationToken cancellationToken)
     {
         var results = new List<(DomainRay3D Ray, RayHitResult Hit)>(scene.Rays.Count);
 
-        foreach (var ray in scene.Rays)
+        for (var rayIndex = 0; rayIndex < scene.Rays.Count; rayIndex++)
         {
+            cancellationToken.ThrowIfCancellationRequested();
+            var ray = scene.Rays[rayIndex];
             var closestHit = RayHitResult.NoHit;
 
             foreach (var prism in scene.RectangularPrisms)
@@ -222,6 +302,7 @@ public sealed class SceneRenderSyncService
             }
 
             results.Add((ray, closestHit));
+            ReportProgress(progress, rayIndex + 1, scene.Rays.Count);
         }
 
         return results;
@@ -265,11 +346,12 @@ public sealed class SceneRenderSyncService
             _ => throw new ArgumentOutOfRangeException(nameof(lightSource.SourceKind), "Unsupported axisymmetric source kind."),
         };
     }
-    private static List<(DomainRay3D Ray, RayHitResult Hit)> CalculateFirstHitsParallel(SceneModel scene)
+    private static List<(DomainRay3D Ray, RayHitResult Hit)> CalculateFirstHitsParallel(SceneModel scene, IProgress<(int Processed, int Total)>? progress, CancellationToken cancellationToken)
     {
         var results = new (DomainRay3D Ray, RayHitResult Hit)[scene.Rays.Count];
 
-        Parallel.For(0, scene.Rays.Count, i =>
+        var processed = 0;
+        Parallel.For(0, scene.Rays.Count, new ParallelOptions { CancellationToken = cancellationToken }, i =>
         {
             var ray = scene.Rays[i];
             var closestHit = RayHitResult.NoHit;
@@ -284,9 +366,17 @@ public sealed class SceneRenderSyncService
             }
 
             results[i] = (ray, closestHit);
+            ReportProgress(progress, Interlocked.Increment(ref processed), scene.Rays.Count);
         });
 
         return results.ToList();
+    }
+
+    private static void ReportProgress(IProgress<(int Processed, int Total)>? progress, int processed, int total)
+    {
+        if (progress is null || total == 0) return;
+        var bucket = Math.Max(1, total / 100);
+        if (processed == total || processed % bucket == 0) progress.Report((processed, total));
     }
 
     private static IReadOnlyList<HitResultItemViewModel> BuildHitRows(
@@ -303,6 +393,8 @@ public sealed class SceneRenderSyncService
                 HasHit = false,
                 Distance = 0f,
                 PrismName = "-",
+                SourceType = i < scene.CollisionRayInputs.Count ? scene.CollisionRayInputs[i].SourceType.ToString() : string.Empty,
+                SourceName = i < scene.CollisionRayInputs.Count ? scene.CollisionRayInputs[i].SourceName : string.Empty,
             };
 
             if (i < hitResults.Count)
@@ -322,11 +414,11 @@ public sealed class SceneRenderSyncService
     private static IReadOnlyList<CollisionHitPointRecord> BuildHitPointRecords(
         string sceneName,
         IReadOnlyList<(DomainRay3D Ray, RayHitResult Hit)> hitResults,
-        IReadOnlyList<CollisionRaySourceType> raySourceTypes)
+        IReadOnlyList<SceneModel.CollisionRayInput> rayInputs)
     {
         var records = new List<CollisionHitPointRecord>();
 
-        for (var i = 0; i < hitResults.Count && i < raySourceTypes.Count; i++)
+        for (var i = 0; i < hitResults.Count && i < rayInputs.Count; i++)
         {
             var hit = hitResults[i].Hit;
             if (!hit.HasHit)
@@ -334,10 +426,24 @@ public sealed class SceneRenderSyncService
                 continue;
             }
 
-            records.Add(new CollisionHitPointRecord(sceneName, hit.HitPoint, raySourceTypes[i]));
+            records.Add(new CollisionHitPointRecord(sceneName, hit.HitPoint, rayInputs[i].SourceType, rayInputs[i].SourceName));
         }
 
         return records;
+    }
+
+    private static PanelCollisionAnalysis BuildPanelAnalysis(
+        string sceneName, SceneModel scene, IReadOnlyList<(DomainRay3D Ray, RayHitResult Hit)> hitResults)
+    {
+        var inputs = new List<PanelCollisionInputHit>();
+        for (var i = 0; i < hitResults.Count; i++)
+        {
+            var provenance = i < scene.CollisionRayInputs.Count
+                ? scene.CollisionRayInputs[i]
+                : new SceneModel.CollisionRayInput(hitResults[i].Ray, CollisionRaySourceType.Manual, string.Empty);
+            inputs.Add(new PanelCollisionInputHit(i, hitResults[i].Hit, provenance.SourceType, provenance.SourceName));
+        }
+        return new PanelCollisionAnalysisService().Build(sceneName, scene.RectangularPrisms, inputs, scene.Rays.Count);
     }
 
     private void UpdateViewport(IReadOnlyList<Visual3D> visuals)

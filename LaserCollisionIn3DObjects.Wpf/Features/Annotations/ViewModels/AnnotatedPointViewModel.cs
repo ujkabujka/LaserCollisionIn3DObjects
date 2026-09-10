@@ -2,8 +2,9 @@ using LaserCollisionIn3DObjects.Wpf.Features.Annotations.Models;
 
 namespace LaserCollisionIn3DObjects.Wpf.Features.Annotations.ViewModels;
 
-public sealed class HoleViewModel
+public sealed class AnnotatedPointViewModel
 {
+    public AnnotationPointCategory Category { get; init; }
     public required int Index { get; init; }
 
     public required AnnotationShapeType ShapeType { get; init; }

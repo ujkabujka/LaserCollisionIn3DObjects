@@ -37,7 +37,8 @@ public sealed class AnnotatedImageViewModel : ObservableObject
 
     public bool HasPanel => Record.Panel is not null;
 
-    public int HoleCount => Record.Holes.Count;
+    public int HoleCount => Record.Holes.Count();
+    public int NaturalCount => Record.NaturalPoints.Count();
 
     public BitmapSource? OriginalImage
     {
@@ -63,8 +64,9 @@ public sealed class AnnotatedImageViewModel : ObservableObject
         set => SetProperty(ref _warpedOverlay, value);
     }
 
-    public ObservableCollection<HoleViewModel> Holes { get; } = new();
+    public ObservableCollection<AnnotatedPointViewModel> AnnotationPoints { get; } = new();
     public ObservableCollection<Point> WarpedHoleCentersMm { get; } = new();
+    public ObservableCollection<Point> WarpedNaturalCentersMm { get; } = new();
 
     public ObservableCollection<CornerMeasurementViewModel> CornerMeasurements { get; } = new();
 

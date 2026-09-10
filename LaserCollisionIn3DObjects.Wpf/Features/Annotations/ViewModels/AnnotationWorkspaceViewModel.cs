@@ -32,17 +32,22 @@ public sealed class AnnotationWorkspaceViewModel : ObservableObject
     private bool _isFolderResolved;
     private string? _missingFolderPath;
     private AnnotationWorkspaceState? _pendingWorkspaceState;
+    private PrismGenerationMethodology _selectedPrismGenerationMethodology;
+    private bool _isBusy;
+    private string _busyMessage = string.Empty;
+    private double _busyProgressPercent;
+    private bool _isBusyIndeterminate = true;
 
     public AnnotationWorkspaceViewModel(SceneCollectionService? sceneCollectionService = null)
     {
         _sceneCollectionService = sceneCollectionService;
-        SelectFolderCommand = new RelayCommand(SelectFolder);
-        ImportPanelMeasurementsCsvCommand = new RelayCommand(ImportPanelMeasurementsCsv, () => Images.Count > 0);
-        SelectPreviousImageCommand = new RelayCommand(SelectPreviousImage, () => SelectedImageIndex > 0);
-        SelectNextImageCommand = new RelayCommand(SelectNextImage, () => SelectedImageIndex >= 0 && SelectedImageIndex < Images.Count - 1);
-        ApplyGlobalPanelDimensionsCommand = new RelayCommand(ApplyGlobalPanelDimensions, () => Images.Count > 0);
-        GenerateSceneCommand = new RelayCommand(GenerateScene, () => Images.Count > 0);
-        RelinkMissingFolderCommand = new RelayCommand(RestoreMissingFolder, () => !string.IsNullOrWhiteSpace(MissingFolderPath));
+        SelectFolderCommand = new AsyncRelayCommand(SelectFolderAsync, () => !IsBusy);
+        ImportPanelMeasurementsCsvCommand = new AsyncRelayCommand(ImportPanelMeasurementsCsvAsync, () => !IsBusy && Images.Count > 0);
+        SelectPreviousImageCommand = new RelayCommand(SelectPreviousImage, () => !IsBusy && SelectedImageIndex > 0);
+        SelectNextImageCommand = new RelayCommand(SelectNextImage, () => !IsBusy && SelectedImageIndex >= 0 && SelectedImageIndex < Images.Count - 1);
+        ApplyGlobalPanelDimensionsCommand = new RelayCommand(ApplyGlobalPanelDimensions, () => !IsBusy && Images.Count > 0);
+        GenerateSceneCommand = new AsyncRelayCommand(GenerateSceneAsync, () => !IsBusy && Images.Count > 0);
+        RelinkMissingFolderCommand = new AsyncRelayCommand(RestoreMissingFolderAsync, () => !IsBusy && !string.IsNullOrWhiteSpace(MissingFolderPath));
     }
 
     public ICommand SelectFolderCommand { get; }
@@ -60,7 +65,26 @@ public sealed class AnnotationWorkspaceViewModel : ObservableObject
 
     public ObservableCollection<AnnotatedImageViewModel> Images { get; } = new();
 
+    public bool IsBusy
+    {
+        get => _isBusy;
+        private set
+        {
+            if (SetProperty(ref _isBusy, value)) RaiseCanExecuteChanges();
+        }
+    }
+
+    public string BusyMessage { get => _busyMessage; private set => SetProperty(ref _busyMessage, value); }
+    public double BusyProgressPercent { get => _busyProgressPercent; private set => SetProperty(ref _busyProgressPercent, value); }
+    public bool IsBusyIndeterminate { get => _isBusyIndeterminate; private set => SetProperty(ref _isBusyIndeterminate, value); }
+
     public CornerMeasurementMode[] CornerMeasurementModes { get; } = Enum.GetValues<CornerMeasurementMode>();
+    public PrismGenerationMethodology[] PrismGenerationMethodologies { get; } = Enum.GetValues<PrismGenerationMethodology>();
+    public PrismGenerationMethodology SelectedPrismGenerationMethodology
+    {
+        get => _selectedPrismGenerationMethodology;
+        set => SetProperty(ref _selectedPrismGenerationMethodology, value);
+    }
 
     // TODO Phase 2: generate collision scenes from annotation data and push through this shared scene collection.
     public SceneCollectionService? SceneCollectionService => _sceneCollectionService;
@@ -92,7 +116,7 @@ public sealed class AnnotationWorkspaceViewModel : ObservableObject
             RaiseCanExecuteChanges();
             if (value is not null)
             {
-                ProcessSelectedImage(value);
+                _ = ProcessSelectedImageAsync(value, updateStatus: true);
             }
         }
     }
@@ -101,7 +125,7 @@ public sealed class AnnotationWorkspaceViewModel : ObservableObject
 
     public string SelectedImageSummary => SelectedImage is null
         ? "No image selected."
-        : $"File: {SelectedImage.FileName} | Panel: {(SelectedImage.HasPanel ? "Yes" : "No")} | Holes: {SelectedImage.HoleCount}";
+        : $"File: {SelectedImage.FileName} | Panel: {(SelectedImage.HasPanel ? "Yes" : "No")} | Holes: {SelectedImage.HoleCount} | Natural: {SelectedImage.NaturalCount}";
 
     public IReadOnlyDictionary<string, IReadOnlyList<Point>> WarpedHoleCentersMmByImage
         => Images.ToDictionary(
@@ -139,12 +163,12 @@ public sealed class AnnotationWorkspaceViewModel : ObservableObject
         {
             if (SetProperty(ref _missingFolderPath, value))
             {
-                (RelinkMissingFolderCommand as RelayCommand)?.RaiseCanExecuteChanged();
+                (RelinkMissingFolderCommand as AsyncRelayCommand)?.RaiseCanExecuteChanged();
             }
         }
     }
 
-    private void SelectFolder()
+    private async Task SelectFolderAsync()
     {
         var dialog = new OpenFolderDialog
         {
@@ -157,13 +181,10 @@ public sealed class AnnotationWorkspaceViewModel : ObservableObject
             return;
         }
 
-        SelectedFolderPath = dialog.FolderName;
-        LoadProject(dialog.FolderName);
-        IsFolderResolved = true;
-        MissingFolderPath = null;
+        await LoadProjectAsync(dialog.FolderName);
     }
 
-    private void ImportPanelMeasurementsCsv()
+    private async Task ImportPanelMeasurementsCsvAsync()
     {
         if (Images.Count == 0)
         {
@@ -173,15 +194,40 @@ public sealed class AnnotationWorkspaceViewModel : ObservableObject
 
         var dialog = new OpenFileDialog { Title = "Import Panel Measurements CSV", Filter = "CSV files (*.csv)|*.csv|All files (*.*)|*.*" };
         if (dialog.ShowDialog() != true) return;
+        BeginBusy("Importing panel measurements...");
         try
         {
-            using var reader = File.OpenText(dialog.FileName);
-            ImportPanelMeasurements(reader);
+            var csv = await File.ReadAllTextAsync(dialog.FileName);
+            using var reader = new StringReader(csv);
+            var rows = _panelMeasurementsImporter.Parse(reader);
+            if (rows.Count != Images.Count)
+            {
+                StatusMessage = $"Panel measurements CSV has {rows.Count} data rows but {Images.Count} annotation images are loaded. No values were applied.";
+                return;
+            }
+
+            var orderedImages = Images.OrderBy(static image => image.FileName, AnnotationImageFileNameComparer.Instance).ToList();
+            for (var i = 0; i < orderedImages.Count; i++) ApplyPanelMeasurements(orderedImages[i], rows[i]);
+
+            var failedImages = new List<string>();
+            for (var i = 0; i < orderedImages.Count; i++)
+            {
+                ReportBusyProgress("Rectifying panels", i + 1, orderedImages.Count);
+                if (!await EnsureImageRectificationAsync(orderedImages[i], updatePreview: orderedImages[i] == SelectedImage))
+                    failedImages.Add(orderedImages[i].FileName);
+            }
+
+            RaiseCanExecuteChanges();
+            StatusMessage = failedImages.Count == 0
+                ? $"Imported panel measurements for {rows.Count} panel record(s)."
+                : $"Imported panel measurements for {rows.Count} panel record(s), but rectification failed for: {string.Join(", ", failedImages)}.";
         }
+        catch (FormatException ex) { StatusMessage = $"Panel measurements CSV is invalid: {ex.Message}"; }
         catch (Exception ex)
         {
             StatusMessage = $"Panel measurements CSV import failed: {ex.Message}";
         }
+        finally { EndBusy(); }
     }
 
     public bool ImportPanelMeasurements(TextReader reader)
@@ -196,7 +242,7 @@ public sealed class AnnotationWorkspaceViewModel : ObservableObject
             return false;
         }
 
-        var orderedImages = Images.OrderBy(static image => image.FileName, NaturalFileNameComparer.Instance).ToList();
+        var orderedImages = Images.OrderBy(static image => image.FileName, AnnotationImageFileNameComparer.Instance).ToList();
         for (var i = 0; i < orderedImages.Count; i++) ApplyPanelMeasurements(orderedImages[i], rows[i]);
         var failedImages = orderedImages.Where(image => !EnsureImageRectification(image, updatePreview: image == SelectedImage)).Select(static image => image.FileName).ToList();
         RaiseCanExecuteChanges();
@@ -220,7 +266,8 @@ public sealed class AnnotationWorkspaceViewModel : ObservableObject
     private static void ApplyCorner(CornerMeasurementViewModel corner, PanelCornerMeasurement measurement)
     {
         corner.SelectedMode = CornerMeasurementMode.ManualMeasurement;
-        corner.ManualDistanceMeters = measurement.DistanceMeters;
+        if (measurement.DistanceMeters > 1000) { corner.ManualDistanceMeters = measurement.DistanceMeters / 1000; }
+        else { corner.ManualDistanceMeters = measurement.DistanceMeters; }
         corner.ManualAzimuthDeg = measurement.AzimuthDeg;
         corner.ManualElevationDeg = measurement.ElevationDeg;
     }
@@ -288,22 +335,90 @@ public sealed class AnnotationWorkspaceViewModel : ObservableObject
         }
     }
 
-    private void ProcessSelectedImage(AnnotatedImageViewModel selected)
+    private async Task LoadProjectAsync(string folderPath)
     {
-        var rectified = EnsureImageRectification(selected, updatePreview: true);
+        BeginBusy("Loading annotation file...");
+        try
+        {
+            var project = await Task.Run(() => _workspaceService.LoadProject(folderPath));
+            BusyMessage = "Checking annotations...";
+            for (var i = 0; i < project.Images.Count; i++)
+            {
+                var record = project.Images[i];
+                ReportBusyProgress("Fitting panels", i + 1, project.Images.Count);
+                if (record.Panel is null) continue;
+                try { await Task.Run(() => _workspaceService.FitPanel(record)); }
+                catch (Exception ex) { record.Diagnostics.Add($"Panel fitting failed: {ex.Message}"); }
+            }
+
+            Images.Clear();
+            _rectificationByImage.Clear();
+            foreach (var record in project.Images)
+            {
+                var viewModel = new AnnotatedImageViewModel
+                {
+                    Record = record,
+                    PanelWidthMm = record.Calibration.PhysicalWidthMm,
+                    PanelHeightMm = record.Calibration.PhysicalHeightMm,
+                    PanelThicknessMm = GlobalPanelThicknessMm,
+                };
+                viewModel.PropertyChanged += OnImageCalibrationChanged;
+                Images.Add(viewModel);
+            }
+
+            SelectedFolderPath = folderPath;
+            IsFolderResolved = true;
+            MissingFolderPath = null;
+            var firstImage = Images.FirstOrDefault();
+            if (firstImage is not null)
+            {
+                BusyMessage = "Preparing first image...";
+                SetSelectedImageWithoutProcessing(firstImage);
+                await ProcessSelectedImageAsync(firstImage, updateStatus: false);
+            }
+
+            var duplicateCount = project.Images.Sum(static image => image.RemovedDuplicateAnnotationCount);
+            var affectedImages = project.Images.Count(static image => image.RemovedDuplicateAnnotationCount > 0);
+            StatusMessage = $"Loaded {Images.Count} image annotations from {Path.GetFileName(project.JsonFilePath)}."
+                + (duplicateCount > 0 ? $" Removed {duplicateCount} duplicate annotations from {affectedImages} images." : string.Empty);
+            RaiseCanExecuteChanges();
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = ex.Message;
+            IsFolderResolved = false;
+            MissingFolderPath = folderPath;
+        }
+        finally { EndBusy(); }
+    }
+
+    private void SetSelectedImageWithoutProcessing(AnnotatedImageViewModel? value)
+    {
+        if (!SetProperty(ref _selectedImage, value)) return;
+        RaisePropertyChanged(nameof(SelectedImageIndex));
+        RaisePropertyChanged(nameof(SelectedImageSummary));
+        RaiseCanExecuteChanges();
+    }
+
+    private async Task ProcessSelectedImageAsync(AnnotatedImageViewModel selected, bool updateStatus)
+    {
+        var rectified = await EnsureImageRectificationAsync(selected, updatePreview: true);
         selected.PanelCornersText = selected.Record.Panel is null
             ? "No panel"
             : string.Join("; ", selected.Record.Panel.FittedQuadrilateralCorners.Select(static p => $"({p.X:F1}, {p.Y:F1})"));
-        StatusMessage = string.IsNullOrWhiteSpace(selected.DiagnosticsText)
-            ? rectified ? $"Loaded {selected.Record.FileName}: {selected.Record.Holes.Count} holes." : $"Unable to rectify {selected.Record.FileName}."
-            : $"Loaded with diagnostics: {selected.DiagnosticsText}";
+        if (updateStatus && ReferenceEquals(SelectedImage, selected))
+        {
+            StatusMessage = string.IsNullOrWhiteSpace(selected.DiagnosticsText)
+                ? rectified ? $"Loaded {selected.Record.FileName}: {selected.HoleCount} holes, {selected.NaturalCount} natural points." : $"Unable to rectify {selected.Record.FileName}."
+                : $"Loaded with diagnostics: {selected.DiagnosticsText}";
+        }
         RaisePropertyChanged(nameof(SelectedImage));
         RaisePropertyChanged(nameof(SelectedImageSummary));
     }
 
     private bool EnsureImageRectification(AnnotatedImageViewModel image, bool updatePreview)
     {
-        image.Holes.Clear();
+        image.AnnotationPoints.Clear();
         if (image.Record.IsImageMissing)
         {
             _rectificationByImage[image] = null;
@@ -379,6 +494,69 @@ public sealed class AnnotationWorkspaceViewModel : ObservableObject
         }
     }
 
+    private async Task<bool> EnsureImageRectificationAsync(AnnotatedImageViewModel image, bool updatePreview)
+    {
+        image.AnnotationPoints.Clear();
+        if (image.Record.IsImageMissing)
+        {
+            _rectificationByImage[image] = null;
+            AddProcessingDiagnostic(image, $"Image file is missing: {image.Record.FileName}");
+            RebuildHoleRows(image);
+            return false;
+        }
+
+        try
+        {
+            var bitmap = image.OriginalImage;
+            if (bitmap is null)
+            {
+                var loadResult = await Task.Run(() => _workspaceService.LoadImageWithDetails(image.Record.ImagePath!));
+                bitmap = loadResult.Image;
+                image.OriginalImage = bitmap;
+                if (loadResult.Orientation != LaserCollisionIn3DObjects.Domain.Imaging.ExifOrientation.Normal)
+                {
+                    AddProcessingDiagnostic(image, $"EXIF orientation {((ushort)loadResult.Orientation)} normalized: raw {loadResult.RawPixelWidth}x{loadResult.RawPixelHeight}, displayed {bitmap.PixelWidth}x{bitmap.PixelHeight}.");
+                    AddCoordinateSystemDiagnostic(image, loadResult.RawPixelWidth, loadResult.RawPixelHeight, bitmap.PixelWidth, bitmap.PixelHeight);
+                }
+            }
+
+            if (image.Record.Panel is null)
+            {
+                _rectificationByImage[image] = null;
+                AddProcessingDiagnostic(image, "Panel annotation is missing.");
+                RebuildHoleRows(image);
+                return false;
+            }
+            if (image.Record.Panel.FittedQuadrilateralCorners.Count != 4) _workspaceService.FitPanel(image.Record);
+
+            if (!_rectificationByImage.TryGetValue(image, out var rectification) || rectification is null)
+            {
+                if (!bitmap.IsFrozen && bitmap.CanFreeze) bitmap.Freeze();
+                rectification = bitmap.IsFrozen
+                    ? await Task.Run(() => _workspaceService.CreateRectification(image.Record, bitmap))
+                    : _workspaceService.CreateRectification(image.Record, bitmap);
+                _rectificationByImage[image] = rectification;
+            }
+
+            RebuildHoleRows(image);
+            if (updatePreview)
+            {
+                image.OriginalOverlay = _workspaceService.CreateOriginalOverlay(image.Record, bitmap);
+                image.WarpedImage = rectification?.WarpedImage;
+                image.WarpedOverlay = rectification is null ? null : _workspaceService.CreateWarpedOverlay(rectification, rectification.WarpedImage);
+            }
+            return rectification is not null;
+        }
+        catch (Exception ex)
+        {
+            _rectificationByImage[image] = null;
+            RebuildHoleRows(image);
+            AddProcessingDiagnostic(image, $"Image processing failed: {ex.Message}");
+            if (updatePreview) { image.WarpedImage = null; image.WarpedOverlay = null; }
+            return false;
+        }
+    }
+
     private static void AddProcessingDiagnostic(AnnotatedImageViewModel image, string message)
     {
         if (!image.Record.Diagnostics.Contains(message, StringComparer.Ordinal))
@@ -389,8 +567,8 @@ public sealed class AnnotationWorkspaceViewModel : ObservableObject
 
     private static void AddCoordinateSystemDiagnostic(AnnotatedImageViewModel image, int rawWidth, int rawHeight, int normalizedWidth, int normalizedHeight)
     {
-        var annotationPoints = image.Record.Panel?.OriginalPolygonPoints.Concat(image.Record.Holes.Select(static hole => hole.CenterPoint)).ToArray()
-            ?? image.Record.Holes.Select(static hole => hole.CenterPoint).ToArray();
+        var annotationPoints = image.Record.Panel?.OriginalPolygonPoints.Concat(image.Record.Points.Select(static point => point.CenterPoint)).ToArray()
+            ?? image.Record.Points.Select(static point => point.CenterPoint).ToArray();
         if (annotationPoints.Length == 0) return;
 
         static bool IsWithinBounds(Point point, int width, int height) => point.X >= 0 && point.X < width && point.Y >= 0 && point.Y < height;
@@ -403,12 +581,36 @@ public sealed class AnnotationWorkspaceViewModel : ObservableObject
 
     private void RaiseCanExecuteChanges()
     {
+        (SelectFolderCommand as AsyncRelayCommand)?.RaiseCanExecuteChanged();
         (SelectPreviousImageCommand as RelayCommand)?.RaiseCanExecuteChanged();
         (SelectNextImageCommand as RelayCommand)?.RaiseCanExecuteChanged();
         (ApplyGlobalPanelDimensionsCommand as RelayCommand)?.RaiseCanExecuteChanged();
-        (ImportPanelMeasurementsCsvCommand as RelayCommand)?.RaiseCanExecuteChanged();
-        (GenerateSceneCommand as RelayCommand)?.RaiseCanExecuteChanged();
-        (RelinkMissingFolderCommand as RelayCommand)?.RaiseCanExecuteChanged();
+        (RelinkMissingFolderCommand as AsyncRelayCommand)?.RaiseCanExecuteChanged();
+        (ImportPanelMeasurementsCsvCommand as AsyncRelayCommand)?.RaiseCanExecuteChanged();
+        (GenerateSceneCommand as AsyncRelayCommand)?.RaiseCanExecuteChanged();
+    }
+
+    private void BeginBusy(string message)
+    {
+        BusyMessage = message;
+        BusyProgressPercent = 0;
+        IsBusyIndeterminate = true;
+        IsBusy = true;
+    }
+
+    private void ReportBusyProgress(string stage, int current, int total)
+    {
+        BusyMessage = $"{stage} — {current} of {total}";
+        BusyProgressPercent = total == 0 ? 100 : current * 100d / total;
+        IsBusyIndeterminate = false;
+    }
+
+    private void EndBusy()
+    {
+        IsBusy = false;
+        BusyMessage = string.Empty;
+        BusyProgressPercent = 0;
+        IsBusyIndeterminate = true;
     }
 
     private void ApplyGlobalPanelDimensions()
@@ -440,30 +642,58 @@ public sealed class AnnotationWorkspaceViewModel : ObservableObject
 
         RebuildHoleRows(image);
     }
-    private void GenerateScene()
+    private async Task GenerateSceneAsync()
     {
-        var validationErrors = ValidateSceneGenerationInputs(includeRectification: false);
-        if (validationErrors.Count > 0)
+        BeginBusy("Preparing scene...");
+        try
         {
-            SetSceneGenerationFailure(validationErrors);
-            return;
-        }
+            var validationErrors = ValidateSceneGenerationInputs(includeRectification: false);
+            if (validationErrors.Count > 0)
+            {
+                SetSceneGenerationFailure(validationErrors);
+                return;
+            }
 
-        var failedImages = Images.Where(image => !EnsureImageRectification(image, updatePreview: false)).Select(static image => image.FileName).ToList();
-        validationErrors = failedImages.Count == 0 ? ValidateSceneGenerationInputs(includeRectification: true) : failedImages.Select(name => $"{name}: rectification could not be created.").ToList();
-        if (validationErrors.Count > 0)
-        {
-            SetSceneGenerationFailure(validationErrors);
-            return;
-        }
+            var failedImages = new List<string>();
+            for (var i = 0; i < Images.Count; i++)
+            {
+                ReportBusyProgress("Rectifying panels", i + 1, Images.Count);
+                if (!await EnsureImageRectificationAsync(Images[i], updatePreview: false)) failedImages.Add(Images[i].FileName);
+            }
+            validationErrors = failedImages.Count == 0 ? ValidateSceneGenerationInputs(includeRectification: true) : failedImages.Select(name => $"{name}: rectification could not be created.").ToList();
+            if (validationErrors.Count > 0)
+            {
+                SetSceneGenerationFailure(validationErrors);
+                return;
+            }
 
-        var sceneModel = new CollisionSceneViewModel("Annotation scene");
-        foreach (var item in Images)
-        {
-            sceneModel.Prisms.Add(CreatePrism(item));
-            foreach (var hole in CreateHolePoints(item)) sceneModel.HolePoints.Add(hole);
+            var methodology = SelectedPrismGenerationMethodology;
+            var baseName = methodology == PrismGenerationMethodology.LtRtAnchoredOrthogonal
+                ? "Annotation - LT-RT Anchored Orthogonal" : "Annotation - LT-Anchored 4-Point Best Fit";
+            var sceneModel = new CollisionSceneViewModel(_sceneCollectionService?.CreateUniqueSceneName(baseName) ?? baseName);
+            try
+            {
+                for (var index = 0; index < Images.Count; index++)
+                {
+                    var item = Images[index];
+                    ReportBusyProgress("Generating scene", index + 1, Images.Count);
+                    await Task.Yield();
+                    var measuredCorners = ResolveMeasuredCornerWorldPoints(item);
+                    var width = (float)(item.PanelWidthMm!.Value * .001);
+                    var height = (float)(item.PanelHeightMm!.Value * .001);
+                    var frame = MeasuredPanelFrameBuilder.Create(measuredCorners[0], measuredCorners[1], measuredCorners[2], measuredCorners[3], width, height, methodology);
+                    sceneModel.Prisms.Add(CreatePrism(item, measuredCorners[0], frame));
+                    foreach (var hole in CreateHolePoints(item, measuredCorners[0], frame)) sceneModel.HolePoints.Add(hole);
+                    foreach (var point in CreateNaturalPoints(item, measuredCorners[0], frame)) sceneModel.NaturalPoints.Add(point);
+                    foreach (var corner in measuredCorners) sceneModel.MeasuredCornerPoints.Add(new Point3(corner.X, corner.Y, corner.Z));
+                    if (frame.Residuals is { } residuals) AddProcessingDiagnostic(item, $"4-point fit RMSE: {residuals.Rmse * 1000:F2} mm.");
+                }
+            }
+            catch (ArgumentException ex) { SetSceneGenerationFailure(new[] { ex.Message }); return; }
+            _sceneCollectionService?.AddScene(sceneModel);
+            StatusMessage = $"Generated scene '{sceneModel.Name}'.";
         }
-        _sceneCollectionService?.AddScene(sceneModel);
+        finally { EndBusy(); }
     }
 
     private void SetSceneGenerationFailure(IReadOnlyList<string> errors)
@@ -504,10 +734,12 @@ public sealed class AnnotationWorkspaceViewModel : ObservableObject
             {
                 errors.Add($"{image.FileName}: rectification is unavailable.");
             }
-            if (includeRectification && rectification is not null && image.WarpedHoleCentersMm.Count != image.Record.Holes.Count)
+            if (includeRectification && rectification is not null && image.WarpedHoleCentersMm.Count != image.Record.Holes.Count())
             {
                 errors.Add($"{image.FileName}: transformed hole coordinates could not be calculated.");
             }
+            if (includeRectification && rectification is not null && image.WarpedNaturalCentersMm.Count != image.Record.NaturalPoints.Count())
+                errors.Add($"{image.FileName}: transformed natural coordinates could not be calculated.");
 
             if (image.PanelWidthMm is null or <= 0)
             {
@@ -573,59 +805,32 @@ public sealed class AnnotationWorkspaceViewModel : ObservableObject
         return errors;
     }
 
-    private PrismItemViewModel CreatePrism(AnnotatedImageViewModel cornerMeasurement)
+    private PrismItemViewModel CreatePrism(AnnotatedImageViewModel cornerMeasurement, Vector3 leftTop, MeasuredPanelFrame panelFrame)
     {
         Vector3 dimensions = new Vector3(
-            (float)cornerMeasurement.PanelThicknessMm * 0.001f, 
-            (float)cornerMeasurement.PanelWidthMm * 0.001f, 
-            (float)cornerMeasurement.PanelHeightMm * 0.001f
+            (float)cornerMeasurement.PanelThicknessMm!.Value * 0.001f,
+            (float)cornerMeasurement.PanelWidthMm!.Value * 0.001f,
+            (float)cornerMeasurement.PanelHeightMm!.Value * 0.001f
             );
-        // From left top to counterclockwise
-        List<Vector3> cornerPoints = new List<Vector3>();
-        foreach (var item in cornerMeasurement.CornerMeasurements)
-        {
-            if(item.SelectedMode == CornerMeasurementMode.ManualMeasurement)
-                cornerPoints.Add(convertToPointFromManuel(item.ManualAzimuthDeg, item.ManualElevationDeg, item.ManualDistanceMeters));
-            else
-                cornerPoints.Add(new Vector3((float)item.DirectX, (float)item.DirectY, (float)item.DirectZ));
-        }
-
-        // From this points we will find all the prism locations pos, oriantation, size
-        Vector3 vec_x = cornerPoints[1] - cornerPoints[0];
-        Vector3 vec_y = cornerPoints[3] - cornerPoints[0];
-
-        vec_x = Vector3.Normalize(vec_x);
-        vec_y = Vector3.Normalize(vec_y);
-        Vector3 vec_z = Vector3.Cross(vec_x, vec_y);
-
-        Vector3 centerPoint = cornerPoints[0] + vec_x * dimensions.Y / 2f + vec_z * dimensions.X / 2f + vec_y * dimensions.Z / 2f;
-        //For the panel frame things are different
-        // u vector is - vec_Z and v vector is -vec_y
-        Vector3 u = -vec_z;
-        Vector3 v = -vec_y;
-        float x_angle = MathF.Atan2(v.Y, v.Z);
-        float y_angle = MathF.Asin(-v.X);
-        float z_angle = MathF.Atan2(v.Y * u.Z - v.Z * u.Y, u.X);
-
-        x_angle = FrameOrientationBuilder.RadiansToDegrees(x_angle);
-        y_angle = FrameOrientationBuilder.RadiansToDegrees(y_angle);
-        z_angle = FrameOrientationBuilder.RadiansToDegrees(z_angle);
+        // Measurements remain on the prism reference/mid-plane; thickness is deliberately not offset.
+        Vector3 centerPoint = leftTop + panelFrame.Width * dimensions.Y / 2f + panelFrame.Down * dimensions.Z / 2f;
         
         PrismItemViewModel prism = new PrismItemViewModel();
         prism.PositionX = centerPoint.X; prism.PositionY = centerPoint.Y; prism.PositionZ = centerPoint.Z;
-        prism.RotationX = x_angle; prism.RotationY = y_angle; prism.RotationZ = z_angle;
+        prism.BaseOrientation = panelFrame.Orientation;
+        prism.RotationX = 0; prism.RotationY = 0; prism.RotationZ = 0;
         prism.SizeX = dimensions.X; prism.SizeY = dimensions.Y; prism.SizeZ = dimensions.Z;
 
         return prism;
     }
 
-    private Vector3 convertToPointFromManuel(double? azimuthDeg, double? elevationDeg, double? distance)
+    private static Vector3 ConvertToPointFromManual(double? azimuthDeg, double? elevationDeg, double? distance)
     {
         // All angles must be in degrees, distance in meters
         if (azimuthDeg != null && elevationDeg != null && distance != null)
         {
             Vector3 distVec = Vector3.UnitX * (float)distance;
-            System.Numerics.Quaternion orientation = FrameOrientationBuilder.ApplyLocalEulerDegrees(System.Numerics.Quaternion.Identity, (float)azimuthDeg, (float)elevationDeg, 0);
+            System.Numerics.Quaternion orientation = FrameOrientationBuilder.ApplyLocalZYXulerDegrees(System.Numerics.Quaternion.Identity, (float)azimuthDeg, (float)elevationDeg, 0);
             Vector3 final = Vector3.Transform(distVec, orientation);
             return final;
         }
@@ -633,66 +838,47 @@ public sealed class AnnotationWorkspaceViewModel : ObservableObject
 
         return new Vector3(float.NaN, float.NaN, float.NaN);
     }
-    private List<Point3> CreateHolePoints(AnnotatedImageViewModel cornerMeasurement)
+    private static IReadOnlyList<Vector3> ResolveMeasuredCornerWorldPoints(AnnotatedImageViewModel image)
+    {
+        // The view model constructs this collection in the documented LT, RT, RB, LB order.
+        return image.CornerMeasurements.Select(item => item.SelectedMode == CornerMeasurementMode.ManualMeasurement
+            ? ConvertToPointFromManual(item.ManualAzimuthDeg, item.ManualElevationDeg, item.ManualDistanceMeters)
+            : new Vector3((float)item.DirectX!.Value, (float)item.DirectY!.Value, (float)item.DirectZ!.Value)).ToArray();
+    }
+
+    private List<Point3> CreateHolePoints(AnnotatedImageViewModel cornerMeasurement, Vector3 leftTop, MeasuredPanelFrame panelFrame)
     {
         if (!_rectificationByImage.TryGetValue(cornerMeasurement, out var rectification) || rectification is null)
         {
             throw new InvalidOperationException($"No valid rectification is available for '{cornerMeasurement.FileName}'.");
         }
-        if (cornerMeasurement.WarpedHoleCentersMm.Count != cornerMeasurement.Record.Holes.Count)
+        if (cornerMeasurement.WarpedHoleCentersMm.Count != cornerMeasurement.Record.Holes.Count())
         {
             throw new InvalidOperationException($"Transformed hole coordinates are unavailable for '{cornerMeasurement.FileName}'.");
         }
 
-        //////////////////////
-        // From left top to counterclockwise
-        List<Vector3> cornerPoints = new List<Vector3>();
-        foreach (var item in cornerMeasurement.CornerMeasurements)
-        {
-            if(item.SelectedMode == CornerMeasurementMode.ManualMeasurement)
-                cornerPoints.Add(convertToPointFromManuel(item.ManualAzimuthDeg, item.ManualElevationDeg, item.ManualDistanceMeters));
-            else
-                cornerPoints.Add(new Vector3((float)item.DirectX, (float)item.DirectY, (float)item.DirectZ));
-        }
-
-        // From this points we will find all the prism locations pos, oriantation, size
-        Vector3 vec_x = cornerPoints[1] - cornerPoints[0];
-        Vector3 vec_y = cornerPoints[3] - cornerPoints[0];
-
-        vec_x = Vector3.Normalize(vec_x);
-        vec_y = Vector3.Normalize(vec_y);
-        Vector3 vec_z = Vector3.Cross(vec_x, vec_y);
-        //////////////////////////////////////////////
-        // Build rotation matrix from absolute to prism. Note that transpose of the matrix is true
-        // Matrix4x4 rotationMatrix = new Matrix4x4(
-        //     vec_x.X, vec_z.Y * vec_x.Z - vec_z.Z * vec_x.Y, vec_z.X, -cornerPoints[0].X,
-        //     vec_x.Y, vec_z.Z * vec_x.X - vec_z.X * vec_x.Z, vec_z.Y, -cornerPoints[0].Y,
-        //     vec_x.Z, vec_z.X * vec_x.Y - vec_z.Y * vec_x.X, vec_z.Z, -cornerPoints[0].Z,
-        //     0,0,0,1
-        // );
-
-        Matrix4x4 rotationMatrix = new Matrix4x4(
-            vec_x.X, vec_x.Y, vec_x.Z, 0,
-            vec_z.Y * vec_x.Z - vec_z.Z * vec_x.Y, vec_z.Z * vec_x.X - vec_z.X * vec_x.Z, vec_z.X * vec_x.Y - vec_z.Y * vec_x.X, 0,
-            vec_z.X, vec_z.Y, vec_z.Z, 0,
-            cornerPoints[0]. X,cornerPoints[0].Y, cornerPoints[0].Z, 1
-        );
-        
         List<Point3> point3s = new List<Point3>();
         
         foreach (var item in cornerMeasurement.WarpedHoleCentersMm)
         {
            //Turn holes into 3D from 2D
-           Vector3 hole = new Vector3((float)(item.X * 0.001), (float)(item.Y * 0.001), 0);
-            
-           //Rotate the frame to absolute coordinate
-           Vector3 transformed = Vector3.Transform(hole, rotationMatrix);
-
-           // Translate the coordinate to the absolute axis
+           Vector3 transformed = leftTop
+               + panelFrame.Width * (float)(item.X * 0.001)
+               + panelFrame.Down * (float)(item.Y * 0.001);
            point3s.Add(new Point3(transformed.X, transformed.Y, transformed.Z));
         }
         return point3s;
     }
+
+    private List<Point3> CreateNaturalPoints(AnnotatedImageViewModel image, Vector3 leftTop, MeasuredPanelFrame panelFrame)
+        => CreateWorldPoints(image.WarpedNaturalCentersMm, leftTop, panelFrame);
+
+    private static List<Point3> CreateWorldPoints(IEnumerable<Point> points, Vector3 leftTop, MeasuredPanelFrame panelFrame)
+        => points.Select(item =>
+        {
+            var transformed = leftTop + panelFrame.Width * (float)(item.X * 0.001) + panelFrame.Down * (float)(item.Y * 0.001);
+            return new Point3(transformed.X, transformed.Y, transformed.Z);
+        }).ToList();
 
     public AnnotationWorkspaceState ExportWorkspaceState()
     {
@@ -703,6 +889,7 @@ public sealed class AnnotationWorkspaceViewModel : ObservableObject
             GlobalPanelWidthMm = GlobalPanelWidthMm,
             GlobalPanelHeightMm = GlobalPanelHeightMm,
             GlobalPanelThicknessMm = GlobalPanelThicknessMm,
+            PrismGenerationMethodology = SelectedPrismGenerationMethodology.ToString(),
             Images = Images.Select(image => new AnnotationImageState
             {
                 FileName = image.FileName,
@@ -731,6 +918,8 @@ public sealed class AnnotationWorkspaceViewModel : ObservableObject
         GlobalPanelWidthMm = state.GlobalPanelWidthMm;
         GlobalPanelHeightMm = state.GlobalPanelHeightMm;
         GlobalPanelThicknessMm = state.GlobalPanelThicknessMm;
+        SelectedPrismGenerationMethodology = Enum.TryParse<PrismGenerationMethodology>(state.PrismGenerationMethodology, true, out var methodology)
+            ? methodology : PrismGenerationMethodology.LtRtAnchoredOrthogonal;
 
         if (string.IsNullOrWhiteSpace(state.FolderPath))
         {
@@ -757,7 +946,7 @@ public sealed class AnnotationWorkspaceViewModel : ObservableObject
         _pendingWorkspaceState = null;
     }
 
-    private void RestoreMissingFolder()
+    private async Task RestoreMissingFolderAsync()
     {
         var dialog = new OpenFolderDialog
         {
@@ -770,8 +959,7 @@ public sealed class AnnotationWorkspaceViewModel : ObservableObject
             return;
         }
 
-        SelectedFolderPath = dialog.FolderName;
-        LoadProject(dialog.FolderName);
+        await LoadProjectAsync(dialog.FolderName);
 
         if (_pendingWorkspaceState is not null)
         {
@@ -821,8 +1009,9 @@ public sealed class AnnotationWorkspaceViewModel : ObservableObject
 
     private void RebuildHoleRows(AnnotatedImageViewModel image)
     {
-        image.Holes.Clear();
+        image.AnnotationPoints.Clear();
         image.WarpedHoleCentersMm.Clear();
+        image.WarpedNaturalCentersMm.Clear();
         _rectificationByImage.TryGetValue(image, out var rectification);
         var canConvertToMm = rectification is not null
             && image.Record.Calibration.IsConfigured
@@ -831,9 +1020,9 @@ public sealed class AnnotationWorkspaceViewModel : ObservableObject
         var mmScaleX = canConvertToMm ? image.Record.Calibration.PhysicalWidthMm!.Value / rectification!.DestinationSizePixels.Width : 0d;
         var mmScaleY = canConvertToMm ? image.Record.Calibration.PhysicalHeightMm!.Value / rectification!.DestinationSizePixels.Height : 0d;
 
-        foreach (var row in AnnotationWorkspaceService.BuildHoleRows(image.Record, rectification, image.Record.Calibration))
+        foreach (var row in AnnotationWorkspaceService.BuildAnnotationPointRows(image.Record, rectification, image.Record.Calibration))
         {
-            image.Holes.Add(row);
+            image.AnnotationPoints.Add(row);
         }
 
         if (canConvertToMm)
@@ -842,6 +1031,8 @@ public sealed class AnnotationWorkspaceViewModel : ObservableObject
             {
                 image.WarpedHoleCentersMm.Add(new Point(point.X * mmScaleX, point.Y * mmScaleY));
             }
+            foreach (var point in rectification.TransformedNaturalCenters)
+                image.WarpedNaturalCentersMm.Add(new Point(point.X * mmScaleX, point.Y * mmScaleY));
         }
 
         RaisePropertyChanged(nameof(WarpedHoleCentersMmByImage));

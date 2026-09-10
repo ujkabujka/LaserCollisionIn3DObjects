@@ -21,7 +21,11 @@ public sealed class PanelMeasurementsCsvImportService
     public IReadOnlyList<PanelMeasurementRecord> Parse(TextReader reader)
     {
         ArgumentNullException.ThrowIfNull(reader);
-        var rows = ReadRows(reader).ToList();
+        var content = reader.ReadToEnd();
+        var rawRows = ReadRows(new StringReader(content), ',').ToList();
+        if (rawRows.Count == 0) throw new FormatException("The CSV file contains no data rows.");
+        var delimiter = DetectDelimiter(rawRows[0].Fields, ReadRows(new StringReader(content), ';').First().Fields);
+        var rows = ReadRows(new StringReader(content), delimiter).ToList();
         if (rows.Count == 0)
         {
             throw new FormatException("The CSV file contains no data rows.");
@@ -34,7 +38,7 @@ public sealed class PanelMeasurementsCsvImportService
             var row = rows[i];
             if (row.Fields.Count != ColumnCount)
             {
-                throw new FormatException($"CSV row {row.LineNumber} has {row.Fields.Count} columns; exactly {ColumnCount} are required.");
+                throw new FormatException($"CSV row {row.LineNumber} has {row.Fields.Count} columns using delimiter '{delimiter}'; exactly {ColumnCount} are required; the file may contain inconsistent delimiters.");
             }
 
             var fields = row.Fields;
@@ -85,7 +89,15 @@ public sealed class PanelMeasurementsCsvImportService
         }
     }
 
-    private static IEnumerable<CsvRow> ReadRows(TextReader reader)
+    private static char DetectDelimiter(IReadOnlyList<string> commaFields, IReadOnlyList<string> semicolonFields)
+    {
+        var commaValid = commaFields.Count == ColumnCount || IsHeader(commaFields);
+        var semicolonValid = semicolonFields.Count == ColumnCount || IsHeader(semicolonFields);
+        if (commaValid == semicolonValid) throw new FormatException("Could not determine whether the panel-measurement file uses ',' or ';' as its delimiter.");
+        return commaValid ? ',' : ';';
+    }
+
+    private static IEnumerable<CsvRow> ReadRows(TextReader reader, char delimiter)
     {
         var lineNumber = 1;
         var fields = new List<string>();
@@ -108,7 +120,7 @@ public sealed class PanelMeasurementsCsvImportService
                 else quoted = !quoted;
                 hasContent = true;
             }
-            else if (c == ',' && !quoted) { fields.Add(field.ToString()); field.Clear(); hasContent = true; }
+            else if (c == delimiter && !quoted) { fields.Add(field.ToString()); field.Clear(); hasContent = true; }
             else if ((c == '\r' || c == '\n') && !quoted)
             {
                 if (c == '\r' && reader.Peek() == '\n') reader.Read();

@@ -39,7 +39,9 @@ public sealed class AnnotationWorkspaceService
         }
 
         var ordered = GeometryUtilities.OrderCornersTopLeftClockwise(record.Panel.FittedQuadrilateralCorners);
-        return _rectifier.Rectify(image, ordered, record.Holes.Select(static h => h.CenterPoint).ToArray());
+        return _rectifier.Rectify(image, ordered,
+            record.Holes.Select(static h => h.CenterPoint).ToArray(),
+            record.NaturalPoints.Select(static p => p.CenterPoint).ToArray());
     }
 
     public BitmapSource CreateOriginalOverlay(AnnotatedImageRecord record, BitmapSource image)
@@ -48,12 +50,13 @@ public sealed class AnnotationWorkspaceService
     public BitmapSource CreateWarpedOverlay(RectificationResult rectification, BitmapSource warpedImage)
         => _overlayRenderer.CreateWarpedOverlay(rectification, warpedImage);
 
-    public static IReadOnlyList<HoleViewModel> BuildHoleRows(
+    public static IReadOnlyList<AnnotatedPointViewModel> BuildAnnotationPointRows(
         AnnotatedImageRecord record,
         RectificationResult? rectification,
         PanelMetricCalibration calibration)
     {
-        var rows = new List<HoleViewModel>(record.Holes.Count);
+        var points = record.Points;
+        var rows = new List<AnnotatedPointViewModel>(points.Count);
         var canConvertToMm = rectification is not null
             && calibration.IsConfigured
             && rectification.DestinationSizePixels.Width > 0
@@ -62,17 +65,22 @@ public sealed class AnnotationWorkspaceService
         var mmScaleX = canConvertToMm ? calibration.PhysicalWidthMm!.Value / rectification!.DestinationSizePixels.Width : 0d;
         var mmScaleY = canConvertToMm ? calibration.PhysicalHeightMm!.Value / rectification!.DestinationSizePixels.Height : 0d;
 
-        for (var i = 0; i < record.Holes.Count; i++)
+        var holeIndex = 0;
+        var naturalIndex = 0;
+        for (var i = 0; i < points.Count; i++)
         {
-            var hole = record.Holes[i];
-            var warpedCenter = rectification?.TransformedHoleCenters.ElementAtOrDefault(i) ?? new Point(double.NaN, double.NaN);
+            var hole = points[i];
+            var semanticIndex = hole.Category == AnnotationPointCategory.Hole ? holeIndex++ : naturalIndex++;
+            var transformed = hole.Category == AnnotationPointCategory.Hole ? rectification?.TransformedHoleCenters : rectification?.TransformedNaturalCenters;
+            var warpedCenter = transformed?.ElementAtOrDefault(semanticIndex) ?? new Point(double.NaN, double.NaN);
             var center = new Point(warpedCenter.X * mmScaleX, warpedCenter.Y * mmScaleY);
             var warpedCenterMm = canConvertToMm && !double.IsNaN(warpedCenter.X)
                 ? $"({(center.X):F2}, {(center.Y):F2})"
                 : "N/A";
-            rows.Add(new HoleViewModel
+            rows.Add(new AnnotatedPointViewModel
             {
                 Index = i + 1,
+                Category = hole.Category,
                 ShapeType = hole.ShapeType,
                 OriginalCenter = $"({hole.CenterPoint.X:F1}, {hole.CenterPoint.Y:F1})",
                 WarpedCenter = double.IsNaN(warpedCenter.X) ? "N/A" : $"({warpedCenter.X:F1}, {warpedCenter.Y:F1})",

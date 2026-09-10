@@ -8,6 +8,7 @@ namespace LaserCollisionIn3DObjects.Domain.Scene;
 /// </summary>
 public sealed class SceneModel
 {
+    public sealed record CollisionRayInput(Ray3D Ray, LaserCollisionIn3DObjects.Domain.Export.CollisionRaySourceType SourceType, string SourceName);
     /// <summary>
     /// Gets the rectangular prisms in the scene.
     /// </summary>
@@ -28,6 +29,9 @@ public sealed class SceneModel
     /// </summary>
     public List<Ray3D> Rays { get; } = new();
 
+    /// <summary>Collision rays with inseparable source provenance.</summary>
+    public List<CollisionRayInput> CollisionRayInputs { get; } = new();
+
     /// <summary>
     /// Gets the rays generated from cylindrical light sources.
     /// </summary>
@@ -45,4 +49,6 @@ public sealed class SceneModel
     /// Gets the hole centers from prisms .
     /// </summary>
     public List<Point3> HolePoints { get; } = new();
+    /// <summary>Gets naturally occurring annotated measurement points.</summary>
+    public List<Point3> NaturalPoints { get; } = new();
 }

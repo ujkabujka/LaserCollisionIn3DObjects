@@ -10,6 +10,27 @@ namespace LaserCollisionIn3DObjects.Tests.Domain;
 public class PersistenceRoundTripTests
 {
     [Fact]
+    public void SceneMeasuredCornerPoints_RoundTrip_AndMissingFieldDefaultsEmpty()
+    {
+        var service = new JsonStateFileService();
+        var filePath = Path.GetTempFileName();
+        try
+        {
+            var expected = new Point3(1.25, -2.5, 3.75);
+            var state = new ProjectState { Scenes = { new SceneState { Name = "measured", MeasuredCornerPoints = { expected } } } };
+            service.SaveProject(filePath, state);
+            Assert.Equal(expected, Assert.Single(service.LoadProject(filePath).Scenes[0].MeasuredCornerPoints));
+
+            File.WriteAllText(filePath, "{\"schemaVersion\":1,\"scenes\":[{\"name\":\"old\"}]}");
+            Assert.Empty(service.LoadProject(filePath).Scenes[0].MeasuredCornerPoints);
+        }
+        finally
+        {
+            File.Delete(filePath);
+        }
+    }
+
+    [Fact]
     public void ProjectState_RoundTrip_PreservesProjectionAndAnnotationState()
     {
         var service = new JsonStateFileService();
@@ -39,6 +60,7 @@ public class PersistenceRoundTripTests
                             },
                         ],
                         HolePoints = [new Point3(1, 2, 3)],
+                        NaturalPoints = [new Point3(4, 5, 6)],
                         Projection = new SceneProjectionStateDto
                         {
                             SelectedMethodId = "point-source",
@@ -81,6 +103,7 @@ public class PersistenceRoundTripTests
                 },
                 ProjectionWorkspace = new ProjectionWorkspaceStateDto
                 {
+                    IncludeNaturalPoints = false,
                     SelectedSceneName = "Scene A",
                     SelectedMethodId = "point-source",
                     TiltPointX = 12.5,
@@ -95,9 +118,11 @@ public class PersistenceRoundTripTests
             service.SaveProject(filePath, state);
             var roundTrip = service.LoadProject(filePath);
 
-            Assert.Equal(1, roundTrip.SchemaVersion);
+            Assert.Equal(ProjectState.CurrentSchemaVersion, roundTrip.SchemaVersion);
             Assert.Single(roundTrip.Scenes);
             Assert.Equal("Scene A", roundTrip.Scenes[0].Name);
+            Assert.Equal(new Point3(4, 5, 6), Assert.Single(roundTrip.Scenes[0].NaturalPoints));
+            Assert.False(roundTrip.ProjectionWorkspace.IncludeNaturalPoints);
             Assert.Single(roundTrip.Scenes[0].Projection.Results);
             Assert.Equal("Result 1", roundTrip.Scenes[0].Projection.Results[0].Name);
             Assert.Equal(new Point3(1, 1, 1), roundTrip.Scenes[0].Projection.Results[0].PointSourceOrigin);
@@ -141,7 +166,7 @@ public class PersistenceRoundTripTests
             service.SaveProject(filePath, state);
             var loaded = service.LoadProject(filePath);
 
-            Assert.Equal(1, loaded.SchemaVersion);
+            Assert.Equal(ProjectState.CurrentSchemaVersion, loaded.SchemaVersion);
             Assert.NotNull(loaded.AnnotationWorkspace);
             Assert.Empty(loaded.Scenes);
         }
@@ -166,13 +191,13 @@ public class PersistenceRoundTripTests
     }
 
     [Fact]
-    public void ProjectState_DoesNotContainGraphicMasterStoredCharts()
+    public void ProjectState_ContainsDomainGraphicMasterState()
     {
         var state = new ProjectState();
         var json = JsonSerializer.Serialize(state);
 
-        Assert.DoesNotContain("storedCharts", json, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("graphicMaster", json, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("storedCharts", json, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("graphicMaster", json, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -778,6 +803,68 @@ public class PersistenceRoundTripTests
             {
                 File.Delete(filePath);
             }
+        }
+    }
+
+    [Fact]
+    public void ProjectionWorkspaceState_DefaultsUseCompactCylinderAndCanonicalFrame()
+    {
+        var state = new ProjectionWorkspaceStateDto();
+
+        Assert.Equal(AxisymmetricSourceKind.Cylinder, state.ProjectionGeometryKind);
+        Assert.Equal(0.15d, state.GeometryRadiusStart);
+        Assert.Equal(0.15d, state.GeometryRadiusEnd);
+        Assert.Equal(0.30d, state.GeometryLength);
+        Assert.Equal(0d, state.BeamOriginX);
+        Assert.Equal(1d, state.SourceFrameXx);
+        Assert.Equal(1d, state.SourceFrameYy);
+    }
+
+    [Fact]
+    public void ProjectionWorkspaceState_RoundTrip_PreservesSourceFrame()
+    {
+        var service = new JsonStateFileService();
+        var filePath = Path.Combine(Path.GetTempPath(), $"lc3d-frame-{Guid.NewGuid():N}.json");
+        try
+        {
+            service.SaveProject(filePath, new ProjectState
+            {
+                ProjectionWorkspace = new ProjectionWorkspaceStateDto
+                {
+                    BeamOriginX = 1, BeamOriginY = 2, BeamOriginZ = 3,
+                    SourceFrameXx = 0, SourceFrameXy = 1, SourceFrameXz = 0,
+                    SourceFrameYx = 0, SourceFrameYy = 0, SourceFrameYz = 1,
+                },
+            });
+
+            var restored = service.LoadProject(filePath).ProjectionWorkspace;
+            Assert.Equal((1d, 2d, 3d), (restored.BeamOriginX, restored.BeamOriginY, restored.BeamOriginZ));
+            Assert.Equal((0d, 1d, 0d), (restored.SourceFrameXx, restored.SourceFrameXy, restored.SourceFrameXz));
+            Assert.Equal((0d, 0d, 1d), (restored.SourceFrameYx, restored.SourceFrameYy, restored.SourceFrameYz));
+        }
+        finally
+        {
+            if (File.Exists(filePath)) File.Delete(filePath);
+        }
+    }
+
+    [Fact]
+    public void ProjectionWorkspaceState_OldJsonUsesSourceFrameDefaults()
+    {
+        var service = new JsonStateFileService();
+        var filePath = Path.Combine(Path.GetTempPath(), $"lc3d-old-frame-{Guid.NewGuid():N}.json");
+        try
+        {
+            File.WriteAllText(filePath, "{\"projectionWorkspace\":{\"geometryLength\":4.5}}");
+            var restored = service.LoadProject(filePath).ProjectionWorkspace;
+            Assert.Equal(0d, restored.BeamOriginX);
+            Assert.Equal((1d, 0d, 0d), (restored.SourceFrameXx, restored.SourceFrameXy, restored.SourceFrameXz));
+            Assert.Equal((0d, 1d, 0d), (restored.SourceFrameYx, restored.SourceFrameYy, restored.SourceFrameYz));
+            Assert.Equal(4.5d, restored.GeometryLength);
+        }
+        finally
+        {
+            if (File.Exists(filePath)) File.Delete(filePath);
         }
     }
 

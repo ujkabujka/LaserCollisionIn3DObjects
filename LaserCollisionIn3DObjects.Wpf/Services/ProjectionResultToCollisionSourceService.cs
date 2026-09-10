@@ -30,6 +30,7 @@ public sealed class ProjectionResultToCollisionSourceService
             Name = $"Projected Source - {selectedResult.DisplayName}",
             SourceFrame = sourceFrame,
             ProfileDefinition = selectedResult.Result.AxisymmetricSource.ProfileDefinition,
+            BaseOrientation = TransferredLightSourcePoseService.GetOrientation(sourceFrame),
             OriginKind = ProjectedLightSourceOriginKind.ProjectionResult,
         };
 
