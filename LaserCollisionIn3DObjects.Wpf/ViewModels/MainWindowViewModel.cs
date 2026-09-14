@@ -44,9 +44,6 @@ public enum WorkspaceKind
 public sealed class MainWindowViewModel : ObservableObject
 {
     private static readonly ObservableCollection<PrismItemViewModel> EmptyPrisms = new();
-    private static readonly ObservableCollection<RayItemViewModel> EmptyRays = new();
-    private static readonly ObservableCollection<CylindricalLightSourceItemViewModel> EmptyLightSources = new();
-    private static readonly ObservableCollection<ProjectedLightSourceItemViewModel> EmptyProjectedLightSources = new();
     private static readonly ObservableCollection<HitResultItemViewModel> EmptyHitResults = new();
     private static readonly ObservableCollection<Point3> EmptyHoles = new();
     private static readonly ObservableCollection<Point3> EmptyNaturalPoints = new();
@@ -122,8 +119,7 @@ public sealed class MainWindowViewModel : ObservableObject
         _sceneCollectionService = new SceneCollectionService();
         _sceneCollectionService.PropertyChanged += OnSceneCollectionPropertyChanged;
         _sceneCollectionService.SceneContentChanged += OnSceneContentChanged;
-        // Generated axisymmetric sources live in LightSources.
-        // Projected light sources live in ProjectedLightSources and preserve exact rays.
+        // Collision scenes own one optional source snapshot; the reusable library remains shared.
 
         AnnotationWorkspace = new AnnotationWorkspaceViewModel(_sceneCollectionService);
         ProjectionWorkspace = new ProjectionWorkspaceViewModel(_sceneCollectionService, projectionRenderSyncService, applicationLogService: AppLog);
@@ -240,9 +236,6 @@ public sealed class MainWindowViewModel : ObservableObject
     }
 
     public ObservableCollection<PrismItemViewModel> Prisms => SelectedScene?.Prisms ?? EmptyPrisms;
-    public ObservableCollection<RayItemViewModel> Rays => SelectedScene?.Rays ?? EmptyRays;
-    public ObservableCollection<CylindricalLightSourceItemViewModel> LightSources => SelectedScene?.LightSources ?? EmptyLightSources;
-    public ObservableCollection<ProjectedLightSourceItemViewModel> ProjectedLightSources => SelectedScene?.ProjectedLightSources ?? EmptyProjectedLightSources;
     public ObservableCollection<HitResultItemViewModel> HitResults => SelectedScene?.HitResults ?? EmptyHitResults;
     public ObservableCollection<CollisionSourceLibraryItemViewModel> AvailableSources => _sceneCollectionService.AvailableSources;
     private CollisionSourceLibraryItemViewModel? _selectedAvailableSource;
@@ -397,9 +390,6 @@ public sealed class MainWindowViewModel : ObservableObject
             }
             if (value is not null)
             {
-                if (SelectedScene.SelectedLightSource is not null) SelectedScene.SelectedLightSource = null;
-                if (SelectedScene.SelectedProjectedLightSource is not null) SelectedScene.SelectedProjectedLightSource = null;
-                if (SelectedScene.SelectedRay is not null) SelectedScene.SelectedRay = null;
                 LoadPrismIntoEditor(value);
             }
 
@@ -415,93 +405,9 @@ public sealed class MainWindowViewModel : ObservableObject
         }
     }
 
-    public RayItemViewModel? SelectedRay
-    {
-        get => SelectedScene?.SelectedRay;
-        set
-        {
-            if (SelectedScene is null || Equals(SelectedScene.SelectedRay, value))
-            {
-                return;
-            }
-
-            SelectedScene.SelectedRay = value;
-            RaiseCanExecuteChanges();
-            RaisePropertyChanged();
-            RaisePropertyChanged(nameof(IsSelectedPrismEditable));
-            RaisePropertyChanged(nameof(IsSelectedSourceEditable));
-            RaisePropertyChanged(nameof(HasNoPrismSelection));
-            RaisePropertyChanged(nameof(HasNoSourceSelection));
-            RaisePropertyChanged(nameof(HasEditableSelection));
-        }
-    }
-
-    public CylindricalLightSourceItemViewModel? SelectedLightSource
-    {
-        get => SelectedScene?.SelectedLightSource;
-        set
-        {
-            if (SelectedScene is null)
-            {
-                return;
-            }
-
-            if (!Equals(SelectedScene.SelectedLightSource, value))
-            {
-                SelectedScene.SelectedLightSource = value;
-            }
-            if (value is not null)
-            {
-                if (SelectedScene.SelectedPrism is not null) SelectedScene.SelectedPrism = null;
-                if (SelectedScene.SelectedProjectedLightSource is not null) SelectedScene.SelectedProjectedLightSource = null;
-                if (SelectedScene.SelectedRay is not null) SelectedScene.SelectedRay = null;
-                LoadLightSourceIntoEditor(value);
-            }
-
-            RaiseCanExecuteChanges();
-            RaisePropertyChanged();
-            RaisePropertyChanged(nameof(IsSelectedPrismEditable));
-            RaisePropertyChanged(nameof(IsSelectedSourceEditable));
-            RaisePropertyChanged(nameof(HasNoPrismSelection));
-            RaisePropertyChanged(nameof(HasNoSourceSelection));
-            RaisePropertyChanged(nameof(HasEditableSelection));
-            RaisePropertyChanged(nameof(HasNoEditableSelection));
-            RaisePropertyChanged(nameof(SelectedObjectEditorType));
-        }
-    }
-
-    public ProjectedLightSourceItemViewModel? SelectedProjectedLightSource
-    {
-        get => SelectedScene?.SelectedProjectedLightSource;
-        set
-        {
-            if (SelectedScene is null)
-            {
-                return;
-            }
-
-            if (!Equals(SelectedScene.SelectedProjectedLightSource, value))
-            {
-                SelectedScene.SelectedProjectedLightSource = value;
-            }
-            if (value is not null)
-            {
-                if (SelectedScene.SelectedPrism is not null) SelectedScene.SelectedPrism = null;
-                if (SelectedScene.SelectedLightSource is not null) SelectedScene.SelectedLightSource = null;
-                if (SelectedScene.SelectedRay is not null) SelectedScene.SelectedRay = null;
-                LoadProjectedLightSourceIntoEditor(value);
-            }
-            RaiseCanExecuteChanges();
-            RaisePropertyChanged();
-            RaisePropertyChanged(nameof(IsSelectedPrismEditable));
-            RaisePropertyChanged(nameof(IsSelectedSourceEditable));
-            RaisePropertyChanged(nameof(HasNoPrismSelection));
-            RaisePropertyChanged(nameof(HasNoSourceSelection));
-            RaisePropertyChanged(nameof(HasEditableSelection));
-            RaisePropertyChanged(nameof(HasNoEditableSelection));
-            RaisePropertyChanged(nameof(SelectedObjectEditorType));
-        }
-    }
+    // The source editor always addresses the scene-owned assigned source. It is not a second selection model.
+    public CylindricalLightSourceItemViewModel? SelectedLightSource => SelectedScene?.AssignedSource?.GeneratedSource;
+    public ProjectedLightSourceItemViewModel? SelectedProjectedLightSource => SelectedScene?.AssignedSource?.TransferredSource;
 
     public string NewPrismName { get => _newPrismName; set => SetProperty(ref _newPrismName, value); }
     public float NewPrismPosX { get; set; }
@@ -849,7 +755,7 @@ public sealed class MainWindowViewModel : ObservableObject
 
         var newSource = new CylindricalLightSourceItemViewModel
         {
-            Name = string.IsNullOrWhiteSpace(NewLightSourceName) ? $"Light Source {scene.LightSources.Count + 1}" : NewLightSourceName,
+            Name = string.IsNullOrWhiteSpace(NewLightSourceName) ? $"Light Source {AvailableSources.Count + 1}" : NewLightSourceName,
             SourceKind = NewLightSourceKind,
             PositionX = NewLightSourcePosX,
             PositionY = NewLightSourcePosY,
@@ -892,7 +798,6 @@ public sealed class MainWindowViewModel : ObservableObject
         }
 
         _sceneCollectionService.AssignSource(scene, new CollisionSourceLibraryItemViewModel { GeneratedSource = newSource });
-        SelectedLightSource = scene.AssignedSource!.GeneratedSource;
         NewLightSourceName = $"Light Source {AvailableSources.Count + 1}";
         RaiseCanExecuteChanges();
         RefreshViewport(false);
@@ -903,8 +808,6 @@ public sealed class MainWindowViewModel : ObservableObject
     {
         if (SelectedScene is null || SelectedAvailableSource is null) return;
         _sceneCollectionService.AssignSource(SelectedScene, SelectedAvailableSource);
-        SelectedLightSource = SelectedScene.AssignedSource?.GeneratedSource;
-        SelectedProjectedLightSource = SelectedScene.AssignedSource?.TransferredSource;
         RaisePropertyChanged(nameof(AssignedSceneSource));
         RefreshViewport(false);
         SetStatus($"Assigned '{SelectedAvailableSource.Name}' to scene '{SelectedScene.Name}'.", ApplicationLogLevel.Success);
@@ -951,7 +854,7 @@ public sealed class MainWindowViewModel : ObservableObject
     private void RemoveSelectedLightSource()
     {
         var scene = GetSelectedSceneOrSetStatus();
-        if (scene?.SelectedLightSource is null)
+        if (scene?.AssignedSource?.GeneratedSource is null)
         {
             SetStatus("Select a light source to remove.", ApplicationLogLevel.Warning);
             return;
@@ -965,13 +868,13 @@ public sealed class MainWindowViewModel : ObservableObject
     private void RemoveSelectedProjectedLightSource()
     {
         var scene = GetSelectedSceneOrSetStatus();
-        if (scene?.SelectedProjectedLightSource is null)
+        if (scene?.AssignedSource?.TransferredSource is null)
         {
             SetStatus("Select a projected light source to remove.", ApplicationLogLevel.Warning);
             return;
         }
 
-        var removed = scene.SelectedProjectedLightSource;
+        var removed = scene.AssignedSource.TransferredSource;
         var removedName = removed.Name;
         scene.AssignSource(null);
         ClearCollisionResults(scene);
@@ -1114,8 +1017,6 @@ public sealed class MainWindowViewModel : ObservableObject
 
         _sceneCollectionService.AssignSource(scene, new CollisionSourceLibraryItemViewModel { GeneratedSource = demoSource });
         scene.SelectedPrism = null;
-        scene.SelectedRay = null;
-        scene.SelectedLightSource = null;
 
         RefreshViewport(true);
         SetStatus("Demo scene reset with panels and one generated source.", ApplicationLogLevel.Success);
@@ -1267,44 +1168,26 @@ public sealed class MainWindowViewModel : ObservableObject
             }
         }
 
-        for (var i = 0; i < Rays.Count; i++)
+        if (SelectedScene?.AssignedSource?.GeneratedSource is { } source)
         {
-            if (!ValidateDirection(Rays[i].DirectionX, Rays[i].DirectionY, Rays[i].DirectionZ, out error))
-            {
-                error = $"Manual ray {i + 1} invalid. {error}";
-                return false;
-            }
-        }
-
-        for (var i = 0; i < LightSources.Count; i++)
-        {
-            var source = LightSources[i];
             if (!ValidateLightSourceInputs(source.SourceKind, source.Radius, source.Height, source.RadiusStart, source.RadiusEnd, source.Length, source.ArcRadius, source.RayCount, source.TiltWeight, out error))
             {
-                error = $"Light source {i + 1} invalid. {error}";
+                error = $"Assigned source '{source.Name}' invalid. {error}";
                 return false;
             }
-
             if (source.SourceKind == AxisymmetricSourceKind.Hybrid)
             {
-                if (source.HybridSegments.Count == 0)
-                {
-                    error = $"Light source {i + 1} invalid. Hybrid source requires at least one segment.";
-                    return false;
-                }
-
+                if (source.HybridSegments.Count == 0) { error = $"Assigned source '{source.Name}' invalid. Hybrid source requires at least one segment."; return false; }
                 SynchronizeHybridSegmentContinuity(source.HybridSegments);
             }
         }
 
-        foreach (var source in ProjectedLightSources)
+        if (SelectedScene?.AssignedSource?.TransferredSource is { } transferred)
         {
-            if (source.EffectiveRayCount == 0) { error = $"Transferred source '{source.Name}' has no collision rays."; return false; }
-            foreach (var ray in source.GetEffectiveCollisionRays())
-            {
+            if (transferred.EffectiveRayCount == 0) { error = $"Transferred source '{transferred.Name}' has no collision rays."; return false; }
+            foreach (var ray in transferred.GetEffectiveCollisionRays())
                 if (!IsFinite(ray.Origin) || !IsFinite(ray.Direction) || ray.Direction.LengthSquared() <= 0f)
-                { error = $"Transferred source '{source.Name}' contains a non-finite or zero-direction ray."; return false; }
-            }
+                { error = $"Transferred source '{transferred.Name}' contains a non-finite or zero-direction ray."; return false; }
         }
 
         error = string.Empty;
@@ -1482,8 +1365,6 @@ public sealed class MainWindowViewModel : ObservableObject
         if (_subscribedScene is not null)
         {
             _subscribedScene.PropertyChanged -= OnSelectedScenePropertyChanged;
-            _subscribedScene.LightSources.CollectionChanged -= OnSceneLightSourcesCollectionChanged;
-            _subscribedScene.ProjectedLightSources.CollectionChanged -= OnSceneProjectedLightSourcesCollectionChanged;
         }
 
         _subscribedScene = scene;
@@ -1491,30 +1372,36 @@ public sealed class MainWindowViewModel : ObservableObject
         if (_subscribedScene is not null)
         {
             _subscribedScene.PropertyChanged += OnSelectedScenePropertyChanged;
-            _subscribedScene.LightSources.CollectionChanged += OnSceneLightSourcesCollectionChanged;
-            _subscribedScene.ProjectedLightSources.CollectionChanged += OnSceneProjectedLightSourcesCollectionChanged;
         }
     }
 
     private void OnSelectedScenePropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (sender is not CollisionSceneViewModel scene ||
-            e.PropertyName is not (nameof(CollisionSceneViewModel.ShowCollisionRays) or nameof(CollisionSceneViewModel.ShowCollisionHitPoints))) return;
+        if (sender is not CollisionSceneViewModel scene) return;
+
+        if (e.PropertyName == nameof(CollisionSceneViewModel.AssignedSource))
+        {
+            if (SelectedLightSource is not null) LoadLightSourceIntoEditor(SelectedLightSource);
+            else if (SelectedProjectedLightSource is not null) LoadProjectedLightSourceIntoEditor(SelectedProjectedLightSource);
+            RaisePropertyChanged(nameof(AssignedSceneSource));
+            RaisePropertyChanged(nameof(SelectedLightSource));
+            RaisePropertyChanged(nameof(SelectedProjectedLightSource));
+            RaisePropertyChanged(nameof(IsSelectedSourceEditable));
+            RaisePropertyChanged(nameof(HasNoSourceSelection));
+            RaisePropertyChanged(nameof(HasEditableSelection));
+            RaisePropertyChanged(nameof(HasNoEditableSelection));
+            RaisePropertyChanged(nameof(SelectedObjectEditorType));
+            RaiseCanExecuteChanges();
+            RefreshViewport(false);
+            return;
+        }
+
+        if (e.PropertyName is not (nameof(CollisionSceneViewModel.ShowCollisionRays) or nameof(CollisionSceneViewModel.ShowCollisionHitPoints))) return;
 
         if (scene.LastCollisionComputation is { } computation)
             _renderSyncService.RenderCollision(computation, new CollisionSceneVisualOptions(scene.ShowCollisionRays, scene.ShowCollisionHitPoints));
         else
             RefreshViewport(false);
-    }
-
-    private void OnSceneLightSourcesCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
-    {
-        RaisePropertyChanged(nameof(LightSources));
-    }
-
-    private void OnSceneProjectedLightSourcesCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
-    {
-        RaisePropertyChanged(nameof(ProjectedLightSources));
     }
 
     private void OnSceneCollectionPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
@@ -1558,7 +1445,7 @@ public sealed class MainWindowViewModel : ObservableObject
         if (SelectedScene is null || SelectedScene.IsProjectionOnly) { SetStatus("Cannot import a light source because no collision scene is selected."); return; }
         var dialog = new OpenFileDialog { Filter = _lightSourceFileService.BuildImportFilter(), FilterIndex = 1 };
         if (dialog.ShowDialog() != true) return;
-        try { var (data, format) = _lightSourceFileService.Read(dialog.FileName); var source = _lightSourceTransferService.Import(data); _sceneCollectionService.AssignSource(SelectedScene, new CollisionSourceLibraryItemViewModel { TransferredSource = source }); SelectedProjectedLightSource = SelectedScene.AssignedSource!.TransferredSource; RefreshViewport(false); SetStatus($"Imported source '{source.Name}' with {source.ExactRays.Count} exact rays using '{format.DisplayName}'."); AppLog.LogInfo(StatusMessage, nameof(MainWindowViewModel)); }
+        try { var (data, format) = _lightSourceFileService.Read(dialog.FileName); var source = _lightSourceTransferService.Import(data); _sceneCollectionService.AssignSource(SelectedScene, new CollisionSourceLibraryItemViewModel { TransferredSource = source }); RefreshViewport(false); SetStatus($"Imported source '{source.Name}' with {source.ExactRays.Count} exact rays using '{format.DisplayName}'."); AppLog.LogInfo(StatusMessage, nameof(MainWindowViewModel)); }
         catch (Exception ex) { SetStatus($"Could not import light source '{dialog.FileName}': {ex.Message}"); AppLog.LogError(StatusMessage, ex, nameof(MainWindowViewModel)); }
     }
 
@@ -1798,24 +1685,20 @@ public sealed class MainWindowViewModel : ObservableObject
             LoadPrismIntoEditor(SelectedScene.SelectedPrism);
         }
 
-        if (SelectedScene?.SelectedLightSource is not null)
+        if (SelectedLightSource is not null)
         {
-            LoadLightSourceIntoEditor(SelectedScene.SelectedLightSource);
+            LoadLightSourceIntoEditor(SelectedLightSource);
         }
-        else if (SelectedScene?.SelectedProjectedLightSource is not null)
+        else if (SelectedProjectedLightSource is not null)
         {
-            LoadProjectedLightSourceIntoEditor(SelectedScene.SelectedProjectedLightSource);
+            LoadProjectedLightSourceIntoEditor(SelectedProjectedLightSource);
         }
 
         RaisePropertyChanged(nameof(SelectedScene));
         RaisePropertyChanged(nameof(Prisms));
-        RaisePropertyChanged(nameof(Rays));
-        RaisePropertyChanged(nameof(LightSources));
-        RaisePropertyChanged(nameof(ProjectedLightSources));
         RaisePropertyChanged(nameof(AssignedSceneSource));
         RaisePropertyChanged(nameof(HitResults));
         RaisePropertyChanged(nameof(SelectedPrism));
-        RaisePropertyChanged(nameof(SelectedRay));
         RaisePropertyChanged(nameof(SelectedLightSource));
         RaisePropertyChanged(nameof(SelectedProjectedLightSource));
         RaisePropertyChanged(nameof(IsSelectedPrismEditable));

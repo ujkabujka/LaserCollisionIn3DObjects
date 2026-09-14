@@ -656,7 +656,7 @@ public sealed class GraphicMasterViewModel : ObservableObject
             .Select(scene => new GraphSceneData
             {
                 SceneName = scene.Name,
-                AxisymmetricSources = scene.LightSources.Where(source => source.SourceKind == AxisymmetricSourceKind.Cylinder).Select(MapToDomainLightSource).ToList(),
+                AxisymmetricSources = scene.AssignedSource?.GeneratedSource is { SourceKind: AxisymmetricSourceKind.Cylinder } source ? [MapToDomainLightSource(source)] : [],
                 ProjectionResults = scene.ProjectionState.SavedResults,
             })
             .ToList();
@@ -742,17 +742,22 @@ public sealed class GraphicMasterViewModel : ObservableObject
 
     private void AttachSceneObservers(CollisionSceneViewModel scene)
     {
-        scene.LightSources.CollectionChanged += OnSceneGraphInputsChanged;
+        scene.PropertyChanged += OnScenePropertyChanged;
         scene.ProjectionState.SavedResults.CollectionChanged += OnSceneGraphInputsChanged;
     }
 
     private void DetachSceneObservers(CollisionSceneViewModel scene)
     {
-        scene.LightSources.CollectionChanged -= OnSceneGraphInputsChanged;
+        scene.PropertyChanged -= OnScenePropertyChanged;
         scene.ProjectionState.SavedResults.CollectionChanged -= OnSceneGraphInputsChanged;
     }
 
     private void OnSceneGraphInputsChanged(object? sender, NotifyCollectionChangedEventArgs e) => RefreshSources();
+
+    private void OnScenePropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(CollisionSceneViewModel.AssignedSource)) RefreshSources();
+    }
 
     private static PlotModel CreateEmptyPlotModel()
     {
