@@ -101,15 +101,11 @@ public sealed class MainWindowViewModel : ObservableObject
     private bool _isNavigationCollapsed;
     private WorkspaceKind _selectedWorkspace = WorkspaceKind.Collision;
     private CollisionSceneViewModel? _subscribedScene;
-    private float _selectedEditPositionX;
-    private float _selectedEditPositionY;
-    private float _selectedEditPositionZ;
-    private float _selectedEditRotationX;
-    private float _selectedEditRotationY;
-    private float _selectedEditRotationZ;
-    private float _selectedEditSizeX = 1f;
-    private float _selectedEditSizeY = 1f;
-    private float _selectedEditSizeZ = 1f;
+    private float _selectedPrismEditPositionX, _selectedPrismEditPositionY, _selectedPrismEditPositionZ;
+    private float _selectedPrismEditRotationX, _selectedPrismEditRotationY, _selectedPrismEditRotationZ;
+    private float _selectedPrismEditSizeX = 1f, _selectedPrismEditSizeY = 1f, _selectedPrismEditSizeZ = 1f;
+    private float _selectedSourceEditPositionX, _selectedSourceEditPositionY, _selectedSourceEditPositionZ;
+    private float _selectedSourceEditRotationX, _selectedSourceEditRotationY, _selectedSourceEditRotationZ;
 
     public MainWindowViewModel(SceneRenderSyncService renderSyncService, ProjectionRenderSyncService projectionRenderSyncService)
     {
@@ -137,7 +133,6 @@ public sealed class MainWindowViewModel : ObservableObject
         ImportMeasuredPrismsCsvCommand = new AsyncRelayCommand(ImportMeasuredPrismsCsvAsync, () => SelectedScene is not null && !IsCollisionBusy);
         ApplySelectedPrismChangesCommand = new RelayCommand(ApplySelectedPrismChanges, () => SelectedScene is not null && SelectedPrism is not null);
         ApplySelectedSourceChangesCommand = new RelayCommand(ApplySelectedSourceChanges, () => SelectedScene is not null && IsSelectedSourceEditable);
-        ApplySelectedObjectChangesCommand = new RelayCommand(ApplySelectedObjectChanges, CanApplySelectedObjectChanges);
         AddLightSourceCommand = new RelayCommand(AddLightSource, () => SelectedScene is not null);
         AssignSelectedAvailableSourceCommand = new RelayCommand(AssignSelectedAvailableSource, () => SelectedScene is not null && SelectedAvailableSource is not null);
         AddHybridSegmentCommand = new RelayCommand(AddHybridSegment);
@@ -276,7 +271,6 @@ public sealed class MainWindowViewModel : ObservableObject
     public ICommand ImportMeasuredPrismsCsvCommand { get; }
     public ICommand ApplySelectedPrismChangesCommand { get; }
     public ICommand ApplySelectedSourceChangesCommand { get; }
-    public ICommand ApplySelectedObjectChangesCommand { get; }
     public ICommand AddLightSourceCommand { get; }
     public ICommand AssignSelectedAvailableSourceCommand { get; }
     public ICommand AddHybridSegmentCommand { get; }
@@ -363,11 +357,7 @@ public sealed class MainWindowViewModel : ObservableObject
     public bool IsSelectedSourceEditable => SelectedLightSource is not null || SelectedProjectedLightSource is not null;
     public bool HasNoPrismSelection => !IsSelectedPrismEditable;
     public bool HasNoSourceSelection => !IsSelectedSourceEditable;
-    public bool HasEditableSelection => IsSelectedPrismEditable || IsSelectedSourceEditable;
-    public bool HasNoEditableSelection => !HasEditableSelection;
-    public string SelectedObjectEditorType => SelectedPrism is not null
-        ? "Generated Prism"
-        : SelectedLightSource is not null
+    public string SelectedSourceEditorType => SelectedLightSource is not null
             ? "Light Source"
             : SelectedProjectedLightSource is not null
                 ? SelectedProjectedLightSource.OriginKind switch
@@ -403,9 +393,7 @@ public sealed class MainWindowViewModel : ObservableObject
             RaisePropertyChanged(nameof(IsSelectedSourceEditable));
             RaisePropertyChanged(nameof(HasNoPrismSelection));
             RaisePropertyChanged(nameof(HasNoSourceSelection));
-            RaisePropertyChanged(nameof(HasEditableSelection));
-            RaisePropertyChanged(nameof(HasNoEditableSelection));
-            RaisePropertyChanged(nameof(SelectedObjectEditorType));
+            RaisePropertyChanged(nameof(SelectedSourceEditorType));
         }
     }
 
@@ -423,30 +411,21 @@ public sealed class MainWindowViewModel : ObservableObject
     public float NewPrismSizeX { get => _newPrismSizeX; set => SetProperty(ref _newPrismSizeX, value); }
     public float NewPrismSizeY { get => _newPrismSizeY; set { if (SetProperty(ref _newPrismSizeY, value)) RaiseArrayDerivedProperties(); } }
     public float NewPrismSizeZ { get => _newPrismSizeZ; set => SetProperty(ref _newPrismSizeZ, value); }
-    public float SelectedEditPositionX { get => _selectedEditPositionX; set => SetProperty(ref _selectedEditPositionX, value); }
-    public float SelectedEditPositionY { get => _selectedEditPositionY; set => SetProperty(ref _selectedEditPositionY, value); }
-    public float SelectedEditPositionZ { get => _selectedEditPositionZ; set => SetProperty(ref _selectedEditPositionZ, value); }
-    public float SelectedEditRotationX { get => _selectedEditRotationX; set => SetProperty(ref _selectedEditRotationX, value); }
-    public float SelectedEditRotationY { get => _selectedEditRotationY; set => SetProperty(ref _selectedEditRotationY, value); }
-    public float SelectedEditRotationZ { get => _selectedEditRotationZ; set => SetProperty(ref _selectedEditRotationZ, value); }
-    public float SelectedEditSizeX { get => _selectedEditSizeX; set => SetProperty(ref _selectedEditSizeX, value); }
-    public float SelectedEditSizeY { get => _selectedEditSizeY; set => SetProperty(ref _selectedEditSizeY, value); }
-    public float SelectedEditSizeZ { get => _selectedEditSizeZ; set => SetProperty(ref _selectedEditSizeZ, value); }
-    public float SelectedPrismEditPositionX { get => SelectedEditPositionX; set => SelectedEditPositionX = value; }
-    public float SelectedPrismEditPositionY { get => SelectedEditPositionY; set => SelectedEditPositionY = value; }
-    public float SelectedPrismEditPositionZ { get => SelectedEditPositionZ; set => SelectedEditPositionZ = value; }
-    public float SelectedPrismEditRotationX { get => SelectedEditRotationX; set => SelectedEditRotationX = value; }
-    public float SelectedPrismEditRotationY { get => SelectedEditRotationY; set => SelectedEditRotationY = value; }
-    public float SelectedPrismEditRotationZ { get => SelectedEditRotationZ; set => SelectedEditRotationZ = value; }
-    public float SelectedPrismEditSizeX { get => SelectedEditSizeX; set => SelectedEditSizeX = value; }
-    public float SelectedPrismEditSizeY { get => SelectedEditSizeY; set => SelectedEditSizeY = value; }
-    public float SelectedPrismEditSizeZ { get => SelectedEditSizeZ; set => SelectedEditSizeZ = value; }
-    public float SelectedSourceEditPositionX { get => SelectedEditPositionX; set => SelectedEditPositionX = value; }
-    public float SelectedSourceEditPositionY { get => SelectedEditPositionY; set => SelectedEditPositionY = value; }
-    public float SelectedSourceEditPositionZ { get => SelectedEditPositionZ; set => SelectedEditPositionZ = value; }
-    public float SelectedSourceEditRotationX { get => SelectedEditRotationX; set => SelectedEditRotationX = value; }
-    public float SelectedSourceEditRotationY { get => SelectedEditRotationY; set => SelectedEditRotationY = value; }
-    public float SelectedSourceEditRotationZ { get => SelectedEditRotationZ; set => SelectedEditRotationZ = value; }
+    public float SelectedPrismEditPositionX { get => _selectedPrismEditPositionX; set => SetProperty(ref _selectedPrismEditPositionX, value); }
+    public float SelectedPrismEditPositionY { get => _selectedPrismEditPositionY; set => SetProperty(ref _selectedPrismEditPositionY, value); }
+    public float SelectedPrismEditPositionZ { get => _selectedPrismEditPositionZ; set => SetProperty(ref _selectedPrismEditPositionZ, value); }
+    public float SelectedPrismEditRotationX { get => _selectedPrismEditRotationX; set => SetProperty(ref _selectedPrismEditRotationX, value); }
+    public float SelectedPrismEditRotationY { get => _selectedPrismEditRotationY; set => SetProperty(ref _selectedPrismEditRotationY, value); }
+    public float SelectedPrismEditRotationZ { get => _selectedPrismEditRotationZ; set => SetProperty(ref _selectedPrismEditRotationZ, value); }
+    public float SelectedPrismEditSizeX { get => _selectedPrismEditSizeX; set => SetProperty(ref _selectedPrismEditSizeX, value); }
+    public float SelectedPrismEditSizeY { get => _selectedPrismEditSizeY; set => SetProperty(ref _selectedPrismEditSizeY, value); }
+    public float SelectedPrismEditSizeZ { get => _selectedPrismEditSizeZ; set => SetProperty(ref _selectedPrismEditSizeZ, value); }
+    public float SelectedSourceEditPositionX { get => _selectedSourceEditPositionX; set => SetProperty(ref _selectedSourceEditPositionX, value); }
+    public float SelectedSourceEditPositionY { get => _selectedSourceEditPositionY; set => SetProperty(ref _selectedSourceEditPositionY, value); }
+    public float SelectedSourceEditPositionZ { get => _selectedSourceEditPositionZ; set => SetProperty(ref _selectedSourceEditPositionZ, value); }
+    public float SelectedSourceEditRotationX { get => _selectedSourceEditRotationX; set => SetProperty(ref _selectedSourceEditRotationX, value); }
+    public float SelectedSourceEditRotationY { get => _selectedSourceEditRotationY; set => SetProperty(ref _selectedSourceEditRotationY, value); }
+    public float SelectedSourceEditRotationZ { get => _selectedSourceEditRotationZ; set => SetProperty(ref _selectedSourceEditRotationZ, value); }
     public int NewPrismArrayCount { get => _newPrismArrayCount; set => SetProperty(ref _newPrismArrayCount, value); }
     public float NewPrismArrayRadius { get => _newPrismArrayRadius; set => SetProperty(ref _newPrismArrayRadius, value); }
     public float NewPrismArrayLength { get => _newPrismArrayLength; set => SetProperty(ref _newPrismArrayLength, value); }
@@ -1487,9 +1466,6 @@ public sealed class MainWindowViewModel : ObservableObject
             RaisePropertyChanged(nameof(SelectedProjectedLightSource));
             RaisePropertyChanged(nameof(IsSelectedSourceEditable));
             RaisePropertyChanged(nameof(HasNoSourceSelection));
-            RaisePropertyChanged(nameof(HasEditableSelection));
-            RaisePropertyChanged(nameof(HasNoEditableSelection));
-            RaisePropertyChanged(nameof(SelectedObjectEditorType));
             RaiseCanExecuteChanges();
             RefreshViewport(false);
             return;
@@ -1544,8 +1520,19 @@ public sealed class MainWindowViewModel : ObservableObject
         if (SelectedScene is null || SelectedScene.IsProjectionOnly) { SetStatus("Cannot import a light source because no collision scene is selected."); return; }
         var dialog = new OpenFileDialog { Filter = _lightSourceFileService.BuildImportFilter(), FilterIndex = 1 };
         if (dialog.ShowDialog() != true) return;
-        try { var (data, format) = _lightSourceFileService.Read(dialog.FileName); var source = _lightSourceTransferService.Import(data); _sceneCollectionService.AssignSource(SelectedScene, new CollisionSourceLibraryItemViewModel { TransferredSource = source }); RefreshViewport(false); SetStatus($"Imported source '{source.Name}' with {source.ExactRays.Count} exact rays using '{format.DisplayName}'."); AppLog.LogInfo(StatusMessage, nameof(MainWindowViewModel)); }
+        try { var (data, format) = _lightSourceFileService.Read(dialog.FileName); ImportLightSourceIntoCollision(data); SetStatus($"{StatusMessage} Format: '{format.DisplayName}'."); AppLog.LogInfo(StatusMessage, nameof(MainWindowViewModel)); }
         catch (Exception ex) { SetStatus($"Could not import light source '{dialog.FileName}': {ex.Message}"); AppLog.LogError(StatusMessage, ex, nameof(MainWindowViewModel)); }
+    }
+
+    /// <summary>Imports a portable file as a canonical reusable Collision source and assigns a detached scene snapshot.</summary>
+    public bool ImportLightSourceIntoCollision(LightSourceTransferData data)
+    {
+        if (SelectedScene is null || SelectedScene.IsProjectionOnly) return false;
+        var source = _lightSourceTransferService.Import(data, ImportedSourcePosePolicy.CanonicalIdentityFrame);
+        _sceneCollectionService.AssignSource(SelectedScene, new CollisionSourceLibraryItemViewModel { TransferredSource = source });
+        RefreshViewport(false);
+        SetStatus($"Imported source '{source.Name}' with {source.ExactRays.Count} exact rays.");
+        return true;
     }
 
     private async Task SaveProjectAsync()
@@ -1802,9 +1789,6 @@ public sealed class MainWindowViewModel : ObservableObject
         RaisePropertyChanged(nameof(SelectedProjectedLightSource));
         RaisePropertyChanged(nameof(IsSelectedPrismEditable));
         RaisePropertyChanged(nameof(IsSelectedSourceEditable));
-        RaisePropertyChanged(nameof(HasEditableSelection));
-        RaisePropertyChanged(nameof(HasNoEditableSelection));
-        RaisePropertyChanged(nameof(SelectedObjectEditorType));
         RaiseCanExecuteChanges();
     }
 
@@ -1817,15 +1801,15 @@ public sealed class MainWindowViewModel : ObservableObject
             prism.RotationZ);
         var (effectiveRotX, effectiveRotY, effectiveRotZ) = FrameOrientationBuilder.ToLocalEulerDegrees(effectiveOrientation);
 
-        SelectedEditPositionX = prism.PositionX;
-        SelectedEditPositionY = prism.PositionY;
-        SelectedEditPositionZ = prism.PositionZ;
-        SelectedEditRotationX = effectiveRotX;
-        SelectedEditRotationY = effectiveRotY;
-        SelectedEditRotationZ = effectiveRotZ;
-        SelectedEditSizeX = prism.SizeX;
-        SelectedEditSizeY = prism.SizeY;
-        SelectedEditSizeZ = prism.SizeZ;
+        SelectedPrismEditPositionX = prism.PositionX;
+        SelectedPrismEditPositionY = prism.PositionY;
+        SelectedPrismEditPositionZ = prism.PositionZ;
+        SelectedPrismEditRotationX = effectiveRotX;
+        SelectedPrismEditRotationY = effectiveRotY;
+        SelectedPrismEditRotationZ = effectiveRotZ;
+        SelectedPrismEditSizeX = prism.SizeX;
+        SelectedPrismEditSizeY = prism.SizeY;
+        SelectedPrismEditSizeZ = prism.SizeZ;
     }
 
     private void LoadLightSourceIntoEditor(CylindricalLightSourceItemViewModel source)
@@ -1837,90 +1821,102 @@ public sealed class MainWindowViewModel : ObservableObject
             source.RotationZ);
         var (effectiveRotX, effectiveRotY, effectiveRotZ) = FrameOrientationBuilder.ToLocalEulerDegrees(effectiveOrientation);
 
-        SelectedEditPositionX = source.PositionX;
-        SelectedEditPositionY = source.PositionY;
-        SelectedEditPositionZ = source.PositionZ;
-        SelectedEditRotationX = effectiveRotX;
-        SelectedEditRotationY = effectiveRotY;
-        SelectedEditRotationZ = effectiveRotZ;
+        SelectedSourceEditPositionX = source.PositionX;
+        SelectedSourceEditPositionY = source.PositionY;
+        SelectedSourceEditPositionZ = source.PositionZ;
+        SelectedSourceEditRotationX = effectiveRotX;
+        SelectedSourceEditRotationY = effectiveRotY;
+        SelectedSourceEditRotationZ = effectiveRotZ;
     }
 
     private void LoadProjectedLightSourceIntoEditor(ProjectedLightSourceItemViewModel source)
     {
-        SelectedEditPositionX = (float)source.SourceFrame.Origin.X;
-        SelectedEditPositionY = (float)source.SourceFrame.Origin.Y;
-        SelectedEditPositionZ = (float)source.SourceFrame.Origin.Z;
+        SelectedSourceEditPositionX = (float)source.SourceFrame.Origin.X;
+        SelectedSourceEditPositionY = (float)source.SourceFrame.Origin.Y;
+        SelectedSourceEditPositionZ = (float)source.SourceFrame.Origin.Z;
         // SourceFrame is authoritative; BaseOrientation is compatibility/persistence cache only.
         var (rx, ry, rz) = FrameOrientationBuilder.ToLocalEulerDegrees(TransferredLightSourcePoseService.GetOrientation(source.SourceFrame));
-        SelectedEditRotationX = rx;
-        SelectedEditRotationY = ry;
-        SelectedEditRotationZ = rz;
+        SelectedSourceEditRotationX = rx;
+        SelectedSourceEditRotationY = ry;
+        SelectedSourceEditRotationZ = rz;
     }
 
-    private bool CanApplySelectedObjectChanges() => SelectedScene is not null && HasEditableSelection;
+    private void ApplySelectedPrismChanges()
+    {
+        var scene = GetSelectedSceneOrSetStatus();
+        var prism = SelectedPrism;
+        if (scene is null || prism is null) return;
 
-    private void ApplySelectedObjectChanges()
+        if (!ValidatePrismInputs(SelectedPrismEditSizeX, SelectedPrismEditSizeY, SelectedPrismEditSizeZ, out var prismError))
+        {
+            SetStatus(prismError, ApplicationLogLevel.Warning);
+            return;
+        }
+
+        prism.PositionX = SelectedPrismEditPositionX;
+        prism.PositionY = SelectedPrismEditPositionY;
+        prism.PositionZ = SelectedPrismEditPositionZ;
+        prism.RotationX = SelectedPrismEditRotationX;
+        prism.RotationY = SelectedPrismEditRotationY;
+        prism.RotationZ = SelectedPrismEditRotationZ;
+        // Editor angles describe the absolute effective orientation, not a delta from the old base.
+        prism.BaseOrientation = Quaternion.Identity;
+        prism.SizeX = SelectedPrismEditSizeX;
+        prism.SizeY = SelectedPrismEditSizeY;
+        prism.SizeZ = SelectedPrismEditSizeZ;
+        FinishPoseEdit(scene, "Prism changes applied.");
+    }
+
+    private void ApplySelectedSourceChanges()
     {
         var scene = GetSelectedSceneOrSetStatus();
         if (scene is null) return;
 
-        if (SelectedPrism is not null)
+        if (SelectedLightSource is { } generated)
         {
-            if (!ValidatePrismInputs(SelectedEditSizeX, SelectedEditSizeY, SelectedEditSizeZ, out var prismError))
-            {
-                SetStatus(prismError, ApplicationLogLevel.Warning);
-                return;
-            }
-
-            SelectedPrism.PositionX = SelectedEditPositionX;
-            SelectedPrism.PositionY = SelectedEditPositionY;
-            SelectedPrism.PositionZ = SelectedEditPositionZ;
-            SelectedPrism.RotationX = SelectedEditRotationX;
-            SelectedPrism.RotationY = SelectedEditRotationY;
-            SelectedPrism.RotationZ = SelectedEditRotationZ;
-            SelectedPrism.SizeX = SelectedEditSizeX;
-            SelectedPrism.SizeY = SelectedEditSizeY;
-            SelectedPrism.SizeZ = SelectedEditSizeZ;
+            generated.PositionX = SelectedSourceEditPositionX;
+            generated.PositionY = SelectedSourceEditPositionY;
+            generated.PositionZ = SelectedSourceEditPositionZ;
+            generated.RotationX = SelectedSourceEditRotationX;
+            generated.RotationY = SelectedSourceEditRotationY;
+            generated.RotationZ = SelectedSourceEditRotationZ;
+            // Editor angles describe the absolute effective orientation, not a delta from the old base.
+            generated.BaseOrientation = Quaternion.Identity;
         }
-        else if (SelectedLightSource is not null)
+        else if (SelectedProjectedLightSource is { } transferred)
         {
-            SelectedLightSource.PositionX = SelectedSourceEditPositionX;
-            SelectedLightSource.PositionY = SelectedSourceEditPositionY;
-            SelectedLightSource.PositionZ = SelectedSourceEditPositionZ;
-            SelectedLightSource.RotationX = SelectedSourceEditRotationX;
-            SelectedLightSource.RotationY = SelectedSourceEditRotationY;
-            SelectedLightSource.RotationZ = SelectedSourceEditRotationZ;
-        }
-        else if (SelectedProjectedLightSource is not null)
-        {
-            var frame = SelectedProjectedLightSource.SourceFrame;
-            var newRotation = Quaternion.CreateFromYawPitchRoll(
-                float.DegreesToRadians(SelectedSourceEditRotationY),
-                float.DegreesToRadians(SelectedSourceEditRotationX),
-                float.DegreesToRadians(SelectedSourceEditRotationZ));
+            var frame = transferred.SourceFrame;
+            var newRotation = FrameOrientationBuilder.ApplyLocalEulerDegrees(
+                Quaternion.Identity,
+                SelectedSourceEditRotationX,
+                SelectedSourceEditRotationY,
+                SelectedSourceEditRotationZ);
 
             var newOrigin = new Vector3(SelectedSourceEditPositionX, SelectedSourceEditPositionY, SelectedSourceEditPositionZ);
             var newFrame = TransferredLightSourcePoseService.CreateFrame(newOrigin, newRotation);
 
             // Only the physical ray moves. TargetHolePoint remains historical projection metadata.
-            for (var i = 0; i < SelectedProjectedLightSource.Rays.Count; i++)
+            for (var i = 0; i < transferred.Rays.Count; i++)
             {
-                var projectionRay = SelectedProjectedLightSource.Rays[i];
-                SelectedProjectedLightSource.Rays[i] = projectionRay with { Ray = TransferredLightSourcePoseService.TransformRay(projectionRay.Ray, frame, newFrame) };
+                var projectionRay = transferred.Rays[i];
+                transferred.Rays[i] = projectionRay with { Ray = TransferredLightSourcePoseService.TransformRay(projectionRay.Ray, frame, newFrame) };
             }
-            for (var i = 0; i < SelectedProjectedLightSource.ExactRays.Count; i++)
-                SelectedProjectedLightSource.ExactRays[i] = TransferredLightSourcePoseService.TransformRay(SelectedProjectedLightSource.ExactRays[i], frame, newFrame);
-            SelectedProjectedLightSource.SourceFrame = newFrame;
-            SelectedProjectedLightSource.BaseOrientation = newRotation;
+            for (var i = 0; i < transferred.ExactRays.Count; i++)
+                transferred.ExactRays[i] = TransferredLightSourcePoseService.TransformRay(transferred.ExactRays[i], frame, newFrame);
+            transferred.SourceFrame = newFrame;
+            transferred.BaseOrientation = newRotation;
         }
+        else return;
 
-        ClearCollisionResults(scene);
-        SetStatus("Selected object changes applied.", ApplicationLogLevel.Success);
-        _sceneCollectionService.NotifySceneContentChanged();
+        FinishPoseEdit(scene, "Source changes applied.");
     }
 
-    private void ApplySelectedPrismChanges() => ApplySelectedObjectChanges();
-    private void ApplySelectedSourceChanges() => ApplySelectedObjectChanges();
+    private void FinishPoseEdit(CollisionSceneViewModel scene, string status)
+    {
+        ClearCollisionResults(scene);
+        SetStatus(status, ApplicationLogLevel.Success);
+        _sceneCollectionService.NotifySceneContentChanged();
+    }
 
     private static Vector3D RotateFrameAxis(Vector3D axis, Quaternion rotation)
     {
@@ -1964,10 +1960,6 @@ public sealed class MainWindowViewModel : ObservableObject
         if (ImportMeasuredPrismsCsvCommand is AsyncRelayCommand importMeasuredCommand)
         {
             importMeasuredCommand.RaiseCanExecuteChanged();
-        }
-        if (ApplySelectedObjectChangesCommand is RelayCommand applyCommand)
-        {
-            applyCommand.RaiseCanExecuteChanged();
         }
         if (ApplySelectedPrismChangesCommand is RelayCommand applyPrismCommand)
         {
