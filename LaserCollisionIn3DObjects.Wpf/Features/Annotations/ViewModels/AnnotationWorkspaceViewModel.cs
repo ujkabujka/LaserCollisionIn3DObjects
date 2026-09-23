@@ -266,8 +266,7 @@ public sealed class AnnotationWorkspaceViewModel : ObservableObject
     private static void ApplyCorner(CornerMeasurementViewModel corner, PanelCornerMeasurement measurement)
     {
         corner.SelectedMode = CornerMeasurementMode.ManualMeasurement;
-        if (measurement.DistanceMeters > 1000) { corner.ManualDistanceMeters = measurement.DistanceMeters / 1000; }
-        else { corner.ManualDistanceMeters = measurement.DistanceMeters; }
+        corner.ManualDistanceMeters = PanelMeasurementGeometryService.NormalizeDistanceMeters(measurement.DistanceMeters);
         corner.ManualAzimuthDeg = measurement.AzimuthDeg;
         corner.ManualElevationDeg = measurement.ElevationDeg;
     }
@@ -826,17 +825,9 @@ public sealed class AnnotationWorkspaceViewModel : ObservableObject
 
     private static Vector3 ConvertToPointFromManual(double? azimuthDeg, double? elevationDeg, double? distance)
     {
-        // All angles must be in degrees, distance in meters
-        if (azimuthDeg != null && elevationDeg != null && distance != null)
-        {
-            Vector3 distVec = Vector3.UnitX * (float)distance;
-            System.Numerics.Quaternion orientation = FrameOrientationBuilder.ApplyLocalZYXulerDegrees(System.Numerics.Quaternion.Identity, (float)azimuthDeg, (float)elevationDeg, 0);
-            Vector3 final = Vector3.Transform(distVec, orientation);
-            return final;
-        }
-
-
-        return new Vector3(float.NaN, float.NaN, float.NaN);
+        return azimuthDeg != null && elevationDeg != null && distance != null
+            ? PanelMeasurementGeometryService.ToWorldPoint(new PanelCornerMeasurement(distance.Value, azimuthDeg.Value, elevationDeg.Value))
+            : new Vector3(float.NaN, float.NaN, float.NaN);
     }
     private static IReadOnlyList<Vector3> ResolveMeasuredCornerWorldPoints(AnnotatedImageViewModel image)
     {

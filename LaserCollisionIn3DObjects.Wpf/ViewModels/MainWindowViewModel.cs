@@ -8,6 +8,7 @@ using System.Windows.Input;
 using System.Windows.Data;
 using LaserCollisionIn3DObjects.Wpf;
 using LaserCollisionIn3DObjects.Domain.Export;
+using LaserCollisionIn3DObjects.Domain.Import;
 using Microsoft.Win32;
 using LaserCollisionIn3DObjects.Domain.Generation;
 using LaserCollisionIn3DObjects.Domain.Geometry;
@@ -49,6 +50,7 @@ public sealed class MainWindowViewModel : ObservableObject
     private static readonly ObservableCollection<Point3> EmptyNaturalPoints = new();
     private readonly SceneRenderSyncService _renderSyncService;
     private readonly PanelCollisionCsvExportService _panelCollisionCsvExportService = new();
+    private readonly PanelMeasurementsCsvImportService _panelMeasurementsCsvImportService = new();
     private readonly SceneCollectionService _sceneCollectionService;
     private readonly CompletedSourceStore _completedSourceStore = new();
     private readonly ProjectPersistenceCoordinator _projectPersistenceCoordinator = new();
@@ -132,6 +134,7 @@ public sealed class MainWindowViewModel : ObservableObject
         DeleteSelectedSceneCommand = new RelayCommand(DeleteSelectedScene, () => SelectedScene is not null);
         AddPrismCommand = new RelayCommand(AddPrism, () => SelectedScene is not null);
         AddPrismArrayCommand = new RelayCommand(AddPrismArray, () => SelectedScene is not null);
+        ImportMeasuredPrismsCsvCommand = new AsyncRelayCommand(ImportMeasuredPrismsCsvAsync, () => SelectedScene is not null && !IsCollisionBusy);
         ApplySelectedPrismChangesCommand = new RelayCommand(ApplySelectedPrismChanges, () => SelectedScene is not null && SelectedPrism is not null);
         ApplySelectedSourceChangesCommand = new RelayCommand(ApplySelectedSourceChanges, () => SelectedScene is not null && IsSelectedSourceEditable);
         ApplySelectedObjectChangesCommand = new RelayCommand(ApplySelectedObjectChanges, CanApplySelectedObjectChanges);
@@ -270,6 +273,7 @@ public sealed class MainWindowViewModel : ObservableObject
     public ICommand DeleteSelectedSceneCommand { get; }
     public ICommand AddPrismCommand { get; }
     public ICommand AddPrismArrayCommand { get; }
+    public ICommand ImportMeasuredPrismsCsvCommand { get; }
     public ICommand ApplySelectedPrismChangesCommand { get; }
     public ICommand ApplySelectedSourceChangesCommand { get; }
     public ICommand ApplySelectedObjectChangesCommand { get; }
@@ -623,6 +627,101 @@ public sealed class MainWindowViewModel : ObservableObject
         RaiseCanExecuteChanges();
         RefreshViewport(false);
         SetStatus($"Added {created.Count} inward-facing prisms in a {SelectedPrismArrayPlacementMode} array.", ApplicationLogLevel.Success);
+    }
+
+    private async Task ImportMeasuredPrismsCsvAsync()
+    {
+        if (SelectedScene is null)
+        {
+            SetStatus("Select a Collision scene before importing measured prisms.", ApplicationLogLevel.Warning);
+            return;
+        }
+
+        var dialog = new OpenFileDialog
+        {
+            Title = "Import Measured Prisms CSV",
+            Filter = "CSV files (*.csv)|*.csv|All files (*.*)|*.*",
+        };
+        if (dialog.ShowDialog() != true) return;
+
+        IsCollisionBusy = true;
+        CollisionProgressMessage = "Importing measured prisms...";
+        CollisionProgressIsIndeterminate = true;
+        IsCollisionProgressVisible = true;
+        try
+        {
+            var csv = await File.ReadAllTextAsync(dialog.FileName);
+            ImportMeasuredPrisms(new StringReader(csv));
+        }
+        catch (Exception ex) when (ex is FormatException or IOException or UnauthorizedAccessException or ArgumentException)
+        {
+            SetStatus($"Measured-prism import failed. No prisms added. {ex.Message}", ApplicationLogLevel.Error);
+        }
+        finally
+        {
+            IsCollisionBusy = false;
+            IsCollisionProgressVisible = false;
+        }
+    }
+
+    /// <summary>Imports a complete CSV transaction into the selected scene; useful for UI and smoke tests.</summary>
+    public bool ImportMeasuredPrisms(TextReader reader)
+    {
+        var scene = SelectedScene;
+        if (scene is null)
+        {
+            SetStatus("Select a Collision scene before importing measured prisms.", ApplicationLogLevel.Warning);
+            return false;
+        }
+
+        try
+        {
+            // Parse and fit every row before touching WPF-bound collections.
+            var records = _panelMeasurementsCsvImportService.Parse(reader);
+            var geometries = records.Select((record, index) =>
+            {
+                try { return PanelMeasurementGeometryService.CreatePrismGeometry(record); }
+                catch (ArgumentException ex) { throw new ArgumentException($"Panel {index + 1}: {ex.Message}", ex); }
+            }).ToArray();
+
+            var existingNames = new HashSet<string>(scene.Prisms.Select(static prism => prism.Name), StringComparer.OrdinalIgnoreCase);
+            var prepared = new List<PrismItemViewModel>(geometries.Length);
+            var preparedCorners = new List<Point3>(geometries.Length * 4);
+            for (var i = 0; i < geometries.Length; i++)
+            {
+                var geometry = geometries[i];
+                var ordinal = i + 1;
+                var name = $"Measured Prism {ordinal}";
+                for (var suffix = 2; !existingNames.Add(name); suffix++) name = $"Measured Prism {ordinal} ({suffix})";
+                prepared.Add(new PrismItemViewModel
+                {
+                    Name = name,
+                    PositionX = geometry.Position.X, PositionY = geometry.Position.Y, PositionZ = geometry.Position.Z,
+                    SizeX = geometry.Size.X, SizeY = geometry.Size.Y, SizeZ = geometry.Size.Z,
+                    BaseOrientation = geometry.Orientation,
+                    RotationX = 0, RotationY = 0, RotationZ = 0,
+                });
+                preparedCorners.AddRange(geometry.MeasuredCorners.Select(static point => new Point3(point.X, point.Y, point.Z)));
+            }
+
+            foreach (var prism in prepared) scene.Prisms.Add(prism);
+            foreach (var corner in preparedCorners) scene.MeasuredCornerPoints.Add(corner);
+            scene.InvalidateCollisionResults();
+            SelectedPrism = prepared.LastOrDefault();
+            RaiseCanExecuteChanges();
+            _sceneCollectionService.NotifySceneContentChanged();
+
+            var residualsMm = geometries.Select(static geometry => geometry.Residuals?.Rmse * 1000f ?? 0f).ToArray();
+            var mean = residualsMm.Length == 0 ? 0 : residualsMm.Average();
+            var maximum = residualsMm.Length == 0 ? 0 : residualsMm.Max();
+            SetStatus($"Imported {prepared.Count} measured prisms. Mean fit RMSE: {mean:F1} mm. Maximum fit RMSE: {maximum:F1} mm.", ApplicationLogLevel.Success);
+            return true;
+        }
+        catch (Exception ex) when (ex is FormatException or IOException or UnauthorizedAccessException or ArgumentException)
+        {
+            SetStatus($"Measured-prism import failed. No prisms added. {ex.Message}", ApplicationLogLevel.Error);
+            return false;
+        }
     }
 
     private void AddHybridSegment()
@@ -1861,6 +1960,10 @@ public sealed class MainWindowViewModel : ObservableObject
         if (AddPrismArrayCommand is RelayCommand addPrismArrayCommand)
         {
             addPrismArrayCommand.RaiseCanExecuteChanged();
+        }
+        if (ImportMeasuredPrismsCsvCommand is AsyncRelayCommand importMeasuredCommand)
+        {
+            importMeasuredCommand.RaiseCanExecuteChanged();
         }
         if (ApplySelectedObjectChangesCommand is RelayCommand applyCommand)
         {
