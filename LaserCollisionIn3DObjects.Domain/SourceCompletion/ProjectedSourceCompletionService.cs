@@ -117,6 +117,18 @@ public sealed class ProjectedSourceCompletionService
     private const float SyntheticTargetDistance = 1000f;
     private const double AngularToleranceDegrees = 1e-9;
     private readonly ProjectedSourceAzimuthAnalyzer _analyzer = new();
+    private readonly ProjectedSourceAngularDensityFilter _angularDensityFilter = new();
+
+    public ProjectedSourceAnalysisResult Analyze(ProjectedSourceCompletionRequest request, SourceCompletionSettings settings)
+    {
+        ValidateRequestAndSettings(request, settings);
+        var filtered = _angularDensityFilter.Filter(request, settings.EffectiveAngularOutlierFilter);
+        var analysisRequest = request with { Rays = filtered.InlierRays };
+        return new ProjectedSourceAnalysisResult(
+            _analyzer.DetectCoverage(analysisRequest, settings.GapThresholdDegrees),
+            _analyzer.DetectGaps(analysisRequest, settings.GapThresholdDegrees),
+            filtered);
+    }
 
     public ProjectedSourceCompletionResult Complete(ProjectedSourceCompletionRequest request, SourceCompletionSettings settings)
     {
@@ -135,9 +147,10 @@ public sealed class ProjectedSourceCompletionService
         ValidateRequestAndSettings(request, settings);
 
         var profile = request.ProfileDefinition.BuildProfile();
-        var samples = request.Rays.Select(ray => BuildLocalSample(ray, request.SourceFrame, profile)).ToList();
-        var coverage = _analyzer.DetectCoverage(request, settings.GapThresholdDegrees);
-        var gaps = _analyzer.DetectGaps(request, settings.GapThresholdDegrees);
+        var analysis = Analyze(request, settings);
+        var samples = analysis.FilterResult.InlierRays.Select(ray => BuildLocalSample(ray, request.SourceFrame, profile)).ToList();
+        var coverage = analysis.CoverageIntervals;
+        var gaps = analysis.GapIntervals;
 
         var synthetic = new List<ProjectionRay>();
         foreach (var pair in BuildCoverageGapPairs(coverage, gaps))
@@ -195,7 +208,10 @@ public sealed class ProjectedSourceCompletionService
             coverage,
             gaps,
             request.Rays.Count,
-            synthetic.Count);
+            synthetic.Count,
+            analysis.AnalysisRayCount,
+            analysis.FilterResult.RejectedRays,
+            synthetic);
     }
 
     private static IReadOnlyList<(AzimuthCoverageInterval Coverage, AzimuthGapInterval Gap)> BuildCoverageGapPairs(
@@ -289,9 +305,10 @@ public sealed class ProjectedSourceCompletionService
     {
         ValidateRequestAndSettings(request, settings);
         var profile = request.ProfileDefinition.BuildProfile();
-        var samples = request.Rays.Select(ray => BuildLocalSample(ray, request.SourceFrame, profile)).ToList();
-        var coverage = _analyzer.DetectCoverage(request, settings.GapThresholdDegrees);
-        var gaps = _analyzer.DetectGaps(request, settings.GapThresholdDegrees);
+        var analysis = Analyze(request, settings);
+        var samples = analysis.FilterResult.InlierRays.Select(ray => BuildLocalSample(ray, request.SourceFrame, profile)).ToList();
+        var coverage = analysis.CoverageIntervals;
+        var gaps = analysis.GapIntervals;
 
         var synthetic = new List<ProjectionRay>();
         var orderedCoverage = coverage.OrderBy(c => ProjectedSourceFrameMath.NormalizeDegrees(c.StartDegrees)).ToList();
@@ -315,7 +332,9 @@ public sealed class ProjectedSourceCompletionService
         }
 
         var output = settings.IncludeOriginalRays ? request.Rays.Concat(synthetic).ToList() : synthetic;
-        return new ProjectedSourceCompletionResult($"Completed Mirror - {request.Name}", output, coverage, gaps, request.Rays.Count, synthetic.Count);
+        return new ProjectedSourceCompletionResult(
+            $"Completed Mirror - {request.Name}", output, coverage, gaps, request.Rays.Count, synthetic.Count,
+            analysis.AnalysisRayCount, analysis.FilterResult.RejectedRays, synthetic);
     }
 
     private static AzimuthCoverageInterval? FindPreviousCoverageForGap(IReadOnlyList<AzimuthCoverageInterval> coverage, AzimuthGapInterval gap)
@@ -436,6 +455,7 @@ public sealed class ProjectedSourceCompletionService
         if (settings.AngularStepDegrees <= 0d) throw new ArgumentOutOfRangeException(nameof(settings.AngularStepDegrees), settings.AngularStepDegrees, "Angular step must be positive.");
         if (settings.GapThresholdDegrees <= 0d) throw new ArgumentOutOfRangeException(nameof(settings.GapThresholdDegrees), settings.GapThresholdDegrees, "Gap threshold must be positive.");
         if (settings.MaxSyntheticRays is < 0) throw new ArgumentOutOfRangeException(nameof(settings.MaxSyntheticRays), settings.MaxSyntheticRays, "Max synthetic rays cannot be negative.");
+        ProjectedSourceAngularDensityFilter.Validate(settings.EffectiveAngularOutlierFilter);
     }
 
 }

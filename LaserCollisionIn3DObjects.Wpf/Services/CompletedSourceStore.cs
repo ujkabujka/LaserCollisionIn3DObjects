@@ -31,6 +31,7 @@ public sealed class CompletedSourceItem : ObservableObject
         AxisZ = new Vector3D(0, 0, 1),
     };
     public IReadOnlyList<ProjectionRay> OriginalRays { get; init; } = Array.Empty<ProjectionRay>();
+    public IReadOnlyList<ProjectionRay> RejectedOutlierRays { get; init; } = Array.Empty<ProjectionRay>();
     public IReadOnlyList<ProjectionRay> SyntheticRays { get; init; } = Array.Empty<ProjectionRay>();
     public IReadOnlyList<ProjectionRay> CompletedRays { get; init; } = Array.Empty<ProjectionRay>();
     public SourceCompletionSettings Settings { get; init; } = new(5, 10, true);

@@ -131,6 +131,7 @@ public sealed class HelixSceneBuilder
         PointSourceFrameState? sourceFrame,
         IAxisymmetricSourceProfile? profile,
         IReadOnlyList<Ray3D>? originalRays,
+        IReadOnlyList<Ray3D>? rejectedRays,
         IReadOnlyList<Ray3D>? syntheticRays)
     {
         var visuals = new List<Visual3D>();
@@ -147,6 +148,11 @@ public sealed class HelixSceneBuilder
         if (originalRays is not null && originalRays.Count > 0)
         {
             visuals.Add(_rayVisualizer.CreateRayOriginPointBatch(originalRays, color: Colors.OrangeRed));
+        }
+
+        if (rejectedRays is not null && rejectedRays.Count > 0)
+        {
+            visuals.Add(_rayVisualizer.CreateRayOriginPointBatch(rejectedRays, color: Colors.Gray));
         }
 
         if (syntheticRays is not null && syntheticRays.Count > 0)

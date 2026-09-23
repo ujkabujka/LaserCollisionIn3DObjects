@@ -243,6 +243,137 @@ public sealed class ProjectedSourceCompletionServiceTests
         Assert.All(result.Rays, r => Assert.InRange(r.Ray.Direction.Length(), 0.9999f, 1.0001f));
     }
 
+    [Fact]
+    public void AngularFilter_MainPopulationIntegration_RejectsSparseNeighborsBeforeCoverage()
+    {
+        var rays = Population((20, 120), (21, 2), (22, 1), (25, 1), (40, 110), (41, 2), (43, 1), (45, 1));
+        var request = BuildRequest("Outliers", rays);
+        var service = new ProjectedSourceCompletionService();
+
+        var analysis = service.Analyze(request, FilteredSettings(gapThreshold: 5d));
+
+        Assert.Equal(230, analysis.AnalysisRayCount);
+        Assert.Equal(8, analysis.RejectedOutlierCount);
+        Assert.Equal(2, analysis.CoverageIntervals.Count);
+        Assert.All(analysis.FilterResult.InlierRays, ray =>
+            Assert.Contains(Math.Round(RayTheta(ray, request.SourceFrame)), new[] { 20d, 40d }));
+    }
+
+    [Fact]
+    public void AngularFilter_SparseBridgeDoesNotHideGap()
+    {
+        var populations = new List<(double Angle, int Count)> { (20, 100), (40, 100) };
+        populations.AddRange(Enumerable.Range(21, 19).Select(angle => ((double)angle, 2)));
+        var request = BuildRequest("Bridge", Population(populations.ToArray()));
+        var analysis = new ProjectedSourceCompletionService().Analyze(request, FilteredSettings(gapThreshold: 2.5d));
+
+        Assert.Equal(200, analysis.AnalysisRayCount);
+        Assert.Equal(38, analysis.RejectedOutlierCount);
+        Assert.Contains(analysis.GapIntervals, gap => gap.StartDegrees < 20.1d && gap.EndDegrees > 39.9d);
+    }
+
+    [Fact]
+    public void AngularFilter_RetainsBroadDenseClusterAndSmallerLegitimateCluster()
+    {
+        var request = BuildRequest("Dense", Population((19, 25), (20, 50), (21, 30), (40, 25)));
+        var analysis = new ProjectedSourceCompletionService().Analyze(request, FilteredSettings());
+
+        Assert.Equal(130, analysis.AnalysisRayCount);
+        Assert.Empty(analysis.FilterResult.RejectedRays);
+    }
+
+    [Fact]
+    public void AngularFilter_DisabledAndWeakDatasetFailSafe()
+    {
+        var request = BuildRequest("Weak", Population((10, 1), (40, 1), (80, 1)));
+        var service = new ProjectedSourceCompletionService();
+
+        var weak = service.Analyze(request, FilteredSettings());
+        var disabled = service.Analyze(request, FilteredSettings(filter: new AngularOutlierFilterSettings(Enabled: false)));
+
+        Assert.Equal(3, weak.AnalysisRayCount);
+        Assert.Equal(0, weak.RejectedOutlierCount);
+        Assert.Equal(request.Rays, disabled.FilterResult.InlierRays);
+        Assert.Empty(disabled.FilterResult.RejectedRays);
+    }
+
+    [Fact]
+    public void AngularFilter_JoinsCircularBoundaryAndRejectsSparseOutlier()
+    {
+        var request = BuildRequest("Wrap", Population((359.8, 80), (0.2, 75), (5, 1)));
+        var analysis = new ProjectedSourceCompletionService().Analyze(request, FilteredSettings());
+
+        Assert.Equal(155, analysis.AnalysisRayCount);
+        Assert.Single(analysis.FilterResult.RejectedRays);
+    }
+
+    [Fact]
+    public void AngularFilter_UsesNonIdentitySourceFrame()
+    {
+        var frame = new PointSourceFrameState
+        {
+            Origin = new Point3(10, -3, 5),
+            AxisX = new Vector3D(0, 1, 0),
+            AxisY = new Vector3D(0, 0, 1),
+            AxisZ = new Vector3D(1, 0, 0),
+        };
+        var request = BuildRequest("Rotated filter", Population(frame, (20, 20), (40, 15), (25, 1)), frame);
+        var analysis = new ProjectedSourceCompletionService().Analyze(request, FilteredSettings());
+
+        Assert.Equal(35, analysis.AnalysisRayCount);
+        Assert.Single(analysis.FilterResult.RejectedRays);
+    }
+
+    [Theory]
+    [InlineData(SourceCompletionMethod.RotationalCopy)]
+    [InlineData(SourceCompletionMethod.Mirror)]
+    public void CompletionPreservesAllOriginalsButRejectedRayCannotSeedSyntheticOutput(SourceCompletionMethod method)
+    {
+        var originals = Population((20, 20), (40, 20));
+        originals.Add(CreateRayAtAngle(25, u: 9f));
+        var snapshot = originals.Select(ray => (ray.Ray.Origin, ray.Ray.Direction, ray.TargetHolePoint)).ToArray();
+        var request = BuildRequest("Templates", originals);
+        var settings = FilteredSettings(gapThreshold: 5d, method: method, includeOriginal: true);
+
+        var result = new ProjectedSourceCompletionService().Complete(request, settings);
+
+        Assert.Equal(41, result.OriginalRayCount);
+        Assert.Equal(40, result.AnalysisRayCount);
+        Assert.Single(result.RejectedOutlierRays);
+        Assert.Equal(originals, result.Rays.Take(originals.Count));
+        Assert.All(result.SyntheticRays, ray => Assert.InRange(ToLocal(ray.Ray.Origin, request.SourceFrame).X, 4.999f, 5.001f));
+        Assert.Equal(snapshot, originals.Select(ray => (ray.Ray.Origin, ray.Ray.Direction, ray.TargetHolePoint)).ToArray());
+    }
+
+    private static SourceCompletionSettings FilteredSettings(
+        double gapThreshold = 10d,
+        AngularOutlierFilterSettings? filter = null,
+        SourceCompletionMethod method = SourceCompletionMethod.RotationalCopy,
+        bool includeOriginal = true)
+        => new(5d, gapThreshold, includeOriginal, Method: method,
+            AngularOutlierFilter: filter ?? new AngularOutlierFilterSettings());
+
+    private static List<ProjectionRay> Population(params (double Angle, int Count)[] populations)
+        => Population(IdentityFrame(), populations);
+
+    private static List<ProjectionRay> Population(PointSourceFrameState frame, params (double Angle, int Count)[] populations)
+        => populations.SelectMany(population => Enumerable.Range(0, population.Count)
+            .Select(_ => CreateRayAtAngle(population.Angle, frame: frame))).ToList();
+
+    private static ProjectionRay CreateRayAtAngle(double angle, float u = 5f, PointSourceFrameState? frame = null)
+    {
+        var effectiveFrame = frame ?? IdentityFrame();
+        var theta = (float)(angle * Math.PI / 180d);
+        var localOrigin = CylinderProfile.BuildProfile().EvaluateSurfacePoint(u, theta);
+        var direction = ToWorldDirection(Vector3.Normalize(new Vector3(1f, 0.2f, -0.1f)), effectiveFrame);
+        var ray = new Ray3D(ToWorld(localOrigin, effectiveFrame), direction);
+        var target = ray.GetPoint(1000f);
+        return new ProjectionRay(ray, new Point3(target.X, target.Y, target.Z));
+    }
+
+    private static double RayTheta(ProjectionRay ray, PointSourceFrameState frame)
+        => NormalizeDegrees(ComputeThetaDegrees(ToLocal(ray.Ray.Origin, frame)));
+
     private static ProjectedSourceCompletionRequest BuildRequest(string name, IReadOnlyList<ProjectionRay> rays, PointSourceFrameState? frame = null)
         => new(name, CylinderProfile, frame ?? IdentityFrame(), rays);
 
