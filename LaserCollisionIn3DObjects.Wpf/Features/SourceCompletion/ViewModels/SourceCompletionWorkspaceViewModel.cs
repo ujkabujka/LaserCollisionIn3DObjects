@@ -14,7 +14,6 @@ public sealed class SourceCompletionWorkspaceViewModel : ObservableObject
 {
     private readonly SceneCollectionService _sceneCollectionService;
     private readonly ApplicationLogService? _applicationLogService;
-    private readonly ProjectedSourceAzimuthAnalyzer _azimuthAnalyzer = new();
     private readonly ProjectedSourceCompletionService _completionService = new();
     private readonly ProjectionWorkspaceViewModel? _projectionWorkspace;
     private readonly CompletedSourceStore _completedSourceStore;
@@ -28,6 +27,11 @@ public sealed class SourceCompletionWorkspaceViewModel : ObservableObject
     private string _maxSyntheticRaysText = string.Empty;
     private SourceCompletionMethod _selectedCompletionMethod = SourceCompletionMethod.RotationalCopy;
     private double _mirrorAxisDegrees;
+    private bool _rejectSparseAngularOutliers = true;
+    private double _angularBinWidthDegrees = 1d;
+    private int _minimumSamplesPerBin = 5;
+    private double _minimumRelativeSupportPercent = 5d;
+    private ProjectedSourceAnalysisResult? _lastAnalysisResult;
     private ProjectedSourceCompletionResult? _lastCompletionResult;
     private string _statusMessage = "Select a projected source to analyze.";
     private string _completionSummary = "No completed source generated yet.";
@@ -97,6 +101,13 @@ public sealed class SourceCompletionWorkspaceViewModel : ObservableObject
     public string MaxSyntheticRaysText { get => _maxSyntheticRaysText; set => SetProperty(ref _maxSyntheticRaysText, value); }
     public SourceCompletionMethod SelectedCompletionMethod { get => _selectedCompletionMethod; set => SetProperty(ref _selectedCompletionMethod, value); }
     public double MirrorAxisDegrees { get => _mirrorAxisDegrees; set => SetProperty(ref _mirrorAxisDegrees, value); }
+    public bool RejectSparseAngularOutliers { get => _rejectSparseAngularOutliers; set { if (SetProperty(ref _rejectSparseAngularOutliers, value)) InvalidateTransientState(); } }
+    public double AngularBinWidthDegrees { get => _angularBinWidthDegrees; set { if (SetProperty(ref _angularBinWidthDegrees, value)) InvalidateTransientState(); } }
+    public int MinimumSamplesPerBin { get => _minimumSamplesPerBin; set { if (SetProperty(ref _minimumSamplesPerBin, value)) InvalidateTransientState(); } }
+    public double MinimumRelativeSupportPercent { get => _minimumRelativeSupportPercent; set { if (SetProperty(ref _minimumRelativeSupportPercent, value)) InvalidateTransientState(); } }
+    public int InputRayCount => _lastAnalysisResult?.OriginalRayCount ?? LastCompletionResult?.OriginalRayCount ?? 0;
+    public int AnalysisRayCount => _lastAnalysisResult?.AnalysisRayCount ?? LastCompletionResult?.AnalysisRayCount ?? 0;
+    public int RejectedOutlierCount => _lastAnalysisResult?.RejectedOutlierCount ?? LastCompletionResult?.RejectedOutlierCount ?? 0;
 
     public ProjectedSourceCompletionResult? LastCompletionResult
     {
@@ -166,38 +177,42 @@ public sealed class SourceCompletionWorkspaceViewModel : ObservableObject
     {
         var cancellationToken = (System.Windows.Application.Current as App)?.Lifetime.Token ?? CancellationToken.None;
         if (cancellationToken.IsCancellationRequested) return;
-        if (SelectedProjectedSource is null || SelectedProjectedSource.Rays.Count == 0 || GapThresholdDegrees <= 0d)
+        var settingsValid = TryValidateSettings(out var validationMessage);
+        if (SelectedProjectedSource is null || SelectedProjectedSource.Rays.Count == 0 || !settingsValid)
         {
             StatusMessage = SelectedProjectedSource is null
                 ? "Select a projected light source first."
                 : SelectedProjectedSource.Rays.Count == 0
                     ? "The selected projected light source has zero rays. Choose another source."
-                    : "Gap threshold must be greater than 0 degrees.";
+                    : validationMessage;
             return;
         }
 
         var request = BuildRequest(SelectedProjectedSource);
-        var threshold = GapThresholdDegrees;
+        var settings = BuildSettings();
         BeginBusy("Analyzing source coverage...");
         try
         {
-        var (coverage, gaps) = await Task.Run(() => { cancellationToken.ThrowIfCancellationRequested(); return (_azimuthAnalyzer.DetectCoverage(request, threshold), _azimuthAnalyzer.DetectGaps(request, threshold)); }, cancellationToken);
+        var analysis = await Task.Run(() => { cancellationToken.ThrowIfCancellationRequested(); return _completionService.Analyze(request, settings); }, cancellationToken);
         cancellationToken.ThrowIfCancellationRequested();
+        _lastAnalysisResult = analysis;
 
         CoverageIntervals.Clear();
-        foreach (var interval in coverage)
+        foreach (var interval in analysis.CoverageIntervals)
         {
             CoverageIntervals.Add(interval);
         }
 
         GapIntervals.Clear();
-        foreach (var gap in gaps)
+        foreach (var gap in analysis.GapIntervals)
         {
             GapIntervals.Add(gap);
         }
 
-        StatusMessage = $"Source has {request.Rays.Count} rays. Detected {coverage.Count} coverage interval(s) and {gaps.Count} gap(s).";
+        RaiseFilteringStatistics();
+        StatusMessage = $"Input rays: {analysis.OriginalRayCount}; Analysis rays: {analysis.AnalysisRayCount}; Rejected outliers: {analysis.RejectedOutlierCount}. Detected {analysis.CoverageIntervals.Count} coverage interval(s) and {analysis.GapIntervals.Count} gap(s).";
         CompletionSummary = "Coverage analysis complete.";
+        RefreshPreview();
         _applicationLogService?.LogInfo(StatusMessage, nameof(SourceCompletionWorkspaceViewModel));
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { }
@@ -209,15 +224,14 @@ public sealed class SourceCompletionWorkspaceViewModel : ObservableObject
     {
         var cancellationToken = (System.Windows.Application.Current as App)?.Lifetime.Token ?? CancellationToken.None;
         if (cancellationToken.IsCancellationRequested) return;
-        if (SelectedProjectedSource is null || SelectedProjectedSource.Rays.Count == 0 || AngularStepDegrees <= 0d || GapThresholdDegrees <= 0d)
+        var settingsValid = TryValidateSettings(out var validationMessage);
+        if (SelectedProjectedSource is null || SelectedProjectedSource.Rays.Count == 0 || !settingsValid)
         {
             StatusMessage = SelectedProjectedSource is null
                 ? "Select a projected light source first."
                 : SelectedProjectedSource.Rays.Count == 0
                     ? "The selected projected light source has zero rays. Choose another source."
-                    : AngularStepDegrees <= 0d
-                        ? "Angular step must be greater than 0 degrees."
-                        : "Gap threshold must be greater than 0 degrees.";
+                    : validationMessage;
             return;
         }
 
@@ -236,13 +250,13 @@ public sealed class SourceCompletionWorkspaceViewModel : ObservableObject
         var source = SelectedProjectedSource;
         var method = SelectedCompletionMethod;
         var request = BuildRequest(source);
-        var settings = new SourceCompletionSettings(AngularStepDegrees, GapThresholdDegrees, IncludeOriginalRays, maxSynthetic, method, MirrorAxisDegrees);
+        var settings = BuildSettings(maxSynthetic, method);
         BeginBusy("Generating synthetic rays...");
         try
         {
         LastCompletionResult = await Task.Run(() => { cancellationToken.ThrowIfCancellationRequested(); return _completionService.Complete(request, settings); }, cancellationToken);
         cancellationToken.ThrowIfCancellationRequested();
-        var synthetic = LastCompletionResult.Rays.Skip(Math.Min(LastCompletionResult.OriginalRayCount, LastCompletionResult.Rays.Count)).ToList();
+        var synthetic = LastCompletionResult.SyntheticRays.ToList();
         var item = new CompletedSourceItem
         {
             Name = $"Completed Source {CompletedSources.Count + 1} - {method}",
@@ -251,6 +265,7 @@ public sealed class SourceCompletionWorkspaceViewModel : ObservableObject
             ProfileDefinition = source.ProfileDefinition,
             SourceFrame = source.SourceFrame,
             OriginalRays = request.Rays.ToList(),
+            RejectedOutlierRays = LastCompletionResult.RejectedOutlierRays.ToList(),
             SyntheticRays = synthetic,
             CompletedRays = LastCompletionResult.Rays.ToList(),
             Settings = settings,
@@ -270,7 +285,9 @@ public sealed class SourceCompletionWorkspaceViewModel : ObservableObject
             GapIntervals.Add(gap);
         }
 
-        CompletionSummary = $"Generated completed source using {method}. Original rays: {LastCompletionResult.OriginalRayCount}; Synthetic rays: {LastCompletionResult.SyntheticRayCount}; Output rays: {LastCompletionResult.Rays.Count}.";
+        _lastAnalysisResult = null;
+        RaiseFilteringStatistics();
+        CompletionSummary = $"Generated completed source using {method}. Input rays: {LastCompletionResult.OriginalRayCount}; Analysis rays: {LastCompletionResult.AnalysisRayCount}; Rejected outliers: {LastCompletionResult.RejectedOutlierCount}; Synthetic rays: {LastCompletionResult.SyntheticRayCount}; Output rays: {LastCompletionResult.Rays.Count}.";
         StatusMessage = "Completed source generated. Review and add to a collision scene when ready.";
         RefreshPreview();
         }
@@ -351,7 +368,7 @@ public sealed class SourceCompletionWorkspaceViewModel : ObservableObject
             return;
         }
 
-        _previewRenderSyncService.SyncPreview(SelectedProjectedSource, LastCompletionResult);
+        _previewRenderSyncService.SyncPreview(SelectedProjectedSource, LastCompletionResult, _lastAnalysisResult);
     }
 
     private void RaiseCommandStates()
@@ -387,10 +404,36 @@ public sealed class SourceCompletionWorkspaceViewModel : ObservableObject
     private void InvalidateTransientState()
     {
         LastCompletionResult = null;
+        _lastAnalysisResult = null;
         CoverageIntervals.Clear();
         GapIntervals.Clear();
         CompletionSummary = "No completed source generated yet.";
         SelectedCompletedSource = null;
+        RaiseFilteringStatistics();
+    }
+
+    private SourceCompletionSettings BuildSettings(int? maxSynthetic = null, SourceCompletionMethod? method = null)
+        => new(AngularStepDegrees, GapThresholdDegrees, IncludeOriginalRays, maxSynthetic,
+            method ?? SelectedCompletionMethod, MirrorAxisDegrees,
+            new AngularOutlierFilterSettings(RejectSparseAngularOutliers, AngularBinWidthDegrees,
+                MinimumSamplesPerBin, MinimumRelativeSupportPercent / 100d));
+
+    private bool TryValidateSettings(out string message)
+    {
+        message = AngularStepDegrees <= 0d ? "Angular step must be greater than 0 degrees."
+            : GapThresholdDegrees <= 0d ? "Gap threshold must be greater than 0 degrees."
+            : !double.IsFinite(AngularBinWidthDegrees) || AngularBinWidthDegrees <= 0d || AngularBinWidthDegrees > 360d ? "Angular bin width must be greater than 0 and at most 360 degrees."
+            : MinimumSamplesPerBin < 1 ? "Minimum samples per bin must be at least 1."
+            : !double.IsFinite(MinimumRelativeSupportPercent) || MinimumRelativeSupportPercent < 0d || MinimumRelativeSupportPercent > 100d ? "Minimum relative support must be between 0% and 100%."
+            : string.Empty;
+        return message.Length == 0;
+    }
+
+    private void RaiseFilteringStatistics()
+    {
+        RaisePropertyChanged(nameof(InputRayCount));
+        RaisePropertyChanged(nameof(AnalysisRayCount));
+        RaisePropertyChanged(nameof(RejectedOutlierCount));
     }
 
     private void BeginBusy(string message) { ProgressMessage = message; IsBusy = true; RaisePropertyChanged(nameof(IsProgressVisible)); }

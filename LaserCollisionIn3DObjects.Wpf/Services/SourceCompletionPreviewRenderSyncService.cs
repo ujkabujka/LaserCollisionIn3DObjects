@@ -19,14 +19,22 @@ public sealed class SourceCompletionPreviewRenderSyncService
         _viewport.Children.Add(_dynamicVisualRoot);
     }
 
-    public void SyncPreview(ProjectedLightSourceItemViewModel? selectedSource, ProjectedSourceCompletionResult? completionResult)
+    public void SyncPreview(
+        ProjectedLightSourceItemViewModel? selectedSource,
+        ProjectedSourceCompletionResult? completionResult,
+        ProjectedSourceAnalysisResult? analysisResult = null)
     {
-        var originalRays = selectedSource?.Rays.Select(ray => ray.Ray).ToList();
-        var syntheticRays = completionResult is null ? null : GetSyntheticRays(completionResult).Select(ray => ray.Ray).ToList();
+        var rejected = completionResult?.RejectedOutlierRays
+            ?? analysisResult?.FilterResult.RejectedRays
+            ?? Array.Empty<ProjectionRay>();
+        var rejectedSet = rejected.ToHashSet();
+        var originalRays = selectedSource?.Rays.Where(ray => !rejectedSet.Contains(ray)).Select(ray => ray.Ray).ToList();
+        var rejectedRays = rejected.Select(ray => ray.Ray).ToList();
+        var syntheticRays = completionResult?.SyntheticRays.Select(ray => ray.Ray).ToList();
         var sourceFrame = selectedSource?.SourceFrame;
         var profile = selectedSource?.ProfileDefinition.BuildProfile();
 
-        var visuals = _sceneBuilder.BuildSourceCompletionPreviewVisuals(sourceFrame, profile, originalRays, syntheticRays);
+        var visuals = _sceneBuilder.BuildSourceCompletionPreviewVisuals(sourceFrame, profile, originalRays, rejectedRays, syntheticRays);
         _dynamicVisualRoot.Children.Clear();
         foreach (var visual in visuals)
         {
@@ -38,17 +46,7 @@ public sealed class SourceCompletionPreviewRenderSyncService
 
     internal static IReadOnlyList<ProjectionRay> GetSyntheticRays(ProjectedSourceCompletionResult result)
     {
-        if (result.Rays.Count >= result.OriginalRayCount + result.SyntheticRayCount)
-        {
-            return result.Rays.Skip(result.OriginalRayCount).Take(result.SyntheticRayCount).ToList();
-        }
-
-        if (result.Rays.Count == result.SyntheticRayCount)
-        {
-            return result.Rays.ToList();
-        }
-
-        return result.Rays.TakeLast(result.SyntheticRayCount).ToList();
+        return result.SyntheticRays;
     }
 
     public void SyncCompletedSourcePreview(CompletedSourceItem completedSource)
@@ -57,7 +55,8 @@ public sealed class SourceCompletionPreviewRenderSyncService
         var visuals = _sceneBuilder.BuildSourceCompletionPreviewVisuals(
             completedSource.SourceFrame,
             completedSource.ProfileDefinition.BuildProfile(),
-            completedSource.OriginalRays.Select(ray => ray.Ray).ToList(),
+            completedSource.OriginalRays.Except(completedSource.RejectedOutlierRays).Select(ray => ray.Ray).ToList(),
+            completedSource.RejectedOutlierRays.Select(ray => ray.Ray).ToList(),
             completedSource.SyntheticRays.Select(ray => ray.Ray).ToList());
         _dynamicVisualRoot.Children.Clear();
         foreach (var visual in visuals) _dynamicVisualRoot.Children.Add(visual);
