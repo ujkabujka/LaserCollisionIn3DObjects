@@ -10,6 +10,7 @@ using LaserCollisionIn3DObjects.Wpf.Services;
 using LaserCollisionIn3DObjects.Wpf.ViewModels;
 using OxyPlot;
 using OxyPlot.Axes;
+using OxyPlot.Legends;
 using OxyPlot.Series;
 using OxyPlot.Wpf;
 using System.Collections.ObjectModel;
@@ -471,7 +472,7 @@ public sealed class GraphicMasterViewModel : ObservableObject
         return (true, selectedSources.Count);
     }
 
-    private static PlotModel BuildPlotModel(GraphResult result, string title)
+    internal static PlotModel BuildPlotModel(GraphResult result, string title)
     {
         var plotModel = new PlotModel
         {
@@ -494,7 +495,7 @@ public sealed class GraphicMasterViewModel : ObservableObject
             var seriesCount = result.Series.Count;
             var binTemplate = result.Series[0].Bins;
 
-            plotModel.IsLegendVisible = result.Series.Count > 1;
+            ConfigureSourceLegend(plotModel, result.Series.Count);
 
             for (var seriesIndex = 0; seriesIndex < result.Series.Count; seriesIndex++)
             {
@@ -561,7 +562,7 @@ public sealed class GraphicMasterViewModel : ObservableObject
             plotModel.Axes.Add(new LinearAxis { Position = AxisPosition.Bottom, Title = "Normalized axial position (x/L)" });
             plotModel.Axes.Add(new LinearAxis { Position = AxisPosition.Left, Title = "Angle to source X axis (deg)", Minimum = 0, Maximum = 180 });
 
-            plotModel.IsLegendVisible = result.Series.Count > 1;
+            ConfigureSourceLegend(plotModel, result.Series.Count);
 
             foreach (var series in result.Series)
             {
@@ -590,7 +591,7 @@ public sealed class GraphicMasterViewModel : ObservableObject
         plotModel.Axes.Add(new LinearAxis { Position = AxisPosition.Bottom, Title = "Angle Bin Center (deg)", Minimum = 0, Maximum = 180 });
         plotModel.Axes.Add(new LinearAxis { Position = AxisPosition.Left, Title = "Ray Count", Minimum = 0 });
 
-        plotModel.IsLegendVisible = result.Series.Count > 1;
+        ConfigureSourceLegend(plotModel, result.Series.Count);
 
         foreach (var series in result.Series)
         {
@@ -604,6 +605,26 @@ public sealed class GraphicMasterViewModel : ObservableObject
         }
 
         return plotModel;
+    }
+
+    private static void ConfigureSourceLegend(PlotModel plotModel, int seriesCount)
+    {
+        if (seriesCount < 2)
+        {
+            plotModel.IsLegendVisible = false;
+            return;
+        }
+
+        plotModel.IsLegendVisible = true;
+        plotModel.Legends.Add(new Legend
+        {
+            IsLegendVisible = true,
+            LegendPlacement = LegendPlacement.Outside,
+            LegendPosition = LegendPosition.RightTop,
+            LegendOrientation = LegendOrientation.Vertical,
+            LegendBackground = OxyColor.FromAColor(224, OxyColors.White),
+            LegendBorder = OxyColors.LightGray,
+        });
     }
 
     private static bool HasAnyHeatmapSignal(HeatmapGridData heatmap)
