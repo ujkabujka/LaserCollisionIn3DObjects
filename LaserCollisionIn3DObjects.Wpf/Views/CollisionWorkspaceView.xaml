@@ -42,6 +42,10 @@
                                 <Button Content="Remove Selected" Command="{Binding RemoveSelectedPrismCommand}" Width="120" Margin="0,0,8,0"/>
                                 <Button Content="Delete All Prisms" Command="{Binding RemoveAllPrismsCommand}" Width="125"/>
                             </StackPanel>  
+                            <Button x:Name="ImportMeasuredPrismsCsvButton"
+                                    Content="Import Measured Prisms CSV"
+                                    Command="{Binding ImportMeasuredPrismsCsvCommand}"
+                                    HorizontalAlignment="Left" Padding="10,4" Margin="0,0,0,8"/>
 
                             <GroupBox Header="Panel Array" Padding="6" Margin="0,2,0,8">
                               <StackPanel>

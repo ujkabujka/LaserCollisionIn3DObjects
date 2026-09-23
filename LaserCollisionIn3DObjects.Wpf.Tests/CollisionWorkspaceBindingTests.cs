@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Diagnostics;
+using System.IO;
 using System.Runtime.ExceptionServices;
 using System.Windows;
 using System.Windows.Controls;
@@ -7,6 +8,9 @@ using System.Windows.Data;
 using System.Windows.Threading;
 using LaserCollisionIn3DObjects.Wpf.Converters;
 using LaserCollisionIn3DObjects.Wpf.Views;
+using LaserCollisionIn3DObjects.Wpf.ViewModels;
+using LaserCollisionIn3DObjects.Wpf.Services;
+using HelixToolkit.Wpf;
 using Xunit;
 
 namespace LaserCollisionIn3DObjects.Wpf.Tests;
@@ -41,6 +45,58 @@ public sealed class CollisionWorkspaceBindingTests
             Assert.Equal(BindingMode.OneWay, indeterminateBinding.Mode);
         });
     }
+
+    [Fact]
+    public void MeasuredPrismImportButton_UsesCommandBinding()
+    {
+        StaTest.Run(() =>
+        {
+            var view = new CollisionWorkspaceView();
+            var button = Assert.IsType<Button>(view.FindName("ImportMeasuredPrismsCsvButton"));
+            var binding = BindingOperations.GetBinding(button, Button.CommandProperty);
+            Assert.Equal(nameof(MainWindowViewModel.ImportMeasuredPrismsCsvCommand), binding?.Path.Path);
+        });
+    }
+
+    [Fact]
+    public void MeasuredPrismImport_AppendsPreservesSourceCornersAndInvalidatesTransactionally()
+    {
+        StaTest.Run(() =>
+        {
+            var collisionViewport = new HelixViewport3D();
+            var projectionViewport = new HelixViewport3D();
+            var vm = new MainWindowViewModel(
+                new SceneRenderSyncService(collisionViewport),
+                new ProjectionRenderSyncService(projectionViewport));
+            var scene = Assert.IsType<CollisionSceneViewModel>(vm.SelectedScene);
+            Assert.True(vm.ImportMeasuredPrismsCsvCommand.CanExecute(null));
+            vm.SelectedScene = null;
+            Assert.False(vm.ImportMeasuredPrismsCsvCommand.CanExecute(null));
+            vm.SelectedScene = scene;
+            scene.Prisms.Add(new PrismItemViewModel { Name = "Existing" });
+            scene.AssignSource(new CollisionSourceLibraryItemViewModel
+            {
+                GeneratedSource = new CylindricalLightSourceItemViewModel { Name = "Source A" }
+            });
+            var source = scene.AssignedSource;
+            scene.PublishCollisionResults([], []);
+
+            Assert.True(vm.ImportMeasuredPrisms(new StringReader(string.Join('\n', Enumerable.Repeat(ValidRow, 3)))));
+            Assert.Equal(4, scene.Prisms.Count);
+            Assert.Equal(12, scene.MeasuredCornerPoints.Count);
+            Assert.Same(source, scene.AssignedSource);
+            Assert.False(scene.HasValidCollisionRun);
+            Assert.All(scene.Prisms.Skip(1), prism => Assert.StartsWith("Measured Prism", prism.Name));
+
+            var prismCount = scene.Prisms.Count;
+            var cornerCount = scene.MeasuredCornerPoints.Count;
+            Assert.False(vm.ImportMeasuredPrisms(new StringReader($"{ValidRow}\ninvalid")));
+            Assert.Equal(prismCount, scene.Prisms.Count);
+            Assert.Equal(cornerCount, scene.MeasuredCornerPoints.Count);
+        });
+    }
+
+    private const string ValidRow = "2000,3000,10,10,0,0,10.198039,11.309932,0,10.630146,11.309932,16.392523,10.440307,0,16.699244";
 
     [Fact]
     public void CollisionWorkspace_LoadsWithoutReadOnlyProgressBindingException()
