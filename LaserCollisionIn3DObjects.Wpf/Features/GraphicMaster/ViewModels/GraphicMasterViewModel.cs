@@ -19,6 +19,8 @@ using System.Numerics;
 using System.Windows.Input;
 using Microsoft.Win32;
 using System.IO;
+using System.Data;
+using System.ComponentModel;
 
 namespace LaserCollisionIn3DObjects.Wpf.Features.GraphicMaster.ViewModels;
 
@@ -52,6 +54,10 @@ public sealed class GraphicMasterViewModel : ObservableObject
     private PlotView? _chartPlotView;
     private GraphResult? _lastResult;
     private GraphableSourceItemViewModel? _selectedSource;
+    private readonly AngleHistogramSimilarityAnalysisService _similarityAnalysisService = new();
+    private AngleHistogramSimilarityAnalysis? _similarityAnalysis;
+    private SimilarityMetricOption _selectedSimilarityMetric;
+    private DataView? _similarityMatrix;
 
     public GraphicMasterViewModel(
         SceneCollectionService sceneCollectionService,
@@ -79,6 +85,12 @@ public sealed class GraphicMasterViewModel : ObservableObject
         FocusYCommand = new RelayCommand(FocusYAxis, () => CanFocusY);
         ImportSourceCommand = new AsyncRelayCommand(ImportSourceAsync);
         RemoveImportedSourceCommand = new RelayCommand(RemoveImportedSource, CanRemoveImportedSource);
+        CompareSelectedSourcesCommand = new RelayCommand(CompareSelectedSources, CanCompareSelectedSources);
+
+        SimilarityMetrics.Add(new(SimilarityMetric.CosineSimilarity, "Cosine Similarity"));
+        SimilarityMetrics.Add(new(SimilarityMetric.HistogramIntersection, "Histogram Intersection"));
+        SimilarityMetrics.Add(new(SimilarityMetric.JensenShannonSimilarity, "Jensen-Shannon Similarity"));
+        _selectedSimilarityMetric = SimilarityMetrics[0];
 
         _sceneCollectionService.Scenes.CollectionChanged += OnScenesCollectionChanged;
         foreach (var scene in _sceneCollectionService.Scenes)
@@ -92,6 +104,8 @@ public sealed class GraphicMasterViewModel : ObservableObject
     public ObservableCollection<GraphTypeOptionViewModel> GraphTypes { get; } = new();
     public ObservableCollection<GraphableSourceItemViewModel> Sources { get; } = new();
     public ObservableCollection<StoredGraphChartViewModel> StoredCharts { get; } = new();
+    public ObservableCollection<SimilarityMetricOption> SimilarityMetrics { get; } = new();
+    public ObservableCollection<SimilarityPairViewModel> SimilarityPairs { get; } = new();
 
     public ICommand GenerateChartCommand { get; }
     public ICommand DeleteStoredChartCommand { get; }
@@ -99,6 +113,32 @@ public sealed class GraphicMasterViewModel : ObservableObject
     public ICommand FocusYCommand { get; }
     public ICommand ImportSourceCommand { get; }
     public ICommand RemoveImportedSourceCommand { get; }
+    public ICommand CompareSelectedSourcesCommand { get; }
+
+    public SimilarityMetricOption SelectedSimilarityMetric
+    {
+        get => _selectedSimilarityMetric;
+        set
+        {
+            if (value is not null && SetProperty(ref _selectedSimilarityMetric, value)) RebuildSimilarityMatrix();
+        }
+    }
+
+    public DataView? SimilarityMatrix
+    {
+        get => _similarityMatrix;
+        private set => SetProperty(ref _similarityMatrix, value);
+    }
+
+    public bool HasSimilarityResults => _similarityAnalysis is not null;
+    public bool ShowsTwoSourceSummary => _similarityAnalysis?.Sources.Count == 2;
+    public bool ShowsSimilarityMatrix => (_similarityAnalysis?.Sources.Count ?? 0) >= 3;
+    public string SimilarityBinSizeText => _similarityAnalysis is null ? string.Empty : $"Bin size: {_similarityAnalysis.BinSizeDeg:g}°";
+    public string SimilaritySourceA => _similarityAnalysis?.Sources.ElementAtOrDefault(0)?.SourceName ?? string.Empty;
+    public string SimilaritySourceB => _similarityAnalysis?.Sources.ElementAtOrDefault(1)?.SourceName ?? string.Empty;
+    public string SimilarityCosine => FormatFirstMetric(metrics => metrics.CosineSimilarity);
+    public string SimilarityIntersection => FormatFirstMetric(metrics => metrics.HistogramIntersection);
+    public string SimilarityJensenShannon => FormatFirstMetric(metrics => metrics.JensenShannonSimilarity);
 
     public GraphableSourceItemViewModel? SelectedSource
     {
@@ -214,7 +254,14 @@ public sealed class GraphicMasterViewModel : ObservableObject
     public double AngleBinSizeDeg
     {
         get => _angleBinSizeDeg;
-        set => SetProperty(ref _angleBinSizeDeg, value);
+        set
+        {
+            if (SetProperty(ref _angleBinSizeDeg, value))
+            {
+                InvalidateSimilarity();
+                RaiseCompareCanExecuteChanged();
+            }
+        }
     }
 
     public double AzimuthBinSizeDeg
@@ -245,6 +292,110 @@ public sealed class GraphicMasterViewModel : ObservableObject
     public bool ShowsAzimuthBinSize => SelectedGraphType?.GraphType.Id is "graph.azimuth-bin-bar" or "graph.azimuth-polar-heatmap";
     public bool ShowsPolarBinSize => SelectedGraphType?.GraphType.Id == "graph.azimuth-polar-heatmap";
     public bool CanFocusY => _lastResult?.VisualizationKind is GraphVisualizationKind.AngleBinXyLine or GraphVisualizationKind.NormalizedAxialAngleXyLine;
+
+    private bool CanCompareSelectedSources() => AngleBinSizeDeg > 0 && AngleBinSizeDeg <= 180
+        && Sources.Count(source => source.IsSelected) >= 2;
+
+    private void CompareSelectedSources()
+    {
+        var selected = Sources.Where(source => source.IsSelected).Select(source => source.SourceData).ToList();
+        if (selected.Count < 2)
+        {
+            StatusMessage = "Select at least two sources for similarity analysis.";
+            return;
+        }
+        if (AngleBinSizeDeg <= 0 || AngleBinSizeDeg > 180)
+        {
+            StatusMessage = "Angle bin size must be in the range (0, 180].";
+            return;
+        }
+
+        try
+        {
+            _similarityAnalysis = _similarityAnalysisService.Analyze(selected, AngleBinSizeDeg);
+            SimilarityPairs.Clear();
+            foreach (var pair in _similarityAnalysis.Pairs) SimilarityPairs.Add(new SimilarityPairViewModel { Result = pair });
+            RebuildSimilarityMatrix();
+            RaiseSimilarityProperties();
+            var empty = _similarityAnalysis.Sources.FirstOrDefault(source => !source.HasRays);
+            StatusMessage = empty is null
+                ? $"Compared {selected.Count} sources using {AngleBinSizeDeg:g}° angle bins."
+                : $"Similarity unavailable for comparisons containing '{empty.SourceName}' because it contains no rays.";
+        }
+        catch (ArgumentException ex)
+        {
+            InvalidateSimilarity();
+            StatusMessage = ex.Message;
+        }
+    }
+
+    private void RebuildSimilarityMatrix()
+    {
+        if (_similarityAnalysis is null) { SimilarityMatrix = null; return; }
+        var table = new DataTable();
+        table.Columns.Add("Source", typeof(string));
+        var columnNames = new List<string>();
+        foreach (var source in _similarityAnalysis.Sources)
+        {
+            var name = source.SourceName;
+            for (var suffix = 2; table.Columns.Contains(name); suffix++) name = $"{source.SourceName} ({suffix})";
+            table.Columns.Add(name, typeof(string));
+            columnNames.Add(name);
+        }
+
+        for (var rowIndex = 0; rowIndex < _similarityAnalysis.Sources.Count; rowIndex++)
+        {
+            var row = table.NewRow();
+            var rowSource = _similarityAnalysis.Sources[rowIndex];
+            row[0] = rowSource.SourceName;
+            for (var columnIndex = 0; columnIndex < _similarityAnalysis.Sources.Count; columnIndex++)
+            {
+                double? value;
+                if (rowIndex == columnIndex) value = rowSource.HasRays ? 1d : null;
+                else
+                {
+                    var first = _similarityAnalysis.Sources[Math.Min(rowIndex, columnIndex)].SourceId;
+                    var second = _similarityAnalysis.Sources[Math.Max(rowIndex, columnIndex)].SourceId;
+                    var metrics = _similarityAnalysis.Pairs.Single(pair => pair.SourceAId == first && pair.SourceBId == second).Metrics;
+                    value = SelectedSimilarityMetric.Metric switch
+                    {
+                        SimilarityMetric.CosineSimilarity => metrics.CosineSimilarity,
+                        SimilarityMetric.HistogramIntersection => metrics.HistogramIntersection,
+                        _ => metrics.JensenShannonSimilarity,
+                    };
+                }
+                row[columnIndex + 1] = SimilarityPairViewModel.Format(value);
+            }
+            table.Rows.Add(row);
+        }
+        SimilarityMatrix = table.DefaultView;
+    }
+
+    private string FormatFirstMetric(Func<HistogramSimilarityMetrics, double?> selector) =>
+        SimilarityPairViewModel.Format(_similarityAnalysis?.Pairs.FirstOrDefault() is { } pair ? selector(pair.Metrics) : null);
+
+    private void InvalidateSimilarity()
+    {
+        if (_similarityAnalysis is null && SimilarityPairs.Count == 0) return;
+        _similarityAnalysis = null;
+        SimilarityPairs.Clear();
+        SimilarityMatrix = null;
+        RaiseSimilarityProperties();
+    }
+
+    private void RaiseSimilarityProperties()
+    {
+        RaisePropertyChanged(nameof(HasSimilarityResults)); RaisePropertyChanged(nameof(ShowsTwoSourceSummary));
+        RaisePropertyChanged(nameof(ShowsSimilarityMatrix)); RaisePropertyChanged(nameof(SimilarityBinSizeText));
+        RaisePropertyChanged(nameof(SimilaritySourceA)); RaisePropertyChanged(nameof(SimilaritySourceB));
+        RaisePropertyChanged(nameof(SimilarityCosine)); RaisePropertyChanged(nameof(SimilarityIntersection));
+        RaisePropertyChanged(nameof(SimilarityJensenShannon));
+    }
+
+    private void RaiseCompareCanExecuteChanged()
+    {
+        if (CompareSelectedSourcesCommand is RelayCommand command) command.RaiseCanExecuteChanged();
+    }
 
     private void GenerateChart()
     {
@@ -671,7 +822,10 @@ public sealed class GraphicMasterViewModel : ObservableObject
 
     private void RefreshSources()
     {
+        InvalidateSimilarity();
         var selectedIds = Sources.Where(source => source.IsSelected).Select(source => source.SourceData.Id).ToHashSet(StringComparer.Ordinal);
+
+        foreach (var existing in Sources) existing.PropertyChanged -= OnSourceSelectionChanged;
 
         var scenes = _sceneCollectionService.Scenes
             .Select(scene => new GraphSceneData
@@ -702,12 +856,16 @@ public sealed class GraphicMasterViewModel : ObservableObject
             .Select(item => _importedSourceConverter.Convert(item.Id, item.Source!));
         foreach (var source in extracted.Concat(completed).Concat(imported))
         {
-            Sources.Add(new GraphableSourceItemViewModel
+            var item = new GraphableSourceItemViewModel
             {
                 SourceData = source,
                 IsSelected = selectedIds.Contains(source.Id),
-            });
+            };
+            item.PropertyChanged += OnSourceSelectionChanged;
+            Sources.Add(item);
         }
+
+        RaiseCompareCanExecuteChanged();
 
         if (Sources.Count == 0)
         {
@@ -720,6 +878,13 @@ public sealed class GraphicMasterViewModel : ObservableObject
                 focusYCommand.RaiseCanExecuteChanged();
             }
         }
+    }
+
+    private void OnSourceSelectionChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName != nameof(GraphableSourceItemViewModel.IsSelected)) return;
+        InvalidateSimilarity();
+        RaiseCompareCanExecuteChanged();
     }
 
     private static CylindricalLightSource MapToDomainLightSource(CylindricalLightSourceItemViewModel source)
