@@ -58,7 +58,7 @@
 
                     <GroupBox Header="Parameters" Margin="0,0,0,8" Padding="8">
                         <StackPanel>
-                            <StackPanel Visibility="{Binding GraphicMasterWorkspace.ShowsAngleBinSize, Converter={StaticResource BooleanToVisibilityConverter}}">
+                            <StackPanel>
                                 <TextBlock Text="Angle Bin Size (deg)"/>
                                 <TextBox Text="{Binding GraphicMasterWorkspace.AngleBinSizeDeg, Converter={StaticResource FlexibleNumericConverter}, UpdateSourceTrigger=LostFocus}"/>
                             </StackPanel>
@@ -80,6 +80,16 @@
                             Command="{Binding GraphicMasterWorkspace.FocusYCommand}"
                             Margin="0,6,0,0"
                             Visibility="{Binding GraphicMasterWorkspace.CanFocusY, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+
+                    <GroupBox Header="Angle Histogram Similarity" Margin="0,8,0,0" Padding="8">
+                        <StackPanel>
+                            <TextBlock Text="Uses the current Angle Bin Size and selected graph sources."
+                                       TextWrapping="Wrap" Foreground="#555" Margin="0,0,0,6"/>
+                            <Button Content="Compare Selected Sources"
+                                    Command="{Binding GraphicMasterWorkspace.CompareSelectedSourcesCommand}"
+                                    Height="32"/>
+                        </StackPanel>
+                    </GroupBox>
 
                     <GroupBox Header="Stored Charts" Margin="0,8,0,8" Padding="8">
                         <DockPanel>
@@ -108,8 +118,65 @@
         </Border>
 
         <Border Grid.Column="1" Padding="12" Background="White">
-            <oxy:PlotView x:Name="ChartPlotView"
-                          Model="{Binding GraphicMasterWorkspace.PlotModel}" />
+            <TabControl x:Name="WorkspaceTabs">
+                <TabItem Header="Chart" x:Name="ChartTab">
+                    <oxy:PlotView x:Name="ChartPlotView"
+                                  Model="{Binding GraphicMasterWorkspace.PlotModel}" />
+                </TabItem>
+                <TabItem Header="Similarity" x:Name="SimilarityTab">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto">
+                        <StackPanel Margin="12" MinWidth="600">
+                            <TextBlock Text="Angle Histogram Similarity" FontSize="20" FontWeight="SemiBold"/>
+                            <TextBlock Text="{Binding GraphicMasterWorkspace.SimilarityBinSizeText}"
+                                       FontWeight="SemiBold" Margin="0,4,0,8"/>
+                            <TextBlock Text="Similarity compares the shape of the angle-bin distributions. 1 means identical histogram shape; values closer to 0 indicate greater difference. Results depend on Angle Bin Size."
+                                       TextWrapping="Wrap" Foreground="#555" MaxWidth="900" HorizontalAlignment="Left"/>
+
+                            <StackPanel Margin="0,12,0,12" Orientation="Horizontal">
+                                <TextBlock Text="Metric:" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                <ComboBox x:Name="SimilarityMetricSelector"
+                                          ItemsSource="{Binding GraphicMasterWorkspace.SimilarityMetrics}"
+                                          SelectedItem="{Binding GraphicMasterWorkspace.SelectedSimilarityMetric}"
+                                          DisplayMemberPath="DisplayName" MinWidth="220"/>
+                            </StackPanel>
+
+                            <Border BorderBrush="#D1D5DB" BorderThickness="1" Padding="10" Margin="0,0,0,12"
+                                    Visibility="{Binding GraphicMasterWorkspace.ShowsTwoSourceSummary, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                <Grid>
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="210"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/>
+                                    </Grid.RowDefinitions>
+                                    <TextBlock Grid.Row="0" Text="Source A:" FontWeight="SemiBold"/><TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding GraphicMasterWorkspace.SimilaritySourceA}"/>
+                                    <TextBlock Grid.Row="1" Text="Source B:" FontWeight="SemiBold"/><TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding GraphicMasterWorkspace.SimilaritySourceB}"/>
+                                    <TextBlock Grid.Row="2" Text="Cosine Similarity:"/><TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding GraphicMasterWorkspace.SimilarityCosine}"/>
+                                    <TextBlock Grid.Row="3" Text="Histogram Intersection:"/><TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding GraphicMasterWorkspace.SimilarityIntersection}"/>
+                                    <TextBlock Grid.Row="4" Text="Jensen-Shannon Similarity:"/><TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding GraphicMasterWorkspace.SimilarityJensenShannon}"/>
+                                </Grid>
+                            </Border>
+
+                            <DataGrid x:Name="SimilarityMatrixGrid"
+                                      ItemsSource="{Binding GraphicMasterWorkspace.SimilarityMatrix}"
+                                      AutoGenerateColumns="True" IsReadOnly="True" CanUserAddRows="False"
+                                      HeadersVisibility="All" Margin="0,0,0,16" MaxHeight="360"
+                                      Visibility="{Binding GraphicMasterWorkspace.ShowsSimilarityMatrix, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+
+                            <TextBlock Text="Pairwise details" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,6"/>
+                            <DataGrid x:Name="SimilarityPairDetailsGrid"
+                                      ItemsSource="{Binding GraphicMasterWorkspace.SimilarityPairs}"
+                                      AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" MinHeight="160">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="Source A" Binding="{Binding SourceA}" Width="*"/>
+                                    <DataGridTextColumn Header="Source B" Binding="{Binding SourceB}" Width="*"/>
+                                    <DataGridTextColumn Header="Cosine" Binding="{Binding Cosine}" Width="110"/>
+                                    <DataGridTextColumn Header="Intersection" Binding="{Binding Intersection}" Width="110"/>
+                                    <DataGridTextColumn Header="JS Similarity" Binding="{Binding JensenShannon}" Width="120"/>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </StackPanel>
+                    </ScrollViewer>
+                </TabItem>
+            </TabControl>
         </Border>
     </Grid>
 </UserControl>

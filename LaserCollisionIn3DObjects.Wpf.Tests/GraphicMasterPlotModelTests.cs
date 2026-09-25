@@ -14,6 +14,45 @@ namespace LaserCollisionIn3DObjects.Wpf.Tests;
 public sealed class GraphicMasterPlotModelTests
 {
     [Fact]
+    public void SimilarityCommandBuildsSymmetricMatrixAndMetricSwitchReusesPairResults()
+    {
+        var viewModel = SimilarityViewModel(3);
+        foreach (var source in viewModel.Sources) source.IsSelected = true;
+
+        Assert.True(viewModel.CompareSelectedSourcesCommand.CanExecute(null));
+        viewModel.CompareSelectedSourcesCommand.Execute(null);
+
+        Assert.Equal(3, viewModel.SimilarityPairs.Count);
+        Assert.True(viewModel.ShowsSimilarityMatrix);
+        var matrix = viewModel.SimilarityMatrix!;
+        Assert.Equal("1.0000", matrix[0][1]);
+        Assert.Equal(matrix[0][2], matrix[1][1]);
+        var storedPair = viewModel.SimilarityPairs[0].Result;
+
+        viewModel.SelectedSimilarityMetric = viewModel.SimilarityMetrics.Single(option => option.Metric == SimilarityMetric.HistogramIntersection);
+
+        Assert.Same(storedPair, viewModel.SimilarityPairs[0].Result);
+        Assert.Equal(matrix.Count, viewModel.SimilarityMatrix!.Count);
+    }
+
+    [Fact]
+    public void BinSizeAndSelectionChangesClearSimilarityResults()
+    {
+        var viewModel = SimilarityViewModel(2);
+        foreach (var source in viewModel.Sources) source.IsSelected = true;
+        viewModel.CompareSelectedSourcesCommand.Execute(null);
+        Assert.True(viewModel.HasSimilarityResults);
+
+        viewModel.AngleBinSizeDeg = 20;
+        Assert.False(viewModel.HasSimilarityResults);
+
+        viewModel.CompareSelectedSourcesCommand.Execute(null);
+        viewModel.Sources[0].IsSelected = false;
+        Assert.False(viewModel.HasSimilarityResults);
+        Assert.False(viewModel.CompareSelectedSourcesCommand.CanExecute(null));
+    }
+
+    [Fact]
     public void TwoSeriesLineGraphCreatesOutsideSourceLegend()
     {
         var model = GraphicMasterViewModel.BuildPlotModel(LineResult("Source A", "Source B"), "Line chart");
@@ -174,4 +213,18 @@ public sealed class GraphicMasterPlotModelTests
         0,
         Vector3.Zero,
         [new LightSourceTransferRay(Vector3.Zero, Vector3.UnitX)]);
+
+    private static GraphicMasterViewModel SimilarityViewModel(int sourceCount)
+    {
+        var viewModel = new GraphicMasterViewModel(new SceneCollectionService(), new CompletedSourceStore());
+        viewModel.ApplyState(new GraphicMasterState
+        {
+            ImportedSources = Enumerable.Range(0, sourceCount).Select(index => new ImportedGraphSourceState
+            {
+                Id = $"source-{index}",
+                Source = TransferSource($"Source {index}"),
+            }).ToList(),
+        });
+        return viewModel;
+    }
 }
